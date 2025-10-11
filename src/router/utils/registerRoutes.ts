@@ -271,9 +271,9 @@ function handleNormalRoute(
   if (component) {
     // 检查component是否是RoutesAlias的值
     const aliasKey = Object.keys(RoutesAlias).find(
-      key => RoutesAlias[key as keyof typeof RoutesAlias] === component
+      (key) => RoutesAlias[key as keyof typeof RoutesAlias] === component
     )
-    
+
     if (aliasKey) {
       // 如果是RoutesAlias的值，使用loadComponent加载对应的组件
       converted.component = loadComponent(component as string, routeName)

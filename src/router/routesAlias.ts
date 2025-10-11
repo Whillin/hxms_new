@@ -42,6 +42,8 @@ export enum RoutesAlias {
   ArticlePublish = '/article/publish', // 文章发布
   ProductCategory = '/product/category', // 车型分类
   ProductManagement = '/product/management', // 车型管理
+  ClueManagement = '/clue/management', // 线索管理
+  ClueLeads = '/clue/leads', // 线索列表
   User = '/system/user', // 账户
   Role = '/system/role', // 角色
   UserCenter = '/system/user-center', // 用户中心

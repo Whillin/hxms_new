@@ -14,56 +14,70 @@
           v-for="item in visibleFormItems"
           :key="item.key"
           :xs="24"
-          :sm="12"
-          :md="8"
+          :sm="item.span === 24 ? 24 : 12"
+          :md="item.span === 24 ? 24 : 8"
           :lg="item.span || span"
           :xl="item.span || span"
         >
-          <ElFormItem
-            :label="item.label"
-            :prop="item.key"
-            :label-width="item.label ? item.labelWidth || labelWidth : undefined"
-          >
-            <slot :name="item.key" :item="item" :modelValue="modelValue">
-              <component
-                :is="getComponent(item)"
-                v-model="modelValue[item.key]"
-                v-bind="getProps(item)"
-              >
-                <!-- 下拉选择 -->
-                <template v-if="item.type === 'select' && getProps(item)?.options">
-                  <ElOption
-                    v-for="option in getProps(item).options"
-                    v-bind="option"
-                    :key="option.value"
-                  />
-                </template>
+          <!-- 分组标题/分隔线（不参与表单校验与 v-model） -->
+          <template v-if="item.type === 'divider'">
+            <ElDivider class="art-form-divider" v-bind="getProps(item)">
+              <span class="art-form-divider__title">{{ item.label }}</span>
+            </ElDivider>
+          </template>
 
-                <!-- 复选框组 -->
-                <template v-if="item.type === 'checkboxgroup' && getProps(item)?.options">
-                  <ElCheckbox
-                    v-for="option in getProps(item).options"
-                    v-bind="option"
-                    :key="option.value"
-                  />
-                </template>
+          <!-- 常规表单项 -->
+          <template v-else>
+            <ElFormItem
+              :label="item.label"
+              :prop="item.key"
+              :label-width="item.label ? item.labelWidth || labelWidth : undefined"
+            >
+              <slot :name="item.key" :item="item" :modelValue="modelValue">
+                <component
+                  :is="getComponent(item)"
+                  v-model="modelValue[item.key]"
+                  v-bind="getProps(item)"
+                >
+                  <!-- 下拉选择 -->
+                  <template v-if="item.type === 'select' && getProps(item)?.options">
+                    <ElOption
+                      v-for="option in getProps(item).options"
+                      v-bind="option"
+                      :key="option.value"
+                    />
+                  </template>
 
-                <!-- 单选框组 -->
-                <template v-if="item.type === 'radiogroup' && getProps(item)?.options">
-                  <ElRadio
-                    v-for="option in getProps(item).options"
-                    v-bind="option"
-                    :key="option.value"
-                  />
-                </template>
+                  <!-- 复选框组 -->
+                  <template v-if="item.type === 'checkboxgroup' && getProps(item)?.options">
+                    <ElCheckbox
+                      v-for="option in getProps(item).options"
+                      v-bind="option"
+                      :key="option.value"
+                    />
+                  </template>
 
-                <!-- 动态插槽支持 -->
-                <template v-for="(slotFn, slotName) in getSlots(item)" :key="slotName" #[slotName]>
-                  <component :is="slotFn" />
-                </template>
-              </component>
-            </slot>
-          </ElFormItem>
+                  <!-- 单选框组 -->
+                  <template v-if="item.type === 'radiogroup' && getProps(item)?.options">
+                    <ElRadio
+                      v-for="option in getProps(item).options"
+                      v-bind="option"
+                      :key="option.value"
+                    />
+                  </template>
+
+                  <!-- 动态插槽支持 -->
+                  <template
+                    v-for="(slotFn, slotName) in getSlots(item)"
+                    :key="slotName"
+                    #[slotName]
+                  >
+                    <component :is="slotFn" />
+                  </template>
+                </component>
+              </slot>
+            </ElFormItem>
+          </template>
         </ElCol>
         <ElCol :xs="24" :sm="24" :md="span" :lg="span" :xl="span" class="action-column">
           <div class="action-buttons-wrapper" :style="actionButtonsStyle">
@@ -113,7 +127,8 @@
     cascader: ElCascader, // 级联选择器
     timepicker: ElTimePicker, // 时间选择器
     timeselect: ElTimeSelect, // 时间选择
-    treeselect: ElTreeSelect // 树选择器
+    treeselect: ElTreeSelect, // 树选择器
+    divider: ElDivider // 分隔线/分组标题
   }
 
   const { width } = useWindowSize()

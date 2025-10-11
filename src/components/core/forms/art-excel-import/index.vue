@@ -7,7 +7,7 @@
       :show-file-list="false"
       @change="handleFileChange"
     >
-      <ElButton type="primary" v-ripple>
+      <ElButton :type="type" :size="size" v-ripple>
         <slot>导入 Excel</slot>
       </ElButton>
     </ElUpload>
@@ -17,8 +17,21 @@
 <script setup lang="ts">
   import * as XLSX from 'xlsx'
   import type { UploadFile } from 'element-plus'
+  import type { ButtonType } from 'element-plus'
 
   defineOptions({ name: 'ArtExcelImport' })
+
+  interface Props {
+    /** 按钮类型 */
+    type?: ButtonType
+    /** 按钮尺寸 */
+    size?: 'large' | 'default' | 'small'
+  }
+
+  const { type, size } = withDefaults(defineProps<Props>(), {
+    type: 'primary',
+    size: 'default'
+  })
 
   // Excel 导入工具函数
   async function importExcel(file: File): Promise<any[]> {

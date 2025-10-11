@@ -127,6 +127,33 @@ export const asyncRoutes: AppRouteRecord[] = [
     ]
   },
   {
+    path: '/clue',
+    name: 'Clue',
+    component: RoutesAlias.Layout,
+    meta: {
+      title: 'menus.clue.title',
+      icon: '&#xe7ae;',
+      roles: ['R_SUPER', 'R_ADMIN']
+    },
+    children: [
+      {
+        path: 'leads',
+        name: 'ClueLeads',
+        component: RoutesAlias.ClueLeads,
+        meta: {
+          title: 'menus.clue.leads',
+          keepAlive: true,
+          authList: [
+            { title: '新增', authMark: 'add' },
+            { title: '导入', authMark: 'import' },
+            { title: '导出', authMark: 'export' },
+            { title: '查看', authMark: 'view' }
+          ]
+        }
+      }
+    ]
+  },
+  {
     path: '/template',
     name: 'Template',
     component: RoutesAlias.Layout,

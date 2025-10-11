@@ -247,9 +247,13 @@
       "articlePublish": "文章发布"
     },
     "product": {
-      "title": "车型分类",
-      "category": "车型分类", 
-      "management": "车型管理"
+      "title": "商品管理",
+      "category": "商品分类",
+      "management": "商品管理"
+    },
+    "clue": {
+      "title": "线索管理",
+      "leads": "线索列表"
     },
     "result": {
       "title": "结果页面",

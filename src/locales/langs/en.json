@@ -255,9 +255,14 @@
       "articlePublish": "Article Publish"
     },
     "product": {
-      "title": "Vehicle Category",
-      "category": "Vehicle Category",
-      "management": "Vehicle Management"
+      "title": "Product",
+      "category": "Product Category",
+      "management": "Product Management"
+    },
+    "clue": {
+      "title": "Lead Management",
+      "management": "Clue Management",
+      "leads": "Leads List"
     },
     "result": {
       "title": "Result Page",

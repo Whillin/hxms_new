@@ -57,6 +57,8 @@
   import type { AppRouteRecord } from '@/types/router'
   import { useAuth } from '@/composables/useAuth'
   import MenuDialog from './modules/menu-dialog.vue'
+  import { ElTag, ElMessageBox } from 'element-plus'
+  import { h } from 'vue'
 
   defineOptions({ name: 'Menus' })
 
