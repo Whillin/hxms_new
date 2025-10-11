@@ -1,106 +1,41 @@
-<img  src="https://www.qiniu.lingchen.kim/github-cover-light6.webp" />
+# HXMS - 华夏管理系统
 
-<br />
-<h1 align="center">Art Design Pro</h1>
-<p align="center">A backend system template that combines design aesthetics with efficient development, helping you quickly build professional-grade applications</p>
-<div align="center">English | <a href="./README.zh-CN.md">简体中文</a></div>
+基于 Art Design Pro 构建的华夏管理系统，集成了现代化的设计美学与高效的开发体验。
 
-<br />
-<div align="center">
+## 项目特色
 
-[![license](https://img.shields.io/badge/license-MIT-green.svg)](./LICENSE) [![github stars](https://img.shields.io/github/stars/Daymychen/art-design-pro)](https://github.com/Daymychen/art-design-pro/stargazers) [![github forks](https://img.shields.io/github/forks/Daymychen/art-design-pro)](https://github.com/Daymychen/art-design-pro/network/members)
+**界面设计**: 现代化UI设计，流畅的交互体验，注重用户体验和视觉设计
 
-</div>
-<br />
+**快速上手**: 清晰的架构 + 完善的文档，后端开发者也能轻松使用
 
-## What makes this project special?
+**丰富组件**: 内置高质量的数据展示、表单等组件，满足不同业务场景
 
-**Interface Design**: Modern UI design with smooth interactions, focusing on user experience and visual design
+**流畅交互**: 按钮点击、主题切换、页面过渡、图表动画，媲美商业产品的体验
 
-**Quick Start**: Clean architecture + comprehensive documentation, easy for backend developers to use
+**高效开发**: 内置 useTable、ArtForm 等实用API，显著提升开发效率
 
-**Rich Components**: Built-in high-quality components for data display, forms, and more to meet different business scenarios
+## 技术栈
 
-**Smooth Interactions**: Button clicks, theme switching, page transitions, chart animations - experience comparable to commercial products
+开发框架: Vue3, TypeScript, Vite, Element-Plus
 
-**Efficient Development**: Built-in practical APIs like useTable and ArtForm to significantly improve development efficiency
+代码规范: Eslint, Prettier, Stylelint, Husky, Lint-staged, cz-git
 
-**Clean Scripts**: Built-in one-click cleanup script to quickly remove demo data and get a ready-to-develop base project
-
-## Tech Stack
-
-Development Framework: Vue3, TypeScript, Vite, Element-Plus
-
-Code Standards: Eslint, Prettier, Stylelint, Husky, Lint-staged, cz-git
-
-## Preview
-
-<kbd><img src="https://www.qiniu.lingchen.kim/github-c1.webp" alt="Light Theme"/></kbd>
-
-<kbd><img src="https://www.qiniu.lingchen.kim/github-c2.webp" alt="Light Theme"/></kbd>
-
-<kbd><img src="https://www.qiniu.lingchen.kim/github-c4.webp" alt="Dark Theme"/></kbd>
-
-<kbd><img src="https://www.qiniu.lingchen.kim/github-c5.webp" alt="Dark Theme"/></kbd>
-
-## Quick Access
-
-[Live Demo](https://www.artd.pro)
-
-[Official Documentation](https://www.artd.pro/docs)
-
-## Installation & Setup
+## 安装与启动
 
 ```bash
-# Install dependencies
+# 安装依赖
 pnpm install
 
-# If pnpm install fails, try using the command below
+# 如果 pnpm install 失败，可以尝试使用下面的命令
 pnpm install --ignore-scripts
 
-# Start local development environment
+# 启动本地开发环境
 pnpm dev
 
-# Build for production
+# 构建生产版本
 pnpm build
 ```
 
-## Clean Version
+## 浏览器兼容性
 
-The project includes a cleanup script to quickly remove demo data and provide developers with a ready-to-develop base project
-
-```bash
-pnpm clean:dev
-```
-
-## Technical Support
-
-QQ Group: <a href="https://qm.qq.com/cgi-bin/qm/qr?k=Gg6yzZLFaNgmRhK0T5Qcjf7-XcAFWWXm&jump_from=webapi&authKey=YpRKVJQyFKYbGTiKw0GJ/YQXnNF+GdXNZC5beQQqnGZTvuLlXoMO7nw5fNXvmVhA">821834289</a> (Click the link to join the group chat)
-
-## Browser Compatibility
-
-Supports modern mainstream browsers including Chrome, Safari, Firefox, and more.
-
-## Contributing
-
-We sincerely welcome and appreciate the support of every contributor! Whether you have new ideas, feature suggestions, or code optimizations, you can participate in the following ways:
-
-Submit Pull Requests: Share your code and help the project grow.
-
-Create GitHub Issues: Provide bug feedback or new feature suggestions to help us improve together.
-
-Every contribution you make takes this project one step further! Come join our open source community!
-
-## Continuous Optimization & Extension
-
-The project maintains active updates, supports the latest frontend tech stack, is compatible with mainstream frameworks, and ensures long-term stability and extensibility. Community-driven feedback mechanisms allow your needs to be quickly integrated into project iterations.
-
-## Donation
-
-If you feel this project has reduced your development costs and solved problems in your work/life, you can support us through the following ways:
-
-<img src="https://www.qiniu.lingchen.kim/%E7%BB%84%202%402x%202.png" alt="Donation QR Code"/>
-
-## Star History
-
-[![Star History Chart](https://api.star-history.com/svg?repos=Daymychen/art-design-pro&type=Date)](https://www.star-history.com/#Daymychen/art-design-pro&Date)
+支持现代主流浏览器，包括 Chrome、Safari、Firefox 等。
