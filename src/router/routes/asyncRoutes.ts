@@ -69,6 +69,64 @@ export const asyncRoutes: AppRouteRecord[] = [
     ]
   },
   {
+    path: '/product',
+    name: 'Product',
+    component: RoutesAlias.Layout,
+    meta: {
+      title: 'menus.product.title',
+      icon: '&#xe7ae;',
+      roles: ['R_SUPER', 'R_ADMIN']
+    },
+    children: [
+      {
+        path: 'category',
+        name: 'ProductCategory',
+        component: RoutesAlias.ProductCategory,
+        meta: {
+          title: 'menus.product.category',
+          keepAlive: true,
+          authList: [
+            {
+              title: '新增',
+              authMark: 'add'
+            },
+            {
+              title: '编辑',
+              authMark: 'edit'
+            },
+            {
+              title: '删除',
+              authMark: 'delete'
+            }
+          ]
+        }
+      },
+      {
+        path: 'management',
+        name: 'ProductManagement',
+        component: RoutesAlias.ProductManagement,
+        meta: {
+          title: 'menus.product.management',
+          keepAlive: true,
+          authList: [
+            {
+              title: '新增',
+              authMark: 'add'
+            },
+            {
+              title: '编辑',
+              authMark: 'edit'
+            },
+            {
+              title: '删除',
+              authMark: 'delete'
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
     path: '/template',
     name: 'Template',
     component: RoutesAlias.Layout,

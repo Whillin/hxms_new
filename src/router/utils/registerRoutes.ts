@@ -269,9 +269,20 @@ function handleNormalRoute(
   routeName: string
 ): void {
   if (component) {
-    const aliasComponent = RoutesAlias[
-      component as keyof typeof RoutesAlias
-    ] as unknown as RouteRecordRaw['component']
-    converted.component = aliasComponent || loadComponent(component as string, routeName)
+    // 检查component是否是RoutesAlias的值
+    const aliasKey = Object.keys(RoutesAlias).find(
+      key => RoutesAlias[key as keyof typeof RoutesAlias] === component
+    )
+    
+    if (aliasKey) {
+      // 如果是RoutesAlias的值，使用loadComponent加载对应的组件
+      converted.component = loadComponent(component as string, routeName)
+    } else {
+      // 如果不是RoutesAlias的值，直接使用component或loadComponent
+      const aliasComponent = RoutesAlias[
+        component as keyof typeof RoutesAlias
+      ] as unknown as RouteRecordRaw['component']
+      converted.component = aliasComponent || loadComponent(component as string, routeName)
+    }
   }
 }

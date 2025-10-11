@@ -251,8 +251,13 @@
       "title": "Article Management",
       "articleList": "Article List",
       "articleDetail": "Article Detail",
-      "comment": "Comment",
+      "comment": "Comment Management",
       "articlePublish": "Article Publish"
+    },
+    "product": {
+      "title": "Vehicle Category",
+      "category": "Vehicle Category",
+      "management": "Vehicle Management"
     },
     "result": {
       "title": "Result Page",
