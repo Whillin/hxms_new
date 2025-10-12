@@ -29,11 +29,14 @@ export function fetchGetDepartmentList(params: Api.SystemManage.DepartmentSearch
 }
 
 // 保存部门（新增/编辑）
-export function fetchSaveDepartment(data: Partial<Api.SystemManage.DepartmentItem>) {
+export function fetchSaveDepartment(
+  data: Partial<Api.SystemManage.DepartmentItem>,
+  options?: { showSuccessMessage?: boolean }
+) {
   return request.post<{ success: boolean }>({
     url: '/department/save',
     data,
-    showSuccessMessage: true
+    showSuccessMessage: options?.showSuccessMessage ?? true
   })
 }
 

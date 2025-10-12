@@ -308,13 +308,23 @@ function departmentMockPlugin(): Plugin {
               if (incoming.parentId) {
                 const parent = findNode(departmentData as any, Number(incoming.parentId))
                 if (parent) {
-                  // 仅允许在门店下新增部门
-                  if (parent.type !== 'store') {
-                    return sendJson(res, { code: 400, msg: '仅允许在门店下新增部门', data: false })
+                  // 允许在各层级下新增其下一级：
+                  // group -> brand, brand -> region, region -> store, store -> department
+                  const nextTypeMap: Record<string, string> = {
+                    group: 'brand',
+                    brand: 'region',
+                    region: 'store',
+                    store: 'department',
+                    department: 'department'
                   }
+                  const expectType = nextTypeMap[parent.type]
+                  // 若未明确类型，则按父级推断；若类型与期待不一致，强制修正
+                  newNode.type = incoming.type || expectType
                   if (!Array.isArray(parent.children)) parent.children = []
                   parent.children.push(newNode as any)
                 } else {
+                  // 无父级时，只允许新增顶级集团
+                  newNode.type = 'group'
                   ;(departmentData as any).push(newNode)
                 }
               } else {

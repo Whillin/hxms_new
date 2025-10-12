@@ -162,7 +162,7 @@
         }
         const originalEnabled = (props.deptData?.enabled ?? true) as boolean
         const newEnabled = (formData.enabled ?? true) as boolean
-        await fetchSaveDepartment(formData)
+        await fetchSaveDepartment(formData, { showSuccessMessage: false })
 
         // 编辑时若状态发生变化，则级联更新所有子节点的 enabled
         if (isEdit.value && originalEnabled !== newEnabled) {
@@ -171,15 +171,23 @@
           if (descendants.length) {
             try {
               await Promise.all(
-                descendants.map((child) => fetchSaveDepartment({ id: child.id, enabled: newEnabled }))
+                descendants.map((child) =>
+                  fetchSaveDepartment({ id: child.id, enabled: newEnabled }, { showSuccessMessage: false })
+                )
               )
-              ElMessage.success(`已同步${newEnabled ? '启用' : '禁用'} ${descendants.length} 个子节点`)
             } catch (e) {
               ElMessage.warning('部分子节点状态更新失败，请刷新后重试')
             }
           }
         }
-        ElMessage.success(dialogType.value === 'add' ? '新增成功' : '更新成功')
+        // 统一仅提示一次成功
+        if (isEdit.value && originalEnabled !== newEnabled) {
+          ElMessage.success(
+            `${dialogType.value === 'add' ? '新增' : '更新'}成功，已${newEnabled ? '启用' : '禁用'}所有子级`
+          )
+        } else {
+          ElMessage.success(dialogType.value === 'add' ? '新增成功' : '更新成功')
+        }
         dialogVisible.value = false
         emit('submit')
       }
