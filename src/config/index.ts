@@ -11,7 +11,7 @@ import { headerBarConfig } from './headerBar'
 const appConfig: SystemConfig = {
   // 系统信息
   systemInfo: {
-    name: 'Art Design Pro' // 系统名称
+    name: '华星名仕销售管理系统' // 系统名称
   },
   // 系统主题
   systemThemeStyles: {
