@@ -9,7 +9,6 @@
     "ElCheckbox": true,
     "ElCheckboxGroup": true,
     "ElDatePicker": true,
-    "ElDivider": true,
     "ElInput": true,
     "ElInputNumber": true,
     "ElLoading": true,

@@ -25,7 +25,7 @@
           <ElSpace wrap>
             <ElButton type="primary" @click="showDialog('add')" v-ripple>
               <ElIcon><Plus /></ElIcon>
-              新增部门
+              新增
             </ElButton>
             <ElButton @click="toggleExpand" v-ripple>
               <ElIcon>
@@ -44,28 +44,29 @@
         :data="data"
         :columns="columns"
         :pagination="pagination"
-        size="small"
-        :border="true"
-        :stripe="true"
+        size="default"
+        :border="false"
+        :stripe="false"
         :pagination-options="{ size: 'small' }"
         rowKey="id"
         :treeProps="{ children: 'children' }"
         @pagination:size-change="handleSizeChange"
         @pagination:current-change="handleCurrentChange"
       >
+        <template #enabled="{ row }">
+          <ElTag size="small" :type="row.enabled ? 'success' : 'danger'">
+            {{ row.enabled ? '启用' : '禁用' }}
+          </ElTag>
+        </template>
         <template #operation="{ row }">
           <ElSpace>
-            <ElButton size="small" type="primary" link @click="showChildAdd(row)">
-              <ElIcon><Plus /></ElIcon>
-              新增子部门
-            </ElButton>
-            <ElButton size="small" type="primary" link @click="showDialog('edit', row)">
+            <ElButton type="primary" @click="showDialog('edit', row)">
               <ElIcon><Edit /></ElIcon>
               编辑
             </ElButton>
             <ElPopconfirm title="确认删除该部门？" @confirm="handleDelete(row)">
               <template #reference>
-                <ElButton size="small" type="danger" link>
+                <ElButton type="danger">
                   <ElIcon><Delete /></ElIcon>
                   删除
                 </ElButton>
@@ -79,6 +80,7 @@
         v-model:visible="dialogVisible"
         :type="dialogType"
         :dept-data="currentDeptData"
+        :dept-tree="data as any"
         @submit="handleDialogSubmit"
       />
     </ElCard>
@@ -87,10 +89,10 @@
 
 <script setup lang="ts">
   import { useTable } from '@/composables/useTable'
-  import { fetchGetDepartmentList } from '@/api/system-manage'
+  import { fetchGetDepartmentList, fetchDeleteDepartment } from '@/api/system-manage'
   import DepartmentSearch from './modules/department-search.vue'
   import DepartmentDialog from './modules/department-dialog.vue'
-  import { h } from 'vue'
+  
   import { Plus, Edit, Delete, Fold, Expand } from '@element-plus/icons-vue'
   import { ElMessage } from 'element-plus'
 
@@ -104,6 +106,9 @@
   const showSearchBar = ref(true)
   const tableRef = ref<any>(null)
   const isExpanded = ref(false)
+
+  // 显示用的部门编号（基于 id）
+  const buildDeptCode = (id: number) => String(id).padStart(4, '0')
 
   const searchForm = ref<Api.SystemManage.DepartmentSearchParams>({
     name: undefined,
@@ -134,16 +139,29 @@
       apiParams: { ...searchForm.value },
       excludeParams: [],
       columnsFactory: () => [
-        { type: 'index', width: 60, label: '序号' },
-        { prop: 'name', label: '名称' },
-        { prop: 'type', label: '类型' },
-        { prop: 'brand', label: '品牌' },
-        { prop: 'region', label: '区域' },
-        { prop: 'store', label: '门店' },
-        { prop: 'enabled', label: '启用', formatter: (row) => (row.enabled ? '是' : '否') },
-        { prop: 'createTime', label: '创建时间' },
-        { prop: 'operation', label: '操作', width: 220, align: 'right' }
+        { prop: 'name', label: '名称', minWidth: 280, showOverflowTooltip: true },
+        { prop: 'code', label: '编号', minWidth: 120 },
+        { prop: 'enabled', label: '状态', minWidth: 120, useSlot: true },
+        { prop: 'operation', label: '操作', width: 280, align: 'center', fixed: 'right', useSlot: true }
       ]
+    },
+    // 为数据添加显示编号
+    transform: {
+      dataTransformer: (records: any[]) => {
+        if (!Array.isArray(records)) return []
+        const enhance = (nodes: any[]): any[] =>
+          nodes.map((item) => {
+            const enhanced: any = {
+              ...item,
+              code: buildDeptCode(item.id)
+            }
+            if (Array.isArray(enhanced.children) && enhanced.children.length) {
+              enhanced.children = enhance(enhanced.children)
+            }
+            return enhanced
+          })
+        return enhance(records)
+      }
     }
   })
 
@@ -158,14 +176,17 @@
     nextTick(() => (dialogVisible.value = true))
   }
 
-  const showChildAdd = (row: DepartmentItem) => {
-    dialogType.value = 'add'
-    currentDeptData.value = { parentId: row.id }
-    nextTick(() => (dialogVisible.value = true))
-  }
+  // 行内新增已移除，统一使用顶部“新增”按钮
 
-  const handleDelete = (row: DepartmentItem) => {
-    ElMessage.info('删除功能开发中，暂不支持')
+  const handleDelete = async (row: DepartmentItem) => {
+    try {
+      await fetchDeleteDepartment(Number(row.id))
+      ElMessage.success('删除成功')
+      refreshData()
+    } catch (err: any) {
+      const msg = err?.message || '删除失败'
+      ElMessage.error(msg)
+    }
   }
 
   const toggleExpand = () => {
@@ -210,6 +231,16 @@
     }
     :deep(.el-card__body) {
       padding: 12px 12px 8px;
+    }
+    :deep(.el-table) {
+      --el-table-row-height: 44px;
+    }
+    :deep(.el-table__body td:first-child .cell) {
+      white-space: nowrap;
+    }
+    :deep(.el-table .cell) {
+      padding-left: 8px;
+      padding-right: 8px;
     }
   }
 </style>

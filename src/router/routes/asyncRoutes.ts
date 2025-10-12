@@ -571,91 +571,24 @@ export const asyncRoutes: AppRouteRecord[] = [
         }
       },
       {
-        path: 'nested',
-        name: 'Nested',
-        component: '',
+        path: 'department',
+        name: 'Department',
+        component: RoutesAlias.Department,
         meta: {
-          title: 'menus.system.nested',
-          keepAlive: true
-        },
-        children: [
-          {
-            path: 'menu1',
-            name: 'NestedMenu1',
-            component: RoutesAlias.NestedMenu1,
-            meta: {
-              title: 'menus.system.menu1',
-              icon: '&#xe676;',
-              keepAlive: true
-            }
-          },
-          {
-            path: 'menu2',
-            name: 'NestedMenu2',
-            component: '',
-            meta: {
-              title: 'menus.system.menu2',
-              icon: '&#xe676;',
-              keepAlive: true
-            },
-            children: [
-              {
-                path: 'menu2-1',
-                name: 'NestedMenu2-1',
-                component: RoutesAlias.NestedMenu21,
-                meta: {
-                  title: 'menus.system.menu21',
-                  icon: '&#xe676;',
-                  keepAlive: true
-                }
-              }
-            ]
-          },
-          {
-            path: 'menu3',
-            name: 'NestedMenu3',
-            component: '',
-            meta: {
-              title: 'menus.system.menu3',
-              icon: '&#xe676;',
-              keepAlive: true
-            },
-            children: [
-              {
-                path: 'menu3-1',
-                name: 'NestedMenu3-1',
-                component: RoutesAlias.NestedMenu31,
-                meta: {
-                  title: 'menus.system.menu31',
-                  icon: '&#xe676;',
-                  keepAlive: true
-                }
-              },
-              {
-                path: 'menu3-2',
-                name: 'NestedMenu3-2',
-                component: '',
-                meta: {
-                  title: 'menus.system.menu32',
-                  icon: '&#xe676;',
-                  keepAlive: true
-                },
-                children: [
-                  {
-                    path: 'menu3-2-1',
-                    name: 'NestedMenu3-2-1',
-                    component: RoutesAlias.NestedMenu321,
-                    meta: {
-                      title: 'menus.system.menu321',
-                      icon: '&#xe676;',
-                      keepAlive: true
-                    }
-                  }
-                ]
-              }
-            ]
-          }
-        ]
+          title: 'menus.system.department',
+          keepAlive: true,
+          roles: ['R_SUPER', 'R_ADMIN']
+        }
+      },
+      {
+        path: 'employee',
+        name: 'Employee',
+        component: RoutesAlias.Employee,
+        meta: {
+          title: 'menus.system.employee',
+          keepAlive: true,
+          roles: ['R_SUPER', 'R_ADMIN']
+        }
       }
     ]
   },

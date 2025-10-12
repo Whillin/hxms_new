@@ -268,21 +268,27 @@ function handleNormalRoute(
   component: string | undefined,
   routeName: string
 ): void {
-  if (component) {
-    // 检查component是否是RoutesAlias的值
-    const aliasKey = Object.keys(RoutesAlias).find(
-      (key) => RoutesAlias[key as keyof typeof RoutesAlias] === component
-    )
+  if (!component) return
 
-    if (aliasKey) {
-      // 如果是RoutesAlias的值，使用loadComponent加载对应的组件
-      converted.component = loadComponent(component as string, routeName)
-    } else {
-      // 如果不是RoutesAlias的值，直接使用component或loadComponent
-      const aliasComponent = RoutesAlias[
-        component as keyof typeof RoutesAlias
-      ] as unknown as RouteRecordRaw['component']
-      converted.component = aliasComponent || loadComponent(component as string, routeName)
-    }
+  // 统一组件解析逻辑：始终将别名或路径解析为实际视图路径，再通过 loadComponent 加载
+  let resolvedPath: string | undefined
+
+  // 如果传入的是字符串，可能是别名值（如 '/dashboard/console'）或别名键（如 'Dashboard'）
+  if (typeof component === 'string') {
+    const values = Object.values(RoutesAlias) as string[]
+    const isAliasValue = values.includes(component)
+
+    // 别名值：直接作为路径使用；别名键：取对应的值
+    resolvedPath = isAliasValue
+      ? component
+      : (RoutesAlias[component as keyof typeof RoutesAlias] as unknown as string)
+  }
+
+  // 根据解析结果设置组件加载方式
+  if (resolvedPath && typeof resolvedPath === 'string') {
+    converted.component = loadComponent(resolvedPath, routeName)
+  } else {
+    // 回退：如果不是字符串（例如已是函数），或解析失败，则尝试作为路径加载
+    converted.component = loadComponent(String(component), routeName)
   }
 }

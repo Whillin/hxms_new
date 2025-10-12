@@ -157,7 +157,6 @@ const targets = [
   'src/views/safeguard',
   'src/views/article',
   'src/views/examples',
-  'src/views/system/nested',
   'src/views/widgets',
   'src/views/template',
   'src/views/dashboard/analysis',

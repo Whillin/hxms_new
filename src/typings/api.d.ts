@@ -104,5 +104,38 @@ declare namespace Api {
       Pick<RoleListItem, 'roleId' | 'roleName' | 'roleCode' | 'description' | 'enabled'> &
         Api.Common.CommonSearchParams
     >
+
+    /** 部门列表 */
+    type DepartmentList = Api.Common.PaginatedResponse<DepartmentItem>
+
+    /** 部门项（支持树形结构） */
+    interface DepartmentItem {
+      /** 唯一ID */
+      id: number
+      /** 部门名称 */
+      name: string
+      /** 部门类型 */
+      type: 'group' | 'brand' | 'region' | 'store' | 'department'
+      /** 上级ID */
+      parentId?: number
+      /** 品牌（如一汽奥迪、上汽奥迪、小鹏、信息部门） */
+      brand?: string
+      /** 区域（如成都区域、云南区域等） */
+      region?: string
+      /** 门店（如羊西店、武侯店等） */
+      store?: string
+      /** 启用状态 */
+      enabled: boolean
+      /** 创建时间 */
+      createTime: string
+      /** 子节点 */
+      children?: DepartmentItem[]
+    }
+
+    /** 部门搜索参数 */
+    type DepartmentSearchParams = Partial<
+      Pick<DepartmentItem, 'name' | 'type' | 'brand' | 'region' | 'store' | 'enabled'> &
+        Api.Common.CommonSearchParams
+    >
   }
 }

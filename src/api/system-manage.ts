@@ -2,6 +2,7 @@ import request from '@/utils/http'
 import { AppRouteRecord } from '@/types/router'
 import { asyncRoutes } from '@/router/routes/asyncRoutes'
 import { menuDataToRouter } from '@/router/utils/menuToRouter'
+import type { ApiResponse } from '@/utils/table/tableCache'
 
 // 获取用户列表
 export function fetchGetUserList(params: Api.SystemManage.UserSearchParams) {
@@ -16,6 +17,32 @@ export function fetchGetRoleList(params: Api.SystemManage.RoleSearchParams) {
   return request.get<Api.SystemManage.RoleList>({
     url: '/api/role/list',
     params
+  })
+}
+
+// 获取部门列表（树或分页列表皆可，由响应适配器处理）
+export function fetchGetDepartmentList(params: Api.SystemManage.DepartmentSearchParams) {
+  return request.get<Api.SystemManage.DepartmentList | ApiResponse<Api.SystemManage.DepartmentItem>>({
+    url: '/department/list',
+    params
+  })
+}
+
+// 保存部门（新增/编辑）
+export function fetchSaveDepartment(data: Partial<Api.SystemManage.DepartmentItem>) {
+  return request.post<{ success: boolean }>({
+    url: '/department/save',
+    data,
+    showSuccessMessage: true
+  })
+}
+
+// 删除部门
+export function fetchDeleteDepartment(id: number) {
+  return request.post<boolean>({
+    url: '/department/delete',
+    data: { id },
+    showSuccessMessage: true
   })
 }
 

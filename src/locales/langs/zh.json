@@ -287,14 +287,8 @@
       "role": "角色管理",
       "userCenter": "个人中心",
       "menu": "菜单管理",
-      "nested": "嵌套菜单",
-      "menu1": "菜单1",
-      "menu2": "菜单2",
-      "menu21": "菜单2-1",
-      "menu3": "菜单3",
-      "menu31": "菜单3-1",
-      "menu32": "菜单3-2",
-      "menu321": "菜单3-2-1"
+      "department": "部门管理",
+      "employee": "员工管理"
     },
     "safeguard": {
       "title": "运维管理",
