@@ -59,20 +59,14 @@
           </ElTag>
         </template>
         <template #operation="{ row }">
-          <ElSpace>
-            <ElButton type="primary" @click="showDialog('edit', row)">
-              <ElIcon><Edit /></ElIcon>
-              编辑
-            </ElButton>
+          <div style="text-align: right">
+            <ArtButtonTable type="edit" @click="showDialog('edit', row)" />
             <ElPopconfirm title="确认删除该部门？" @confirm="handleDelete(row)">
               <template #reference>
-                <ElButton type="danger">
-                  <ElIcon><Delete /></ElIcon>
-                  删除
-                </ElButton>
+                <ArtButtonTable type="delete" />
               </template>
             </ElPopconfirm>
-          </ElSpace>
+          </div>
         </template>
       </ArtTable>
 
@@ -92,7 +86,8 @@
   import { fetchGetDepartmentList, fetchDeleteDepartment } from '@/api/system-manage'
   import DepartmentSearch from './modules/department-search.vue'
   import DepartmentDialog from './modules/department-dialog.vue'
-  
+  import ArtButtonTable from '@/components/core/forms/art-button-table/index.vue'
+
   import { Plus, Edit, Delete, Fold, Expand } from '@element-plus/icons-vue'
   import { ElMessage } from 'element-plus'
 
@@ -107,8 +102,79 @@
   const tableRef = ref<any>(null)
   const isExpanded = ref(false)
 
-  // 显示用的部门编号（基于 id）
-  const buildDeptCode = (id: number) => String(id).padStart(4, '0')
+  // 显示用的部门层级编码：父短子长，纯数字分段
+  // 规则（不含英文前缀）：
+  // - 品牌：<bb>
+  // - 销售部门：<bb>
+  // - 区域：<bb><rr>
+  // - 门店：<bb><rr><ss>
+  // 其中 <bb>/<rr>/<ss> 为两位序号（01起），在同一父级内按出现顺序生成
+  const pad2 = (n: number) => String(n).padStart(2, '0')
+
+  function buildHierCodes(records: any[]): any[] {
+    if (!Array.isArray(records)) return []
+
+    // 顶层一般为集团
+    const enhanceGroup = (nodes: any[]) =>
+      nodes.map((groupNode) => {
+        const gEnhanced = { ...groupNode }
+        const brandChildren = Array.isArray(gEnhanced.children)
+          ? gEnhanced.children.filter((c: any) => c.type === 'brand')
+          : []
+        // 为品牌生成序号（两位）
+        brandChildren.forEach((brand: any, bIdx: number) => {
+          const bb = pad2(bIdx + 1)
+          const bEnhanced: any = { ...brand, code: `${bb}` }
+
+          // 品牌下销售部门（唯一），编码 DEP-<bb>
+          const deptNode = Array.isArray(bEnhanced.children)
+            ? bEnhanced.children.find((c: any) => c.type === 'department')
+            : null
+          if (deptNode) {
+            const dEnhanced: any = { ...deptNode, code: `${bb}` }
+            // 销售部门下区域：REG-<bb><rr>
+            const regionChildren = Array.isArray(dEnhanced.children)
+              ? dEnhanced.children.filter((c: any) => c.type === 'region')
+              : []
+            regionChildren.forEach((region: any, rIdx: number) => {
+              const rr = pad2(rIdx + 1)
+              const rEnhanced: any = { ...region, code: `${bb}${rr}` }
+              // 区域下门店：STR-<bb><rr><ss>
+              const storeChildren = Array.isArray(rEnhanced.children)
+                ? rEnhanced.children.filter((c: any) => c.type === 'store')
+                : []
+              storeChildren.forEach((store: any, sIdx: number) => {
+                const ss = pad2(sIdx + 1)
+                const sEnhanced: any = { ...store, code: `${bb}${rr}${ss}` }
+                // 保留门店原有子节点（理应为空），并替换为增强后的
+                if (Array.isArray(store.children) && store.children.length) {
+                  sEnhanced.children = store.children.map((x: any) => ({ ...x }))
+                }
+                // 替换 store
+                const sPos = rEnhanced.children.findIndex((c: any) => c === store)
+                if (sPos >= 0) rEnhanced.children.splice(sPos, 1, sEnhanced)
+              })
+
+              // 替换 region
+              const rPos = dEnhanced.children.findIndex((c: any) => c === region)
+              if (rPos >= 0) dEnhanced.children.splice(rPos, 1, rEnhanced)
+            })
+
+            // 替换 department
+            const dPos = bEnhanced.children.findIndex((c: any) => c === deptNode)
+            if (dPos >= 0) bEnhanced.children.splice(dPos, 1, dEnhanced)
+          }
+
+          // 替换 brand 回到 group
+          const bPos = gEnhanced.children.findIndex((c: any) => c === brand)
+          if (bPos >= 0) gEnhanced.children.splice(bPos, 1, bEnhanced)
+        })
+
+        return gEnhanced
+      })
+
+    return enhanceGroup(records)
+  }
 
   const searchForm = ref<Api.SystemManage.DepartmentSearchParams>({
     name: undefined,
@@ -142,26 +208,19 @@
         { prop: 'name', label: '名称', minWidth: 280, showOverflowTooltip: true },
         { prop: 'code', label: '编号', minWidth: 120 },
         { prop: 'enabled', label: '状态', minWidth: 120, useSlot: true },
-        { prop: 'operation', label: '操作', width: 280, align: 'center', fixed: 'right', useSlot: true }
+        {
+          prop: 'operation',
+          label: '操作',
+          width: 280,
+          align: 'center',
+          fixed: 'right',
+          useSlot: true
+        }
       ]
     },
     // 为数据添加显示编号
     transform: {
-      dataTransformer: (records: any[]) => {
-        if (!Array.isArray(records)) return []
-        const enhance = (nodes: any[]): any[] =>
-          nodes.map((item) => {
-            const enhanced: any = {
-              ...item,
-              code: buildDeptCode(item.id)
-            }
-            if (Array.isArray(enhanced.children) && enhanced.children.length) {
-              enhanced.children = enhance(enhanced.children)
-            }
-            return enhanced
-          })
-        return enhance(records)
-      }
+      dataTransformer: (records: any[]) => buildHierCodes(records)
     }
   })
 

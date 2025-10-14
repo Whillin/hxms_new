@@ -61,13 +61,13 @@
   const isEdit = computed(() => dialogType.value === 'edit')
   const dialogTitle = computed(() => (dialogType.value === 'add' ? '新增节点' : '编辑节点'))
   const deptTree = computed(() => props.deptTree || [])
-  // 父级选择：允许选择除了部门以外的任意节点；部门为最低层级，禁用为父级
+  // 父级选择：允许选择除了门店以外的任意节点；门店为最低层级，禁用为父级
   const parentAllTree = computed(() => {
     const enrich = (nodes: any[] = []) =>
       nodes.map((n) => ({
         id: n.id,
         name: n.name,
-        disabled: n.type === 'department',
+        disabled: n.type === 'store',
         children: Array.isArray(n.children) ? enrich(n.children) : []
       }))
     return enrich(deptTree.value as any)
@@ -97,12 +97,16 @@
     })
   }
 
-  const nextTypeMap: Record<Api.SystemManage.DepartmentItem['type'], Api.SystemManage.DepartmentItem['type']> = {
+  // 新层级规则：集团 -> 品牌 -> 销售部门(department) -> 区域(region) -> 门店(store)
+  const nextTypeMap: Record<
+    Api.SystemManage.DepartmentItem['type'],
+    Api.SystemManage.DepartmentItem['type']
+  > = {
     group: 'brand',
-    brand: 'region',
+    brand: 'department',
+    department: 'region',
     region: 'store',
-    store: 'department',
-    department: 'department'
+    store: 'store'
   }
 
   const findNodeById = (nodes: any[] = [], id?: number): any | undefined => {
@@ -153,11 +157,13 @@
         if (!isEdit.value) {
           // 新增：根据选择的父级推断类型；未选择则创建集团
           const parent = findNodeById(deptTree.value as any, formData.parentId as number)
-          if (parent && parent.type === 'department') {
-            ElMessage.warning('部门为最低层级，不能新增子级')
+          if (parent && parent.type === 'store') {
+            ElMessage.warning('门店为最低层级，不能新增子级')
             return
           }
-          const nextType = parent ? nextTypeMap[parent.type as Api.SystemManage.DepartmentItem['type']] : 'group'
+          const nextType = parent
+            ? nextTypeMap[parent.type as Api.SystemManage.DepartmentItem['type']]
+            : 'group'
           formData.type = nextType
         }
         const originalEnabled = (props.deptData?.enabled ?? true) as boolean
@@ -172,7 +178,10 @@
             try {
               await Promise.all(
                 descendants.map((child) =>
-                  fetchSaveDepartment({ id: child.id, enabled: newEnabled }, { showSuccessMessage: false })
+                  fetchSaveDepartment(
+                    { id: child.id, enabled: newEnabled },
+                    { showSuccessMessage: false }
+                  )
                 )
               )
             } catch (e) {

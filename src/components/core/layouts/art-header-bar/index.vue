@@ -5,11 +5,13 @@
       <div class="left" style="display: flex">
         <!-- 系统信息  -->
         <div class="top-header" @click="toHome" v-if="isTopMenu">
-          <ArtLogo class="logo" />
-          <p v-if="width >= 1400">{{ AppConfig.systemInfo.name }}</p>
+          <!-- 移除系统信息处的 Logo，仅保留系统名文本 -->
+          <ElTooltip :content="fullName" placement="bottom-start">
+            <p>{{ displayName }}</p>
+          </ElTooltip>
         </div>
 
-        <ArtLogo class="logo2" @click="toHome" />
+        <!-- 移除左上角多余 Logo -->
 
         <!-- 菜单按钮 -->
         <div class="btn-box" v-if="isLeftMenu && shouldShowMenuButton">
@@ -154,14 +156,7 @@
                     <i class="menu-icon iconfont-sys">&#xe734;</i>
                     <span class="menu-txt">{{ $t('topBar.user.userCenter') }}</span>
                   </li>
-                  <li @click="toDocs()">
-                    <i class="menu-icon iconfont-sys" style="font-size: 15px">&#xe828;</i>
-                    <span class="menu-txt">{{ $t('topBar.user.docs') }}</span>
-                  </li>
-                  <li @click="toGithub()">
-                    <i class="menu-icon iconfont-sys">&#xe8d6;</i>
-                    <span class="menu-txt">{{ $t('topBar.user.github') }}</span>
-                  </li>
+
                   <li @click="lockScreen()">
                     <i class="menu-icon iconfont-sys">&#xe817;</i>
                     <span class="menu-txt">{{ $t('topBar.user.lockScreen') }}</span>
@@ -194,7 +189,7 @@
   import { useMenuStore } from '@/store/modules/menu'
   import AppConfig from '@/config'
   import { languageOptions } from '@/locales'
-  import { WEB_LINKS } from '@/utils/constants'
+
   import { mittBus } from '@/utils/sys'
   import { themeAnimation } from '@/utils/theme/animation'
   import { useCommon } from '@/composables/useCommon'
@@ -256,6 +251,17 @@
     document.removeEventListener('click', bodyCloseNotice)
   })
 
+  // 系统名显示：窄屏显示简写并保留完整标题的 tooltip
+  const fullName = AppConfig.systemInfo.name
+  const shortName = AppConfig.systemInfo.shortName || deriveShortName(fullName)
+  const displayName = computed(() => (width.value < 1280 ? shortName : fullName))
+
+  function deriveShortName(name: string) {
+    if (name.includes('管理系统')) return name.replace('管理系统', '系统')
+    if (name.includes('系统')) return name
+    return name.slice(0, 8)
+  }
+
   /**
    * 切换全屏状态
    */
@@ -276,20 +282,6 @@
    */
   const goPage = (path: string): void => {
     router.push(path)
-  }
-
-  /**
-   * 打开文档页面
-   */
-  const toDocs = (): void => {
-    window.open(WEB_LINKS.DOCS)
-  }
-
-  /**
-   * 打开 GitHub 页面
-   */
-  const toGithub = (): void => {
-    window.open(WEB_LINKS.GITHUB)
   }
 
   /**
