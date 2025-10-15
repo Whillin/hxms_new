@@ -8,10 +8,14 @@ export class UserController {
   info(@Req() req: any) {
     const userName = req.user?.userName || 'Admin'
     return {
-      buttons: ['B_ADD', 'B_EDIT', 'B_DELETE'],
-      roles: ['R_ADMIN', 'R_SUPER'],
-      userId: 1,
-      userName
+      code: 200,
+      msg: 'ok',
+      data: {
+        buttons: ['B_ADD', 'B_EDIT', 'B_DELETE'],
+        roles: ['R_ADMIN', 'R_SUPER'],
+        userId: 1,
+        userName
+      }
     }
   }
 }

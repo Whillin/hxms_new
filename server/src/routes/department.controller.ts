@@ -26,6 +26,6 @@ const DEPARTMENT_TREE_DATA = [
 export class DepartmentController {
   @Get('tree')
   tree() {
-    return DEPARTMENT_TREE_DATA
+    return { code: 200, msg: 'ok', data: DEPARTMENT_TREE_DATA }
   }
 }
