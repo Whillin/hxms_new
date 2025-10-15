@@ -13,9 +13,21 @@ export class AuthService {
     return this.jwtService.sign(payload)
   }
 
+  signRefreshToken(payload: Record<string, any>): string {
+    return this.jwtService.sign(payload, { expiresIn: '7d' })
+  }
+
   verifyToken(token: string): Record<string, any> | null {
     try {
       return this.jwtService.verify(token)
+    } catch {
+      return null
+    }
+  }
+
+  verifyRefreshToken(refreshToken: string): Record<string, any> | null {
+    try {
+      return this.jwtService.verify(refreshToken)
     } catch {
       return null
     }
