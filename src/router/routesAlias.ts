@@ -61,5 +61,9 @@ export enum RoutesAlias {
   // 权限演示页面
   PermissionSwitchRole = '/examples/permission/switch-role', // 切换权限页面
   PermissionButtonAuth = '/examples/permission/button-auth', // 按钮权限演示页面
-  PermissionPageVisibility = '/examples/permission/page-visibility' // 页面可见性演示页面
+  PermissionPageVisibility = '/examples/permission/page-visibility', // 页面可见性演示页面
+  // 客户与商机
+  CustomerList = '/customer/list', // 客户列表
+  OpportunityList = '/opportunity/list', // 商机列表
+  OpportunityFollow = '/opportunity/follow' // 跟进记录
 }

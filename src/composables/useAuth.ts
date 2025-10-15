@@ -19,7 +19,7 @@ export const useAuth = () => {
   const { isFrontendMode } = useCommon()
   const { info } = storeToRefs(userStore)
 
-  // 前端按钮权限（例如：['add', 'edit']）
+  // 前端按钮权限（兼容多种标识形式，如：'add'、'B_ADD'）
   const frontendAuthList = info.value?.buttons ?? []
 
   // 后端路由 meta 配置的权限列表（例如：[{ authMark: 'add' }]）
@@ -35,7 +35,13 @@ export const useAuth = () => {
   const hasAuth = (auth: string): boolean => {
     // 前端模式
     if (isFrontendMode.value) {
-      return frontendAuthList.includes(auth)
+      // 兼容不同大小写和前缀（例如：'add'、'ADD'、'B_ADD'、'b_add'）
+      const lower = String(auth).toLowerCase()
+      const upper = String(auth).toUpperCase()
+      const withPrefixUpper = `B_${upper}`
+      const withPrefixLower = `b_${lower}`
+      const candidates = [auth, lower, upper, withPrefixUpper, withPrefixLower]
+      return frontendAuthList.some((mark) => candidates.includes(String(mark)))
     }
 
     // 后端模式

@@ -139,6 +139,8 @@
         p {
           margin: 0 10px 0 9px;
           font-size: 18px;
+          white-space: nowrap; // 防止换行
+          letter-spacing: 0.5px; // 提升可读性
         }
       }
 

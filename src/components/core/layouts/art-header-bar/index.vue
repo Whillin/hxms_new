@@ -254,7 +254,8 @@
   // 系统名显示：窄屏显示简写并保留完整标题的 tooltip
   const fullName = AppConfig.systemInfo.name
   const shortName = AppConfig.systemInfo.shortName || deriveShortName(fullName)
-  const displayName = computed(() => (width.value < 1280 ? shortName : fullName))
+  // 始终显示完整系统名，避免窄屏被缩略导致标题不完整
+  const displayName = computed(() => fullName)
 
   function deriveShortName(name: string) {
     if (name.includes('管理系统')) return name.replace('管理系统', '系统')

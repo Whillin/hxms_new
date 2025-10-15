@@ -56,14 +56,60 @@ export const asyncRoutes: AppRouteRecord[] = [
           title: 'menus.dashboard.analysis',
           keepAlive: false
         }
+      }
+    ]
+  },
+  {
+    path: '/customer',
+    name: 'Customer',
+    component: RoutesAlias.Layout,
+    meta: {
+      title: '客户管理',
+      icon: '&#xe7ae;',
+      roles: ['R_SUPER', 'R_ADMIN']
+    },
+    children: [
+      {
+        path: 'list',
+        name: 'CustomerList',
+        component: RoutesAlias.CustomerList,
+        meta: {
+          title: '客户列表',
+          keepAlive: true,
+          authList: [
+            { title: '编辑', authMark: 'edit' },
+            { title: '删除', authMark: 'delete' }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    path: '/opportunity',
+    name: 'Opportunity',
+    component: RoutesAlias.Layout,
+    meta: {
+      title: '商机管理',
+      icon: '&#xe8d4;',
+      roles: ['R_SUPER', 'R_ADMIN']
+    },
+    children: [
+      {
+        path: 'list',
+        name: 'OpportunityList',
+        component: RoutesAlias.OpportunityList,
+        meta: {
+          title: '商机列表',
+          keepAlive: true
+        }
       },
       {
-        path: 'ecommerce',
-        name: 'Ecommerce',
-        component: RoutesAlias.Ecommerce,
+        path: 'follow',
+        name: 'OpportunityFollow',
+        component: RoutesAlias.OpportunityFollow,
         meta: {
-          title: 'menus.dashboard.ecommerce',
-          keepAlive: false
+          title: '跟进记录',
+          keepAlive: true
         }
       }
     ]
@@ -750,41 +796,5 @@ export const asyncRoutes: AppRouteRecord[] = [
         }
       }
     ]
-  },
-  {
-    name: 'Document',
-    path: '',
-    component: '',
-    meta: {
-      title: 'menus.help.document',
-      icon: '&#xe73e;',
-      link: WEB_LINKS.DOCS,
-      isIframe: false,
-      keepAlive: false
-    }
-  },
-  {
-    name: 'LiteVersion',
-    path: '',
-    component: '',
-    meta: {
-      title: 'menus.help.liteVersion',
-      icon: '&#xe7ff;',
-      link: WEB_LINKS.LiteVersion,
-      isIframe: false,
-      keepAlive: false
-    }
-  },
-  // 一级菜单
-  {
-    name: 'ChangeLog',
-    path: '/change/log',
-    component: RoutesAlias.ChangeLog,
-    meta: {
-      title: 'menus.plan.log',
-      showTextBadge: `v${__APP_VERSION__}`,
-      icon: '&#xe712;',
-      keepAlive: false
-    }
   }
 ]

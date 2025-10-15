@@ -23,7 +23,7 @@ export function fetchGetRoleList(params: Api.SystemManage.RoleSearchParams) {
 // 获取部门列表（树或分页列表皆可，由响应适配器处理）
 export function fetchGetDepartmentList(params: Api.SystemManage.DepartmentSearchParams) {
   return request.get<Api.SystemManage.DepartmentList | ApiResponse<Api.SystemManage.DepartmentItem>>({
-    url: '/department/list',
+    url: '/api/department/list',
     params
   })
 }
@@ -34,7 +34,7 @@ export function fetchSaveDepartment(
   options?: { showSuccessMessage?: boolean }
 ) {
   return request.post<{ success: boolean }>({
-    url: '/department/save',
+    url: '/api/department/save',
     data,
     showSuccessMessage: options?.showSuccessMessage ?? true
   })
@@ -43,7 +43,33 @@ export function fetchSaveDepartment(
 // 删除部门
 export function fetchDeleteDepartment(id: number) {
   return request.post<boolean>({
-    url: '/department/delete',
+    url: '/api/department/delete',
+    data: { id },
+    showSuccessMessage: true
+  })
+}
+
+// 获取员工列表
+export function fetchGetEmployeeList(params: Api.SystemManage.EmployeeSearchParams) {
+  return request.get<Api.SystemManage.EmployeeList>({
+    url: '/api/employee/list',
+    params
+  })
+}
+
+// 保存员工（新增/编辑）
+export function fetchSaveEmployee(data: Partial<Api.SystemManage.EmployeeItem>) {
+  return request.post<boolean>({
+    url: '/api/employee/save',
+    data,
+    showSuccessMessage: true
+  })
+}
+
+// 删除员工
+export function fetchDeleteEmployee(id: number) {
+  return request.post<boolean>({
+    url: '/api/employee/delete',
     data: { id },
     showSuccessMessage: true
   })

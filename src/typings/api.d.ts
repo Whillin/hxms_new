@@ -137,5 +137,38 @@ declare namespace Api {
       Pick<DepartmentItem, 'name' | 'type' | 'brand' | 'region' | 'store' | 'enabled'> &
         Api.Common.CommonSearchParams
     >
+
+    /** 员工列表 */
+    type EmployeeList = Api.Common.PaginatedResponse<EmployeeItem>
+
+    /** 员工项 */
+    interface EmployeeItem {
+      /** 主键ID */
+      id: number
+      /** 姓名 */
+      name: string
+      /** 手机号 */
+      phone: string
+      /** 性别 */
+      gender: 'male' | 'female' | 'other'
+      /** 在职/离职状态（1 在职 / 2 离职）*/
+      status: Api.Common.EnableStatus
+      /** 岗位角色编码 */
+      role: string
+      /** 品牌ID（集团/品牌）*/
+      brandId?: number
+      /** 区域ID */
+      regionId?: number
+      /** 门店ID */
+      storeId?: number
+      /** 入职时间 */
+      hireDate?: string
+    }
+
+    /** 员工搜索参数 */
+    type EmployeeSearchParams = Partial<
+      Pick<EmployeeItem, 'name' | 'phone' | 'role' | 'gender' | 'status'> &
+        Api.Common.CommonSearchParams
+    >
   }
 }

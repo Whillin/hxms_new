@@ -2,17 +2,16 @@
 <template>
   <div class="login-left-view">
     <div class="logo">
-      <ArtLogo class="icon" size="46" />
+      <ArtLogo class="icon" size="160" />
       <h1 class="title">{{ AppConfig.systemInfo.name }}</h1>
     </div>
 
     <div class="left-img">
-      <ThemeSvg :src="loginIcon" size="100%" />
+      <img class="left-logo" :src="logoImg" alt="logo" />
     </div>
 
     <div class="text-wrap">
       <h1> {{ $t('login.leftView.title') }} </h1>
-      <p> {{ $t('login.leftView.subTitle') }} </p>
     </div>
 
     <!-- 几何装饰元素 -->
@@ -72,7 +71,7 @@
 
 <script setup lang="ts">
   import AppConfig from '@/config'
-  import loginIcon from '@imgs/svg/login_icon.svg'
+  import logoImg from '@imgs/common/logo.webp'
   import { themeAnimation } from '@/utils/theme/animation'
 
   // 定义 props
@@ -109,6 +108,20 @@
       display: flex;
       align-items: center;
 
+      // 增强顶角 logo 在浅色主题下的可读性
+      :deep(.art-logo) {
+        display: inline-flex;
+        padding: 0;
+        border-radius: 0;
+        background-color: transparent;
+        box-shadow: none;
+        border: none;
+        :deep(img) {
+          filter: drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.12)) brightness(1.06) contrast(1.18);
+          image-rendering: -webkit-optimize-contrast;
+        }
+      }
+
       .title {
         margin-left: 10px;
         font-size: 20px;
@@ -121,9 +134,23 @@
       position: absolute;
       inset: 0 0 10.5%;
       z-index: 10;
-      width: 40%;
+      width: 75%;
       margin: auto;
       animation: slideInLeft 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      .left-logo {
+        display: block;
+        width: 100%;
+        height: auto;
+        border-radius: 0;
+        padding: 0;
+        background-color: transparent;
+        box-shadow: none;
+        filter: brightness(1.1) contrast(1.22) saturate(1.12);
+      }
     }
 
     .text-wrap {
@@ -601,6 +628,22 @@
       &::after {
         background: linear-gradient(90deg, $primary-light-8, transparent);
       }
+    }
+
+    // 暗色下提升顶角 logo 对比度
+    .logo :deep(.art-logo) {
+      background-color: transparent;
+      box-shadow: none;
+      border: none;
+      :deep(img) {
+        filter: brightness(1.08) contrast(1.2);
+      }
+    }
+    // 暗色下主图的对比与阴影
+    .left-img .left-logo {
+      background-color: transparent;
+      box-shadow: none;
+      filter: brightness(1.12) contrast(1.25);
     }
   }
 </style>

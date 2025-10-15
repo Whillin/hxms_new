@@ -20,6 +20,8 @@ export default ({ mode }: { mode: string }) => {
   const root = process.cwd()
   const env = loadEnv(mode, root)
   const { VITE_VERSION, VITE_PORT, VITE_BASE_URL, VITE_API_URL, VITE_API_PROXY_URL } = env
+  // 当开发环境的 API_URL 使用本地前缀 /api 时，不启用代理，确保走本地 mock 中间件
+  const useProxy = VITE_API_URL !== '/api' && !!VITE_API_PROXY_URL
 
   console.log(`🚀 API_URL = ${VITE_API_URL}`)
   console.log(`🚀 VERSION = ${VITE_VERSION}`)
@@ -31,13 +33,15 @@ export default ({ mode }: { mode: string }) => {
     base: VITE_BASE_URL,
     server: {
       port: Number(VITE_PORT),
-      proxy: {
-        '/api': {
-          target: VITE_API_PROXY_URL,
-          changeOrigin: true,
-          rewrite: (path) => path.replace(/^\/api/, '')
-        }
-      },
+      proxy: useProxy
+        ? {
+            '/api': {
+              target: VITE_API_PROXY_URL,
+              changeOrigin: true,
+              rewrite: (path) => path.replace(/^\/api/, '')
+            }
+          }
+        : undefined,
       host: true
     },
     // 路径别名
@@ -78,6 +82,8 @@ export default ({ mode }: { mode: string }) => {
       departmentMockPlugin(),
       // 开发环境认证接口拦截中间件
       authMockPlugin(),
+      // 开发环境员工接口拦截中间件
+      employeeMockPlugin(),
       // 自动按需导入 API
       AutoImport({
         imports: ['vue', 'vue-router', '@vueuse/core', 'pinia'],
@@ -161,6 +167,61 @@ function departmentMockPlugin(): Plugin {
   const departmentData: typeof DEPARTMENT_TREE_DATA = JSON.parse(
     JSON.stringify(DEPARTMENT_TREE_DATA)
   )
+
+  // 规范层级：品牌下挂销售部门 -> 区域 -> 门店；移除门店下的销售部门
+  const normalizeDepartmentHierarchy = (nodes: any[]): any[] => {
+    const generateDeptId = (brandId: number): number => {
+      return (Number(brandId) || 0) * 1000 + 10
+    }
+    const walk = (arr: any[]) => {
+      if (!Array.isArray(arr)) return
+      for (const node of arr) {
+        if (node.type === 'group' && Array.isArray(node.children)) {
+          walk(node.children)
+        } else if (node.type === 'brand') {
+          const children = Array.isArray(node.children) ? node.children : []
+          const regions = children.filter((c: any) => c.type === 'region')
+          const others = children.filter((c: any) => c.type !== 'region')
+
+          // 清理门店下的销售部门（门店为最低层级）
+          for (const region of regions) {
+            const stores = Array.isArray(region.children) ? region.children : []
+            for (const store of stores) {
+              if (Array.isArray(store.children) && store.children.length) {
+                delete store.children
+              }
+            }
+          }
+
+          if (regions.length > 0) {
+            let deptNode = children.find(
+              (c: any) => c.type === 'department' && c.name === '销售部门'
+            )
+            if (!deptNode) {
+              deptNode = {
+                id: generateDeptId(node.id),
+                name: '销售部门',
+                type: 'department',
+                enabled: true,
+                createTime:
+                  node.createTime || new Date().toISOString().slice(0, 19).replace('T', ' '),
+                children: []
+              }
+            }
+            deptNode.children = regions
+            node.children = [
+              ...others.filter((c: any) => c.type !== 'department'),
+              deptNode
+            ]
+          }
+        }
+      }
+    }
+    walk(nodes)
+    return nodes
+  }
+
+  normalizeDepartmentHierarchy(departmentData as any)
 
   // 递归过滤树形数据
   const filterTree = (
@@ -308,14 +369,21 @@ function departmentMockPlugin(): Plugin {
               if (incoming.parentId) {
                 const parent = findNode(departmentData as any, Number(incoming.parentId))
                 if (parent) {
-                  // 允许在各层级下新增其下一级：
-                  // group -> brand, brand -> region, region -> store, store -> department
+                  // 新层级规则：group -> brand -> department -> region -> store
+                  // 门店为最低层级，禁止新增子级
+                  if (parent.type === 'store') {
+                    return sendJson(res, {
+                      code: 400,
+                      msg: '门店为最低层级，不能新增子级',
+                      data: { success: false }
+                    }) as any
+                  }
                   const nextTypeMap: Record<string, string> = {
                     group: 'brand',
-                    brand: 'region',
+                    brand: 'department',
+                    department: 'region',
                     region: 'store',
-                    store: 'department',
-                    department: 'department'
+                    store: 'store'
                   }
                   const expectType = nextTypeMap[parent.type]
                   // 若未明确类型，则按父级推断；若类型与期待不一致，强制修正
@@ -513,6 +581,178 @@ function authMockPlugin(): Plugin {
               pages: Math.ceil(total / size)
             }
           })
+        }
+
+        next()
+      })
+    }
+  }
+}
+
+/**
+ * 开发环境员工接口拦截插件
+ * 提供 /api/employee/list /save /delete
+ */
+function employeeMockPlugin(): Plugin {
+  const sendJson = (res: ServerResponse, data: any) => {
+    res.statusCode = 200
+    res.setHeader('Content-Type', 'application/json')
+    res.end(JSON.stringify(data))
+  }
+
+  type Employee = {
+    id: number
+    name: string
+    phone: string
+    gender: 'male' | 'female' | 'other'
+    status: '1' | '2'
+    role: string
+    brandId?: number
+    regionId?: number
+    storeId?: number
+    hireDate?: string
+  }
+
+  // 初始员工数据（可变）
+  const EMPLOYEE_LIST_DATA: Employee[] = Array.from({ length: 25 }).map((_, i) => {
+    const id = i + 1
+    const genders: Employee['gender'][] = ['male', 'female', 'other']
+    const roles = ['R_SALES', 'R_TECH', 'R_FINANCE', 'R_HR']
+    return {
+      id,
+      name: `员工${id}`,
+      phone: `1380000${String(1000 + id).slice(-4)}`,
+      gender: genders[id % genders.length],
+      status: id % 5 === 0 ? '2' : '1',
+      role: roles[id % roles.length],
+      brandId: id % 3,
+      regionId: (id % 4) + 1,
+      storeId: (id % 5) + 1,
+      hireDate: new Date(Date.now() - id * 86400000).toISOString().slice(0, 10)
+    }
+  })
+
+  const parseBody = async (req: IncomingMessage): Promise<any> => {
+    return new Promise((resolve) => {
+      let body = ''
+      req.on('data', (chunk) => (body += chunk))
+      req.on('end', () => {
+        try {
+          resolve(body ? JSON.parse(body) : {})
+        } catch (e) {
+          resolve({})
+        }
+      })
+    })
+  }
+
+  return {
+    name: 'employee-mock-plugin',
+    apply: 'serve',
+    configureServer(server) {
+      server.middlewares.use(async (req: IncomingMessage, res: ServerResponse, next) => {
+        if (!req.url) return next()
+        const url = new URL(req.url, 'http://localhost')
+        const pathname = url.pathname
+
+        // 员工列表
+        if (pathname === '/api/employee/list' && req.method === 'GET') {
+          const current = parseInt(url.searchParams.get('current') || '1')
+          const size = parseInt(url.searchParams.get('size') || '10')
+          const name = url.searchParams.get('name') || ''
+          const phone = url.searchParams.get('phone') || ''
+          const role = url.searchParams.get('role') || ''
+          const gender = url.searchParams.get('gender') || ''
+          const status = url.searchParams.get('status') || ''
+          const brandIdParam = url.searchParams.get('brandId')
+          const regionIdParam = url.searchParams.get('regionId')
+          const storeIdParam = url.searchParams.get('storeId')
+          const brandId = brandIdParam !== null ? Number(brandIdParam) : undefined
+          const regionId = regionIdParam !== null ? Number(regionIdParam) : undefined
+          const storeId = storeIdParam !== null ? Number(storeIdParam) : undefined
+
+          let filtered = EMPLOYEE_LIST_DATA.filter((e) => {
+            if (name && !String(e.name).includes(name)) return false
+            if (phone && !String(e.phone).includes(phone)) return false
+            if (role && String(e.role) !== role) return false
+            if (gender && String(e.gender) !== gender) return false
+            if (status && String(e.status) !== status) return false
+            if (typeof brandId !== 'undefined' && !Number.isNaN(brandId)) {
+              if (Number(e.brandId) !== brandId) return false
+            }
+            if (typeof regionId !== 'undefined' && !Number.isNaN(regionId)) {
+              if (Number(e.regionId) !== regionId) return false
+            }
+            if (typeof storeId !== 'undefined' && !Number.isNaN(storeId)) {
+              if (Number(e.storeId) !== storeId) return false
+            }
+            return true
+          })
+
+          const total = filtered.length
+          const start = (current - 1) * size
+          const end = start + size
+          const records = filtered.slice(start, end)
+
+          return sendJson(res, {
+            code: 200,
+            msg: '获取成功',
+            data: { records, total, size, current, pages: Math.ceil(total / size) }
+          })
+        }
+
+        // 保存员工（新增/更新）
+        if (pathname === '/api/employee/save' && req.method === 'POST') {
+          const body = await parseBody(req)
+          const incoming = body || {}
+
+          if (incoming.id) {
+            const idx = EMPLOYEE_LIST_DATA.findIndex((e) => e.id === Number(incoming.id))
+            if (idx !== -1) {
+              EMPLOYEE_LIST_DATA[idx] = {
+                ...EMPLOYEE_LIST_DATA[idx],
+                name: incoming.name ?? EMPLOYEE_LIST_DATA[idx].name,
+                phone: incoming.phone ?? EMPLOYEE_LIST_DATA[idx].phone,
+                gender: incoming.gender ?? EMPLOYEE_LIST_DATA[idx].gender,
+                status: incoming.status ?? EMPLOYEE_LIST_DATA[idx].status,
+                role: incoming.role ?? EMPLOYEE_LIST_DATA[idx].role,
+                brandId: incoming.brandId ?? EMPLOYEE_LIST_DATA[idx].brandId,
+                regionId: incoming.regionId ?? EMPLOYEE_LIST_DATA[idx].regionId,
+                storeId: incoming.storeId ?? EMPLOYEE_LIST_DATA[idx].storeId,
+                hireDate: incoming.hireDate ?? EMPLOYEE_LIST_DATA[idx].hireDate
+              }
+            }
+          } else {
+            const maxId = EMPLOYEE_LIST_DATA.reduce((m, e) => Math.max(m, e.id), 0)
+            const newItem: Employee = {
+              id: maxId + 1,
+              name: incoming.name || '未命名员工',
+              phone: incoming.phone || '13800000000',
+              gender: incoming.gender || 'other',
+              status: incoming.status || '1',
+              role: incoming.role || 'R_SALES',
+              brandId: incoming.brandId,
+              regionId: incoming.regionId,
+              storeId: incoming.storeId,
+              hireDate: incoming.hireDate || new Date().toISOString().slice(0, 10)
+            }
+            EMPLOYEE_LIST_DATA.push(newItem)
+          }
+
+          return sendJson(res, { code: 200, msg: '保存成功', data: true })
+        }
+
+        // 删除员工
+        if (pathname === '/api/employee/delete' && req.method === 'POST') {
+          const body = await parseBody(req)
+          const id = Number(body?.id)
+          if (!id || Number.isNaN(id)) {
+            return sendJson(res, { code: 400, msg: '缺少有效的ID', data: false })
+          }
+          const idx = EMPLOYEE_LIST_DATA.findIndex((e) => e.id === id)
+          if (idx === -1) return sendJson(res, { code: 404, msg: '未找到员工', data: false })
+          EMPLOYEE_LIST_DATA.splice(idx, 1)
+          return sendJson(res, { code: 200, msg: '删除成功', data: true })
         }
 
         next()

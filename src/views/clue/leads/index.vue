@@ -20,7 +20,7 @@
         <div class="table-header-wrapper">
           <h4>{{ $t('menus.clue.leads') }}</h4>
           <div class="table-tools">
-            <ElButton size="small" type="primary" @click="openAddDialog" v-auth="'add'">
+            <ElButton size="small" type="primary" @click="openAddDialog" v-if="hasAuth('add')">
               <ElIcon><Plus /></ElIcon>
               新建线索
             </ElButton>
@@ -173,9 +173,6 @@
           <ElDescriptionsItem label="转化/保客车型">{{
             currentDetail?.convertOrRetentionModel
           }}</ElDescriptionsItem>
-          <ElDescriptionsItem label="一级推荐人">{{
-            currentDetail?.primaryReferrer
-          }}</ElDescriptionsItem>
           <ElDescriptionsItem label="推荐人">{{ currentDetail?.referrer }}</ElDescriptionsItem>
           <ElDescriptionsItem label="接触次数">{{
             currentDetail?.contactTimes
@@ -221,8 +218,11 @@
   import { useProductCategoryStore } from '@/store/modules/productCategory'
   import { useProductStore } from '@/store/modules/product'
   import { storeToRefs } from 'pinia'
+  import { useAuth } from '@/composables/useAuth'
 
   defineOptions({ name: 'ClueLeads' })
+
+  const { hasAuth } = useAuth()
 
   // 搜索表单
   const searchRef = ref()
@@ -340,7 +340,6 @@
     channelLevel1: string
     channelLevel2: string
     convertOrRetentionModel: string
-    primaryReferrer: string
     referrer: string
     contactTimes: number
     opportunityLevel: 'H' | 'A' | 'B' | 'C'
@@ -696,7 +695,6 @@
     channelLevel1: '',
     channelLevel2: '',
     convertOrRetentionModel: '',
-    primaryReferrer: '',
     referrer: '',
     contactTimes: 1,
     opportunityLevel: 'A',
@@ -1035,12 +1033,6 @@
       props: { disabled: !ALLOWED_PRIMARY_REFERRER.includes(String(addForm.value.channelLevel1)) }
     },
     {
-      label: '一级推荐人',
-      key: 'primaryReferrer',
-      type: 'input',
-      props: { disabled: !ALLOWED_PRIMARY_REFERRER.includes(String(addForm.value.channelLevel1)) }
-    },
-    {
       label: '推荐人',
       key: 'referrer',
       type: 'input',
@@ -1359,7 +1351,6 @@
       const l1str = String(l1)
       if (!ALLOWED_PRIMARY_REFERRER.includes(l1str)) {
         addForm.value.convertOrRetentionModel = ''
-        addForm.value.primaryReferrer = ''
       }
       if (!ALLOWED_REFERRER.includes(l1str)) {
         addForm.value.referrer = ''
