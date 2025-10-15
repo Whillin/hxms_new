@@ -7,13 +7,15 @@ export class UserController {
   @Get('info')
   info(@Req() req: any) {
     const userName = req.user?.userName || 'Admin'
+    const roles = Array.isArray(req.user?.roles) ? req.user.roles : ['R_USER']
+    const userId = req.user?.sub || 1
     return {
       code: 200,
       msg: 'ok',
       data: {
         buttons: ['B_ADD', 'B_EDIT', 'B_DELETE'],
-        roles: ['R_ADMIN', 'R_SUPER'],
-        userId: 1,
+        roles,
+        userId,
         userName
       }
     }
