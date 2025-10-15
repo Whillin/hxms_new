@@ -19,9 +19,19 @@ import { ROLE_LIST_DATA } from './src/mock/temp/roleData'
 export default ({ mode }: { mode: string }) => {
   const root = process.cwd()
   const env = loadEnv(mode, root)
-  const { VITE_VERSION, VITE_PORT, VITE_BASE_URL, VITE_API_URL, VITE_API_PROXY_URL } = env
-  // 当开发环境的 API_URL 使用本地前缀 /api 时，不启用代理，确保走本地 mock 中间件
-  const useProxy = VITE_API_URL !== '/api' && !!VITE_API_PROXY_URL
+  const {
+    VITE_VERSION,
+    VITE_PORT,
+    VITE_BASE_URL,
+    VITE_API_URL,
+    VITE_API_PROXY_URL,
+    VITE_USE_MOCK
+  } = env
+  // mock 开关（默认开启），当设置为 'false' 时关闭本地 mock，走后端代理
+  const useMock = VITE_USE_MOCK !== 'false'
+  const devApiTarget = VITE_API_PROXY_URL || 'http://localhost:3001'
+  // 使用代理的条件：显式关闭 mock 时启用代理到后端
+  const useProxy = !useMock
 
   console.log(`🚀 API_URL = ${VITE_API_URL}`)
   console.log(`🚀 VERSION = ${VITE_VERSION}`)
@@ -36,9 +46,8 @@ export default ({ mode }: { mode: string }) => {
       proxy: useProxy
         ? {
             '/api': {
-              target: VITE_API_PROXY_URL,
-              changeOrigin: true,
-              rewrite: (path) => path.replace(/^\/api/, '')
+              target: devApiTarget,
+              changeOrigin: true
             }
           }
         : undefined,
@@ -78,12 +87,8 @@ export default ({ mode }: { mode: string }) => {
     },
     plugins: [
       vue(),
-      // 开发环境部门接口拦截中间件
-      departmentMockPlugin(),
-      // 开发环境认证接口拦截中间件
-      authMockPlugin(),
-      // 开发环境员工接口拦截中间件
-      employeeMockPlugin(),
+      // 根据开关启用/禁用本地 mock 插件
+      ...(useMock ? [departmentMockPlugin(), authMockPlugin(), employeeMockPlugin()] : []),
       // 自动按需导入 API
       AutoImport({
         imports: ['vue', 'vue-router', '@vueuse/core', 'pinia'],
