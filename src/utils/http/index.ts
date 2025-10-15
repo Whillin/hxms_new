@@ -15,6 +15,15 @@ const UNAUTHORIZED_DEBOUNCE_TIME = 3000
 let isUnauthorizedErrorShown = false
 let unauthorizedTimer: NodeJS.Timeout | null = null
 
+/** 刷新令牌进行中Promise（防并发） */
+let refreshPromise: Promise<{ token: string; refreshToken: string }> | null = null
+
+/** 判断是否为认证相关接口（不参与刷新重试） */
+function isAuthUrl(url?: string): boolean {
+  if (!url) return false
+  return ['/api/auth/login', '/api/auth/refresh'].some((path) => url.includes(path))
+}
+
 /** 扩展 AxiosRequestConfig */
 interface ExtendedAxiosRequestConfig extends AxiosRequestConfig {
   showErrorMessage?: boolean
@@ -73,10 +82,18 @@ axiosInstance.interceptors.response.use(
   (response: AxiosResponse<Http.BaseResponse>) => {
     const { code, msg } = response.data
     if (code === ApiStatus.success) return response
+    if (code === ApiStatus.unauthorized && !isAuthUrl(response.config?.url)) {
+      const originalConfig = response.config as InternalAxiosRequestConfig
+      return attemptRefreshAndRetry(originalConfig, msg)
+    }
     if (code === ApiStatus.unauthorized) handleUnauthorizedError(msg)
     throw createHttpError(msg || $t('httpMsg.requestFailed'), code)
   },
   (error) => {
+    if (error.response?.status === ApiStatus.unauthorized && !isAuthUrl(error.config?.url)) {
+      const originalConfig = error.config as InternalAxiosRequestConfig
+      return attemptRefreshAndRetry(originalConfig)
+    }
     if (error.response?.status === ApiStatus.unauthorized) handleUnauthorizedError()
     return Promise.reject(handleError(error))
   }
@@ -116,6 +133,48 @@ function logOut() {
   setTimeout(() => {
     useUserStore().logOut()
   }, LOGOUT_DELAY)
+}
+
+/** 尝试刷新令牌并重试原请求 */
+async function attemptRefreshAndRetry(
+  originalConfig: InternalAxiosRequestConfig,
+  message?: string
+) {
+  try {
+    await ensureRefreshed()
+    const { accessToken } = useUserStore()
+    if (accessToken) {
+      originalConfig.headers = originalConfig.headers || {}
+      originalConfig.headers['Authorization'] = accessToken
+    }
+    return axiosInstance.request(originalConfig)
+  } catch {
+    handleUnauthorizedError(message)
+  }
+}
+
+/** 确保刷新令牌（单次并发控制） */
+async function ensureRefreshed(): Promise<void> {
+  const userStore = useUserStore()
+  const rt = userStore.refreshToken
+  if (!rt) {
+    throw createHttpError($t('httpMsg.unauthorized'), ApiStatus.unauthorized)
+  }
+
+  if (!refreshPromise) {
+    refreshPromise = api.post<{ token: string; refreshToken: string }>({
+      url: '/api/auth/refresh',
+      params: { refreshToken: rt },
+      showErrorMessage: false
+    })
+  }
+
+  try {
+    const data = await refreshPromise
+    userStore.setToken(data.token, data.refreshToken)
+  } finally {
+    refreshPromise = null
+  }
 }
 
 /** 是否需要重试 */
