@@ -53,7 +53,9 @@ export const useOpportunityFollowStore = defineStore(
         nextContactTime: payload.nextContactTime || `${formatDate(now)} 00:00:00`,
         status: payload.status || '跟进中',
         method: payload.method || '电话',
-        createdAt: payload.createdAt || `${formatDate(now)} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`
+        createdAt:
+          payload.createdAt ||
+          `${formatDate(now)} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`
       }
       records.value = [record, ...records.value]
     }

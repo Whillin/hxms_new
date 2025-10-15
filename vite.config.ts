@@ -209,10 +209,7 @@ function departmentMockPlugin(): Plugin {
               }
             }
             deptNode.children = regions
-            node.children = [
-              ...others.filter((c: any) => c.type !== 'department'),
-              deptNode
-            ]
+            node.children = [...others.filter((c: any) => c.type !== 'department'), deptNode]
           }
         }
       }
@@ -251,7 +248,7 @@ function departmentMockPlugin(): Plugin {
       req.on('end', () => {
         try {
           resolve(body ? JSON.parse(body) : {})
-        } catch (e) {
+        } catch {
           resolve({})
         }
       })
@@ -282,9 +279,7 @@ function departmentMockPlugin(): Plugin {
           const store = url.searchParams.get('store') || undefined
           const enabledParam = url.searchParams.get('enabled')
           const enabled =
-            enabledParam === null
-              ? undefined
-              : enabledParam === 'true' || enabledParam === '1'
+            enabledParam === null ? undefined : enabledParam === 'true' || enabledParam === '1'
 
           const predicate = (node: any) => {
             const nameOk = name ? String(node.name).includes(name) : true
@@ -421,7 +416,11 @@ function departmentMockPlugin(): Plugin {
               const n = nodes[i]
               if (n.id === id) {
                 if (Array.isArray(n.children) && n.children.length > 0) {
-                  return sendJson(res, { code: 400, msg: '该部门下还有子部门，请先删除子部门', data: false }) as any
+                  return sendJson(res, {
+                    code: 400,
+                    msg: '该部门下还有子部门，请先删除子部门',
+                    data: false
+                  }) as any
                 }
                 nodes.splice(i, 1)
                 return true
@@ -487,7 +486,7 @@ function authMockPlugin(): Plugin {
                 msg: '登录成功',
                 data: { token, refreshToken }
               })
-            } catch (e) {
+            } catch {
               return sendJson(res, { code: 400, msg: '请求体解析失败', data: null })
             }
           })
@@ -516,8 +515,12 @@ function authMockPlugin(): Plugin {
           const userStatus = searchParams.get('userStatus') || ''
 
           // 过滤数据
-          let filteredData = USER_LIST_DATA.filter(user => {
-            if (userName && !user.userName.includes(userName) && !user.nickName.includes(userName)) {
+          const filteredData = USER_LIST_DATA.filter((user) => {
+            if (
+              userName &&
+              !user.userName.includes(userName) &&
+              !user.nickName.includes(userName)
+            ) {
               return false
             }
             if (userStatus && user.userStatus !== userStatus) {
@@ -554,8 +557,12 @@ function authMockPlugin(): Plugin {
           const roleStatus = searchParams.get('roleStatus') || ''
 
           // 过滤数据
-          let filteredData = ROLE_LIST_DATA.filter(role => {
-            if (roleName && !role.roleName.includes(roleName) && !role.roleCode.includes(roleName)) {
+          const filteredData = ROLE_LIST_DATA.filter((role) => {
+            if (
+              roleName &&
+              !role.roleName.includes(roleName) &&
+              !role.roleCode.includes(roleName)
+            ) {
               return false
             }
             if (roleStatus && role.roleStatus !== roleStatus) {
@@ -639,7 +646,7 @@ function employeeMockPlugin(): Plugin {
       req.on('end', () => {
         try {
           resolve(body ? JSON.parse(body) : {})
-        } catch (e) {
+        } catch {
           resolve({})
         }
       })
@@ -671,7 +678,7 @@ function employeeMockPlugin(): Plugin {
           const regionId = regionIdParam !== null ? Number(regionIdParam) : undefined
           const storeId = storeIdParam !== null ? Number(storeIdParam) : undefined
 
-          let filtered = EMPLOYEE_LIST_DATA.filter((e) => {
+          const filtered = EMPLOYEE_LIST_DATA.filter((e) => {
             if (name && !String(e.name).includes(name)) return false
             if (phone && !String(e.phone).includes(phone)) return false
             if (role && String(e.role) !== role) return false

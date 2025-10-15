@@ -80,9 +80,7 @@
   import EmployeeSearch from './modules/employee-search.vue'
   import EmployeeDialog from './modules/employee-dialog.vue'
   import { ElTag, ElMessage } from 'element-plus'
-  import { h } from 'vue'
   import ArtButtonTable from '@/components/core/forms/art-button-table/index.vue'
-  import { Edit, Delete } from '@element-plus/icons-vue'
   import { onMounted } from 'vue'
   import { EMPLOYEE_ROLE_LABELS } from '@/utils/employee'
 
@@ -217,7 +215,7 @@
       const res = await fetchGetDepartmentList({})
       // 适配后的返回直接为数组树
       deptTree.value = Array.isArray(res as any) ? (res as any as any[]) : []
-    } catch (e) {
+    } catch {
       deptTree.value = []
     }
   }
@@ -258,6 +256,7 @@
         background-color: var(--el-color-success-light-9);
         border-color: var(--el-color-success-light-7);
       }
+
       &.el-tag--danger {
         background-color: var(--el-color-danger-light-9);
         border-color: var(--el-color-danger-light-7);

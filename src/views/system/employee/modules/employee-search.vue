@@ -67,7 +67,7 @@
       const tree = Array.isArray(res as any) ? (res as any) : []
       deptTree.value = tree
       buildIdMap(tree)
-    } catch (e) {
+    } catch {
       deptTree.value = []
       idMap.value = {}
     }
@@ -75,28 +75,57 @@
   onMounted(loadDeptTree)
 
   const formItems = computed(() => [
-    { label: '姓名', key: 'name', type: 'input', props: { placeholder: '请输入姓名', clearable: true } },
-    { label: '手机号', key: 'phone', type: 'input', props: { placeholder: '请输入手机号', clearable: true } },
     {
-      label: '岗位', key: 'role', type: 'select', props: {
-        options: roleOptions.value, placeholder: '选择岗位', clearable: true
+      label: '姓名',
+      key: 'name',
+      type: 'input',
+      props: { placeholder: '请输入姓名', clearable: true }
+    },
+    {
+      label: '手机号',
+      key: 'phone',
+      type: 'input',
+      props: { placeholder: '请输入手机号', clearable: true }
+    },
+    {
+      label: '岗位',
+      key: 'role',
+      type: 'select',
+      props: {
+        options: roleOptions.value,
+        placeholder: '选择岗位',
+        clearable: true
       }
     },
     {
-      label: '部门', key: 'departmentPath', type: 'cascader', props: {
+      label: '部门',
+      key: 'departmentPath',
+      type: 'cascader',
+      props: {
         options: deptOptions.value,
         props: { checkStrictly: true, emitPath: true },
-        placeholder: '请选择部门', clearable: true
+        placeholder: '请选择部门',
+        clearable: true
       }
     },
     {
-      label: '性别', key: 'gender', type: 'select', props: {
-        options: genderOptions, placeholder: '选择性别', clearable: true
+      label: '性别',
+      key: 'gender',
+      type: 'select',
+      props: {
+        options: genderOptions,
+        placeholder: '选择性别',
+        clearable: true
       }
     },
     {
-      label: '状态', key: 'status', type: 'select', props: {
-        options: statusOptions, placeholder: '在职/离职', clearable: true
+      label: '状态',
+      key: 'status',
+      type: 'select',
+      props: {
+        options: statusOptions,
+        placeholder: '在职/离职',
+        clearable: true
       }
     }
   ])
@@ -127,5 +156,4 @@
   }
 </script>
 
-<style scoped>
-</style>
+<style scoped></style>

@@ -7,8 +7,6 @@
   >
     <!-- 双列菜单（左侧） -->
     <div v-if="isDualMenu" class="dual-menu-left" :style="{ background: getMenuTheme.background }">
-      
-
       <ElScrollbar style="height: calc(100% - 135px)">
         <ul>
           <li v-for="menu in firstLevelMenus" :key="menu.path" @click="handleMenuJump(menu, true)">
@@ -68,8 +66,6 @@
           @click="navigateToHome"
           :style="{ background: getMenuTheme.background }"
         >
-          
-
           <p
             :class="{ 'is-dual-menu-name': isDualMenu }"
             :style="{

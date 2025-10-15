@@ -73,7 +73,7 @@
     ElButton,
     ElSpace,
     ElDatePicker,
-ElCascader
+    ElCascader
   } from 'element-plus'
 
   defineOptions({ name: 'EmployeeDialog' })
@@ -132,7 +132,8 @@ ElCascader
       value: n.id,
       label: n.name,
       disabled:
-        n.type === 'department' || n.type === 'group' ||
+        n.type === 'department' ||
+        n.type === 'group' ||
         (!allowTypes.includes(n.type) && ['brand', 'region', 'store'].includes(n.type)),
       children: Array.isArray(n.children) ? n.children.map(mapNode) : undefined
     })
@@ -204,7 +205,7 @@ ElCascader
           departmentPath.value = path && path.length ? path : undefined
         }
       }
-    } catch (e) {
+    } catch {
       deptTree.value = []
       idMap.value = {}
     }
@@ -269,7 +270,7 @@ ElCascader
     try {
       await formRef.value?.validate()
       emit('submit', { ...formModel.value })
-    } catch (e) {
+    } catch {
       // 校验失败时不提交
     }
   }

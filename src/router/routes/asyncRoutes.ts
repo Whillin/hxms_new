@@ -1,6 +1,5 @@
 import { RoutesAlias } from '../routesAlias'
 import { AppRouteRecord } from '@/types/router'
-import { WEB_LINKS } from '@/utils/constants'
 
 /**
  * 菜单列表、异步路由

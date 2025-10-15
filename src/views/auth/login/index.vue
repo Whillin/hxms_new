@@ -135,6 +135,7 @@
   import { fetchLogin, fetchGetUserInfo } from '@/api/auth'
   import { useHeaderBar } from '@/composables/useHeaderBar'
   import type { FormInstance, FormRules } from 'element-plus'
+  import { ElNotification } from 'element-plus'
   import { useSettingStore } from '@/store/modules/setting'
 
   defineOptions({ name: 'Login' })

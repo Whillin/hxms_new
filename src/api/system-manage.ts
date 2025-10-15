@@ -22,7 +22,9 @@ export function fetchGetRoleList(params: Api.SystemManage.RoleSearchParams) {
 
 // 获取部门列表（树或分页列表皆可，由响应适配器处理）
 export function fetchGetDepartmentList(params: Api.SystemManage.DepartmentSearchParams) {
-  return request.get<Api.SystemManage.DepartmentList | ApiResponse<Api.SystemManage.DepartmentItem>>({
+  return request.get<
+    Api.SystemManage.DepartmentList | ApiResponse<Api.SystemManage.DepartmentItem>
+  >({
     url: '/api/department/list',
     params
   })

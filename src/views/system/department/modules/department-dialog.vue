@@ -184,7 +184,7 @@
                   )
                 )
               )
-            } catch (e) {
+            } catch {
               ElMessage.warning('部分子节点状态更新失败，请刷新后重试')
             }
           }

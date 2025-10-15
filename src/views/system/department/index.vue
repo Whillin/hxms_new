@@ -88,7 +88,7 @@
   import DepartmentDialog from './modules/department-dialog.vue'
   import ArtButtonTable from '@/components/core/forms/art-button-table/index.vue'
 
-  import { Plus, Edit, Delete, Fold, Expand } from '@element-plus/icons-vue'
+  import { Plus, Fold, Expand } from '@element-plus/icons-vue'
   import { ElMessage } from 'element-plus'
 
   defineOptions({ name: 'Department' })
@@ -274,32 +274,32 @@
 
 <style lang="scss" scoped>
   .department-page {
-  }
-</style>
-
-<style lang="scss" scoped>
-  .department-page {
     h3 {
       margin: 0 0 12px;
       font-weight: 600;
       color: var(--art-text-gray-800);
     }
+
     :deep(.art-table-card) {
-      border-radius: 10px;
       overflow: hidden;
+      border-radius: 10px;
     }
+
     :deep(.el-card__body) {
       padding: 12px 12px 8px;
     }
+
     :deep(.el-table) {
       --el-table-row-height: 44px;
     }
+
     :deep(.el-table__body td:first-child .cell) {
       white-space: nowrap;
     }
+
     :deep(.el-table .cell) {
-      padding-left: 8px;
       padding-right: 8px;
+      padding-left: 8px;
     }
   }
 </style>
