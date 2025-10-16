@@ -118,12 +118,8 @@ declare namespace Api {
       type: 'group' | 'brand' | 'region' | 'store' | 'department'
       /** 上级ID */
       parentId?: number
-      /** 品牌（如一汽奥迪、上汽奥迪、小鹏、信息部门） */
-      brand?: string
-      /** 区域（如成都区域、云南区域等） */
-      region?: string
-      /** 门店（如羊西店、武侯店等） */
-      store?: string
+      /** 部门编号（层级编码） */
+      code?: string
       /** 启用状态 */
       enabled: boolean
       /** 创建时间 */
@@ -134,8 +130,7 @@ declare namespace Api {
 
     /** 部门搜索参数 */
     type DepartmentSearchParams = Partial<
-      Pick<DepartmentItem, 'name' | 'type' | 'brand' | 'region' | 'store' | 'enabled'> &
-        Api.Common.CommonSearchParams
+      Pick<DepartmentItem, 'name' | 'enabled'> & Api.Common.CommonSearchParams
     >
 
     /** 员工列表 */

@@ -11,10 +11,10 @@ export class AuthController {
     private readonly userService: UserService
   ) {}
   @Post('login')
-  login(@Body() body: LoginDto) {
+  async login(@Body() body: LoginDto) {
     const userName = body?.userName || body?.username || ''
     const password = body?.password || ''
-    const user = this.userService.findByUserName(userName)
+    const user = await this.userService.findByUserName(userName)
     if (!user || !this.userService.verifyPassword(user, password) || !user.enabled) {
       return { code: 401, msg: '用户名或密码错误', data: null }
     }
@@ -26,11 +26,11 @@ export class AuthController {
   }
 
   @Post('register')
-  register(@Body() body: RegisterDto) {
+  async register(@Body() body: RegisterDto) {
     const userName = body?.userName || body?.username || ''
     const password = body?.password || ''
     try {
-      const record = this.userService.createUser(userName, password)
+      const record = await this.userService.createUser(userName, password)
       const payload = { sub: record.id, userName: record.userName, roles: record.roles }
       const token = this.authService.signToken(payload)
       const refreshToken = this.authService.signRefreshToken(payload)
