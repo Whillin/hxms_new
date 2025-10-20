@@ -66,6 +66,7 @@ export class HttpError extends Error {
  */
 const getErrorMessage = (status: number): string => {
   const errorMap: Record<number, string> = {
+    [ApiStatus.error]: 'httpMsg.requestFailed',
     [ApiStatus.unauthorized]: 'httpMsg.unauthorized',
     [ApiStatus.forbidden]: 'httpMsg.forbidden',
     [ApiStatus.notFound]: 'httpMsg.notFound',

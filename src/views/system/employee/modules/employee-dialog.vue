@@ -1,13 +1,13 @@
 <template>
   <ElDialog v-model="visibleModel" :title="title" width="620px">
     <ElForm ref="formRef" :model="formModel" :rules="rules" label-width="100px">
-      <ElFormItem label="姓名"
+      <ElFormItem label="姓名" prop="name"
         ><ElInput v-model="formModel.name" placeholder="请输入姓名"
       /></ElFormItem>
-      <ElFormItem label="手机号"
+      <ElFormItem label="手机号" prop="phone"
         ><ElInput v-model="formModel.phone" placeholder="请输入手机号"
       /></ElFormItem>
-      <ElFormItem label="岗位">
+      <ElFormItem label="岗位" prop="role">
         <ElSelect v-model="formModel.role" placeholder="选择岗位">
           <ElOption
             v-for="opt in roleOptions"
@@ -22,26 +22,26 @@
         <ElCascader
           v-model="departmentPath"
           :options="deptOptions"
-          :props="{ checkStrictly: true, emitPath: true }"
+          :props="cascaderProps"
           placeholder="请选择部门"
           style="width: 100%"
           clearable
         />
       </ElFormItem>
-      <ElFormItem label="性别">
+      <ElFormItem label="性别" prop="gender">
         <ElSelect v-model="formModel.gender" placeholder="选择性别">
           <ElOption label="男" value="male" />
           <ElOption label="女" value="female" />
           <ElOption label="其他" value="other" />
         </ElSelect>
       </ElFormItem>
-      <ElFormItem label="状态">
+      <ElFormItem label="状态" prop="status">
         <ElSelect v-model="formModel.status" placeholder="在职/离职">
           <ElOption label="在职" value="1" />
           <ElOption label="离职" value="2" />
         </ElSelect>
       </ElFormItem>
-      <ElFormItem label="入职时间">
+      <ElFormItem label="入职时间" prop="hireDate">
         <ElDatePicker
           v-model="formModel.hireDate"
           type="date"
@@ -75,6 +75,7 @@
     ElDatePicker,
     ElCascader
   } from 'element-plus'
+  import { nextTick } from 'vue'
 
   defineOptions({ name: 'EmployeeDialog' })
 
@@ -96,6 +97,7 @@
 
   const formModel = ref<Record<string, any>>({})
   const formRef = ref<FormInstance>()
+  const departmentPath = ref<number[] | number[][] | undefined>(undefined)
   watch(
     () => props.employeeData,
     (v) => {
@@ -105,7 +107,9 @@
       if (v && typeof v.brandId !== 'undefined') path.push(Number(v.brandId))
       if (v && typeof v.regionId !== 'undefined') path.push(Number(v.regionId))
       if (v && typeof v.storeId !== 'undefined') path.push(Number(v.storeId))
-      departmentPath.value = path.length ? path : undefined
+      nextTick(() => {
+        departmentPath.value = path.length ? path : undefined
+      })
     },
     { immediate: true }
   )
@@ -126,6 +130,42 @@
 
   const requiredLevel = computed(() => getRoleRequiredLevel(formModel.value?.role))
 
+  // 计算级联选择器属性：门店层级支持多选
+  const cascaderProps = computed(() => {
+    const base = { checkStrictly: true, emitPath: true } as any
+    return requiredLevel.value === 'store' ? { ...base, multiple: true } : base
+  })
+
+  // 当岗位变化时，若已选部门层级不匹配则自动清空，避免误选
+  watch(
+    () => requiredLevel.value,
+    (level) => {
+      const normalizePaths = (): number[][] => {
+        const v: any = departmentPath.value
+        if (!v) return []
+        if (Array.isArray(v) && Array.isArray(v[0])) return v as number[][]
+        if (Array.isArray(v)) return [v as number[]]
+        return []
+      }
+      const paths = normalizePaths()
+      if (!paths.length) return
+      const expectType = level === 'brand' ? 'brand' : level === 'region' ? 'region' : 'store'
+      // 检查所有路径最后节点类型是否匹配
+      const mismatch = paths.some((p) => {
+        const lastId = p[p.length - 1]
+        const node = idMap.value[lastId]
+        return node && node.type !== expectType
+      })
+      if (mismatch) {
+        departmentPath.value = undefined
+        formModel.value.brandId = undefined
+        formModel.value.regionId = undefined
+        formModel.value.storeId = undefined
+        formModel.value.storeIds = undefined
+      }
+    }
+  )
+
   const buildDeptOptions = (nodes: any[], level?: 'brand' | 'region' | 'store') => {
     const allowTypes = level === 'brand' ? ['brand'] : level === 'region' ? ['region'] : ['store']
     const mapNode = (n: any): any => ({
@@ -142,7 +182,6 @@
 
   const deptOptions = computed(() => buildDeptOptions(deptTree.value, requiredLevel.value))
 
-  const departmentPath = ref<number[] | undefined>(undefined)
   // 查找目标ID的完整路径（包含中间层级）
   const findPathById = (nodes: any[], targetId: number): number[] | undefined => {
     const stack: number[] = []
@@ -162,19 +201,53 @@
   // 规则：按岗位层级动态校验，仅一个部门字段
   const rules: FormRules = {
     name: [{ required: true, message: '请输入姓名', trigger: 'blur' }],
-    phone: [{ required: true, message: '请输入手机号', trigger: 'blur' }],
+    phone: [
+      { required: true, message: '请输入手机号', trigger: 'blur' },
+      {
+        validator: (_r, _v, cb) => {
+          const v = String(formModel.value?.phone || '')
+          if (!/^1[3-9]\d{9}$/.test(v)) return cb(new Error('手机号格式不正确'))
+          cb()
+        },
+        trigger: 'blur'
+      }
+    ],
     role: [{ required: true, message: '请选择岗位', trigger: 'change' }],
+    gender: [{ required: true, message: '请选择性别', trigger: 'change' }],
+    status: [{ required: true, message: '请选择状态', trigger: 'change' }],
+    hireDate: [{ required: true, message: '请选择入职时间', trigger: 'change' }],
     departmentPath: [
       {
         validator: (_rule, _val, cb) => {
           const level = requiredLevel.value
-          if (!departmentPath.value?.length) return cb(new Error('请选择部门'))
-          const lastId = departmentPath.value[departmentPath.value.length - 1]
-          const node = idMap.value[lastId]
-          if (!node) return cb(new Error('请选择部门'))
-          if (level === 'brand' && node.type !== 'brand') return cb(new Error('请选择品牌层级'))
-          if (level === 'region' && node.type !== 'region') return cb(new Error('请选择区域层级'))
-          if (level === 'store' && node.type !== 'store') return cb(new Error('请选择门店层级'))
+          // 统一转为路径数组
+          const normalizePaths = (): number[][] => {
+            const v: any = departmentPath.value
+            if (!v) return []
+            if (Array.isArray(v) && Array.isArray(v[0])) return v as number[][]
+            if (Array.isArray(v)) return [v as number[]]
+            return []
+          }
+          const paths = normalizePaths()
+          if (!paths.length) return cb(new Error('请选择部门'))
+          const lastNodeType = (p: number[]) => {
+            const lastId = p[p.length - 1]
+            const node = idMap.value[lastId]
+            return node?.type
+          }
+          if (level === 'store') {
+            // 支持多选门店：所有路径末尾必须为 store
+            const bad = paths.some((p) => lastNodeType(p) !== 'store')
+            if (bad) return cb(new Error('请选择门店层级'))
+            return cb()
+          } else if (level === 'brand' || level === 'region') {
+            // 仅校验第一条路径是否匹配
+            const first = paths[0]
+            const type = lastNodeType(first)
+            if (level === 'brand' && type !== 'brand') return cb(new Error('请选择品牌层级'))
+            if (level === 'region' && type !== 'region') return cb(new Error('请选择区域层级'))
+            return cb()
+          }
           cb()
         },
         trigger: 'change'
@@ -215,7 +288,15 @@
   // 当部门或岗位变化时，联动过滤岗位或填充 brand/region/store
   const roleOptions = computed(() => {
     // 如果已选部门，则根据层级过滤岗位
-    const lastId = departmentPath.value?.[departmentPath.value.length - 1]
+    const normalizePaths = (): number[][] => {
+      const v: any = departmentPath.value
+      if (!v) return []
+      if (Array.isArray(v) && Array.isArray(v[0])) return v as number[][]
+      if (Array.isArray(v)) return [v as number[]]
+      return []
+    }
+    const paths = normalizePaths()
+    const lastId = paths[0]?.[paths[0].length - 1]
     const node = lastId ? idMap.value[lastId] : undefined
     const level =
       node?.type === 'brand'
@@ -250,18 +331,36 @@
   watch(
     () => departmentPath.value,
     () => {
-      // 映射到 brandId/regionId/storeId
+      // 映射到 brandId/regionId/storeId/storeIds
       formModel.value.brandId = undefined
       formModel.value.regionId = undefined
       formModel.value.storeId = undefined
-      if (!departmentPath.value?.length) return
-      for (const id of departmentPath.value) {
+      formModel.value.storeIds = undefined
+      const normalizePaths = (): number[][] => {
+        const v: any = departmentPath.value
+        if (!v) return []
+        if (Array.isArray(v) && Array.isArray(v[0])) return v as number[][]
+        if (Array.isArray(v)) return [v as number[]]
+        return []
+      }
+      const paths = normalizePaths()
+      if (!paths.length) return
+      // 用第一条路径填充品牌/区域
+      for (const id of paths[0]) {
         const node = idMap.value[id]
         if (!node) continue
         if (node.type === 'brand') formModel.value.brandId = id
         if (node.type === 'region') formModel.value.regionId = id
         if (node.type === 'store') formModel.value.storeId = id
       }
+      // 收集所有选中路径的门店ID集合
+      const storeIds: number[] = []
+      for (const p of paths) {
+        const lastId = p[p.length - 1]
+        const node = idMap.value[lastId]
+        if (node?.type === 'store') storeIds.push(lastId)
+      }
+      if (storeIds.length) formModel.value.storeIds = storeIds
     },
     { deep: true }
   )
@@ -269,7 +368,13 @@
   const onSubmit = async () => {
     try {
       await formRef.value?.validate()
-      emit('submit', { ...formModel.value })
+      const payload = { ...formModel.value }
+      // 规范化日期为 YYYY-MM-DD
+      if (payload.hireDate) {
+        const d = new Date(payload.hireDate)
+        payload.hireDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+      }
+      emit('submit', payload)
     } catch {
       // 校验失败时不提交
     }

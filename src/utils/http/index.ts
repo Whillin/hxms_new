@@ -62,7 +62,7 @@ const axiosInstance = axios.create({
 axiosInstance.interceptors.request.use(
   (request: InternalAxiosRequestConfig) => {
     const { accessToken } = useUserStore()
-    if (accessToken) request.headers.set('Authorization', accessToken)
+    if (accessToken) request.headers.set('Authorization', `Bearer ${accessToken}`)
 
     if (request.data && !(request.data instanceof FormData) && !request.headers['Content-Type']) {
       request.headers.set('Content-Type', 'application/json')
@@ -145,7 +145,7 @@ async function attemptRefreshAndRetry(
     const { accessToken } = useUserStore()
     if (accessToken) {
       originalConfig.headers = originalConfig.headers || {}
-      originalConfig.headers['Authorization'] = accessToken
+      originalConfig.headers['Authorization'] = `Bearer ${accessToken}`
     }
     return axiosInstance.request(originalConfig)
   } catch {

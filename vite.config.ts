@@ -106,7 +106,7 @@ export default ({ mode }: { mode: string }) => {
       }),
       // 按需定制主题配置
       ElementPlus({
-        useSource: true
+        useSource: false
       }),
       // 压缩
       viteCompression({

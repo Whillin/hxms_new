@@ -7,3 +7,20 @@ dist-ssr
 
 src/types/auto-imports.d.ts
 src/types/components.d.ts
+
+# env files
+.env
+.env.*
+*.env
+.env.local
+.env.development
+.env.production
+.env.development.local
+.env.production.local
+server/.env
+
+# logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*

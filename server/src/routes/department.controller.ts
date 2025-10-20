@@ -250,7 +250,7 @@ export class DepartmentController {
       where.enabled = e === 'true' || e === '1'
     }
     const rows = await this.repo.find({ where, order: { id: 'ASC' } })
-    return { data: buildTree(rows) }
+    return { code: 200, msg: '获取成功', data: buildTree(rows) }
   }
 
   /**
@@ -259,7 +259,7 @@ export class DepartmentController {
   @Get('tree')
   async tree() {
     const rows = await this.repo.find({ order: { id: 'ASC' } })
-    return { data: buildTree(rows) }
+    return { code: 200, msg: '获取成功', data: buildTree(rows) }
   }
 
   /**

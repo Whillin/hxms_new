@@ -3,7 +3,13 @@ import { JwtService } from '@nestjs/jwt'
 
 @Injectable()
 export class AuthService {
-  constructor(private readonly jwtService: JwtService) {}
+  private readonly jwtService: JwtService
+  constructor() {
+    this.jwtService = new JwtService({
+      secret: process.env.JWT_SECRET || 'hxms_dev_secret',
+      signOptions: { expiresIn: '2h' }
+    })
+  }
 
   validateUser(userName: string, password: string): boolean {
     return Boolean(userName && password)
