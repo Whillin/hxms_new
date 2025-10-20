@@ -46,8 +46,10 @@ export class AuthController {
   async register(@Body() body: RegisterDto) {
     const userName = body?.userName || body?.username || ''
     const password = body?.password || ''
+    const name = body?.name || ''
+    const phone = body?.phone || ''
     try {
-      const record = await this.userService.createUser(userName, password)
+      const record = await this.userService.createUser(userName, password, name, phone)
       const payload = { sub: record.id, userName: record.userName, roles: record.roles }
       const token = this.authService.signToken(payload)
       const refreshToken = this.authService.signRefreshToken(payload)
@@ -58,15 +60,22 @@ export class AuthController {
   }
 
   @Post('refresh')
-  refresh(@Body() body: any) {
-    const refreshToken = body?.refreshToken || ''
-    const payload = this.authService.verifyRefreshToken(refreshToken)
-    if (!payload) {
-      return { code: 401, msg: '刷新令牌无效', data: null }
-    }
+  async refresh(@Body() body: any) {
+    try {
+      const refreshToken = body?.refreshToken || ''
+      const payload = this.authService.verifyRefreshToken(refreshToken)
+      if (!payload) {
+        return { code: 401, msg: '刷新令牌无效', data: null }
+      }
 
-    const token = this.authService.signToken(payload)
-    const newRefreshToken = this.authService.signRefreshToken(payload)
-    return { code: 200, msg: '刷新成功', data: { token, refreshToken: newRefreshToken } }
+      const { sub, userName, roles } = payload as any
+      const cleanPayload = { sub, userName, roles }
+      const token = this.authService.signToken(cleanPayload)
+      const newRefreshToken = this.authService.signRefreshToken(cleanPayload)
+      return { code: 200, msg: '刷新成功', data: { token, refreshToken: newRefreshToken } }
+    } catch (e) {
+      console.error('[AuthController.refresh] Unexpected error:', e)
+      return { code: 500, msg: '刷新服务异常，请稍后重试', data: null }
+    }
   }
 }

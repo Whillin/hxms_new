@@ -27,3 +27,15 @@ export function fetchGetUserInfo() {
     // }
   })
 }
+
+/**
+ * 注册
+ * @param params 注册参数
+ * @returns 注册响应（与登录一致，返回token与refreshToken）
+ */
+export function fetchRegister(params: Api.Auth.RegisterParams) {
+  return request.post<Api.Auth.LoginResponse>({
+    url: '/api/auth/register',
+    data: params
+  })
+}

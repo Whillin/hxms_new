@@ -1,13 +1,16 @@
 import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
+import type { StringValue } from 'ms'
 
 @Injectable()
 export class JwtGuard implements CanActivate {
   private readonly jwtService: JwtService
   constructor() {
+    const accessTtlRaw = process.env.JWT_EXPIRES_IN || '2h'
+    const accessTtl: StringValue = accessTtlRaw as StringValue
     this.jwtService = new JwtService({
       secret: process.env.JWT_SECRET || 'hxms_dev_secret',
-      signOptions: { expiresIn: '2h' }
+      signOptions: { expiresIn: accessTtl }
     })
   }
 

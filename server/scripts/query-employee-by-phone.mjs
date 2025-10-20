@@ -13,6 +13,8 @@ const user = process.env.MYSQL_USER || 'root'
 const password = process.env.MYSQL_PASSWORD || '123456'
 const db = process.env.MYSQL_DB || 'hxms_dev'
 
+const phone = process.argv[2] || '13800001002'
+
 async function main() {
   const pool = await createPool({
     host,
@@ -23,15 +25,11 @@ async function main() {
     waitForConnections: true
   })
   try {
-    const [tables] = await pool.query("SHOW TABLES LIKE 'employees';")
-    const exists = Array.isArray(tables) && tables.length > 0
-    console.log(`DB: ${db} @ ${host}:${port} as ${user}`)
-    console.log(`employees table exists: ${exists}`)
-    if (exists) {
-      const [rows] = await pool.query('SELECT COUNT(*) AS cnt FROM employees;')
-      const cnt = Array.isArray(rows) && rows[0] && rows[0].cnt
-      console.log(`employees row count: ${cnt}`)
-    }
+    const [rows] = await pool.query(
+      'SELECT id, name, phone, role, status, brandId, regionId, storeId FROM employees WHERE phone = ? LIMIT 1;',
+      [phone]
+    )
+    console.log('employee:', JSON.stringify(rows, null, 2))
   } finally {
     await pool.end()
   }

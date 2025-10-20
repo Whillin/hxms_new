@@ -202,12 +202,8 @@ export class DepartmentController {
     for (const r of rows) {
       const p = getParent(r)
       if (r.type === 'region' && (!p || p.type === 'group')) {
-        if (r.type !== 'brand') {
-          updates.push({ id: r.id, type: 'brand' })
-          // 同步到内存，便于后续判断
-          r.type = 'brand'
-        }
-        // 若缺失品牌编码则补充
+        updates.push({ id: r.id, type: 'brand' })
+        r.type = 'brand'
         if (!r.code) {
           const bb = await this.generateCode('brand', r.parentId)
           if (bb) {

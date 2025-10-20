@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsString, MinLength } from 'class-validator'
+import { IsNotEmpty, IsString, MinLength, Matches } from 'class-validator'
 
 export class RegisterDto {
   @IsString()
@@ -7,6 +7,15 @@ export class RegisterDto {
 
   @IsString()
   username?: string
+
+  @IsString()
+  @IsNotEmpty()
+  name!: string
+
+  @IsString()
+  @IsNotEmpty()
+  @Matches(/^1[3-9]\d{9}$/)
+  phone!: string
 
   @IsString()
   @IsNotEmpty()

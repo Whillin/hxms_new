@@ -17,6 +17,9 @@ export class User {
   @Column('tinyint', { default: true })
   enabled!: boolean
 
+  @Column('int', { nullable: true, unique: true })
+  employeeId?: number
+
   @CreateDateColumn()
   createdAt!: Date
 

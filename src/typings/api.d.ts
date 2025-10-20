@@ -56,6 +56,14 @@ declare namespace Api {
       email: string
       avatar?: string
     }
+
+    // 新增：注册参数
+    interface RegisterParams {
+      username: string
+      password: string
+      name: string
+      phone: string
+    }
   }
 
   /** 系统管理类型 */

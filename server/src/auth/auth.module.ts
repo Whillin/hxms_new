@@ -8,8 +8,9 @@ import { UserModule } from '../users/user.module'
 @Module({
   imports: [
     JwtModule.register({
+      global: true,
       secret: process.env.JWT_SECRET || 'hxms_dev_secret',
-      signOptions: { expiresIn: '2h' }
+      signOptions: { expiresIn: (process.env.JWT_EXPIRES_IN || '2h') as import('ms').StringValue }
     }),
     UserModule
   ],

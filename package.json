@@ -94,6 +94,8 @@
     "globals": "^15.9.0",
     "husky": "^9.1.5",
     "lint-staged": "^15.5.2",
+    "postcss-html": "^1.8.0",
+    "postcss-scss": "^4.0.9",
     "prettier": "^3.5.3",
     "rollup-plugin-visualizer": "^5.12.0",
     "sass": "^1.81.0",

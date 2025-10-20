@@ -13,7 +13,6 @@ import { URL } from 'url'
 import type { Plugin } from 'vite'
 import { DEPARTMENT_TREE_DATA } from './src/mock/temp/departmentData'
 import { USER_LIST_DATA } from './src/mock/temp/userData'
-import { ROLE_LIST_DATA } from './src/mock/temp/roleData'
 // import { visualizer } from 'rollup-plugin-visualizer'
 
 export default ({ mode }: { mode: string }) => {
@@ -498,6 +497,33 @@ function authMockPlugin(): Plugin {
           return
         }
 
+        // 注册接口
+        if (pathname === '/api/auth/register' && req.method === 'POST') {
+          let body = ''
+          req.on('data', (chunk) => (body += chunk))
+          req.on('end', () => {
+            try {
+              const parsed = body ? JSON.parse(body) : {}
+              const { username, password, name, phone } = parsed
+
+              if (!username || !password || !name || !phone) {
+                return sendJson(res, { code: 400, msg: '缺少必填字段', data: null })
+              }
+
+              const token = `mock-token-${username}-${Date.now()}`
+              const refreshToken = `mock-refresh-${Date.now()}`
+              return sendJson(res, {
+                code: 200,
+                msg: '注册成功',
+                data: { token, refreshToken }
+              })
+            } catch {
+              return sendJson(res, { code: 400, msg: '请求体解析失败', data: null })
+            }
+          })
+          return
+        }
+
         // 用户信息接口
         if (pathname === '/api/user/info' && req.method === 'GET') {
           const mockUser = {
@@ -547,50 +573,7 @@ function authMockPlugin(): Plugin {
               records,
               total,
               size,
-              current,
-              pages: Math.ceil(total / size)
-            }
-          })
-        }
-
-        // 角色列表接口
-        if (pathname === '/api/role/list' && req.method === 'GET') {
-          const searchParams = url.searchParams
-          const current = parseInt(searchParams.get('current') || '1')
-          const size = parseInt(searchParams.get('size') || '10')
-          const roleName = searchParams.get('roleName') || ''
-          const roleStatus = searchParams.get('roleStatus') || ''
-
-          // 过滤数据
-          const filteredData = ROLE_LIST_DATA.filter((role) => {
-            if (
-              roleName &&
-              !role.roleName.includes(roleName) &&
-              !role.roleCode.includes(roleName)
-            ) {
-              return false
-            }
-            if (roleStatus && role.roleStatus !== roleStatus) {
-              return false
-            }
-            return true
-          })
-
-          // 分页
-          const total = filteredData.length
-          const startIndex = (current - 1) * size
-          const endIndex = startIndex + size
-          const records = filteredData.slice(startIndex, endIndex)
-
-          return sendJson(res, {
-            code: 200,
-            msg: '获取成功',
-            data: {
-              records,
-              total,
-              size,
-              current,
-              pages: Math.ceil(total / size)
+              current
             }
           })
         }

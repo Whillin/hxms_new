@@ -1,13 +1,16 @@
 import { Injectable } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
+import type { StringValue } from 'ms'
 
 @Injectable()
 export class AuthService {
   private readonly jwtService: JwtService
   constructor() {
+    const accessTtlRaw = process.env.JWT_EXPIRES_IN || '2h'
+    const accessTtl: StringValue = accessTtlRaw as StringValue
     this.jwtService = new JwtService({
       secret: process.env.JWT_SECRET || 'hxms_dev_secret',
-      signOptions: { expiresIn: '2h' }
+      signOptions: { expiresIn: accessTtl }
     })
   }
 
@@ -20,7 +23,9 @@ export class AuthService {
   }
 
   signRefreshToken(payload: Record<string, any>): string {
-    return this.jwtService.sign(payload, { expiresIn: '7d' })
+    const refreshTtlRaw = process.env.JWT_REFRESH_EXPIRES_IN || '7d'
+    const refreshTtl: StringValue = refreshTtlRaw as StringValue
+    return this.jwtService.sign(payload, { expiresIn: refreshTtl })
   }
 
   verifyToken(token: string): Record<string, any> | null {
