@@ -102,13 +102,30 @@
     () => props.employeeData,
     (v) => {
       formModel.value = { ...(v || {}) }
-      // 当编辑已有数据时，初始化部门路径
-      const path: number[] = []
-      if (v && typeof v.brandId !== 'undefined') path.push(Number(v.brandId))
-      if (v && typeof v.regionId !== 'undefined') path.push(Number(v.regionId))
-      if (v && typeof v.storeId !== 'undefined') path.push(Number(v.storeId))
+      // 当编辑已有数据时，初始化部门路径（优先使用 departmentId，其次 store/region/brand）
+      const path: number[] | undefined = (() => {
+        const targetId =
+          typeof v?.departmentId !== 'undefined'
+            ? Number(v.departmentId)
+            : typeof v?.storeId !== 'undefined'
+              ? Number(v.storeId)
+              : typeof v?.regionId !== 'undefined'
+                ? Number(v.regionId)
+                : typeof v?.brandId !== 'undefined'
+                  ? Number(v.brandId)
+                  : undefined
+        if (typeof targetId === 'number' && !Number.isNaN(targetId)) {
+          const p = findPathById(deptTree.value, targetId)
+          return p && p.length ? p : undefined
+        }
+        const legacy: number[] = []
+        if (v && typeof v.brandId !== 'undefined') legacy.push(Number(v.brandId))
+        if (v && typeof v.regionId !== 'undefined') legacy.push(Number(v.regionId))
+        if (v && typeof v.storeId !== 'undefined') legacy.push(Number(v.storeId))
+        return legacy.length ? legacy : undefined
+      })()
       nextTick(() => {
-        departmentPath.value = path.length ? path : undefined
+        departmentPath.value = path
       })
     },
     { immediate: true }
@@ -129,11 +146,17 @@
   }
 
   const requiredLevel = computed(() => getRoleRequiredLevel(formModel.value?.role))
+  const DEPARTMENT_REQUIRED_ROLES = new Set(['R_SALES_MANAGER', 'R_SALES', 'R_APPOINTMENT'])
+  const isDepartmentRole = computed(() =>
+    DEPARTMENT_REQUIRED_ROLES.has(String(formModel.value?.role || ''))
+  )
 
-  // 计算级联选择器属性：门店层级支持多选
+  // 计算级联选择器属性：门店层级支持多选（销售经理不支持多选）
   const cascaderProps = computed(() => {
     const base = { checkStrictly: true, emitPath: true } as any
-    return requiredLevel.value === 'store' ? { ...base, multiple: true } : base
+    return requiredLevel.value === 'store' && !isDepartmentRole.value
+      ? { ...base, multiple: true }
+      : base
   })
 
   // 当岗位变化时，若已选部门层级不匹配则自动清空，避免误选
@@ -149,7 +172,13 @@
       }
       const paths = normalizePaths()
       if (!paths.length) return
-      const expectType = level === 'brand' ? 'brand' : level === 'region' ? 'region' : 'store'
+      const expectType = isDepartmentRole.value
+        ? 'department'
+        : level === 'brand'
+          ? 'brand'
+          : level === 'region'
+            ? 'region'
+            : 'store'
       // 检查所有路径最后节点类型是否匹配
       const mismatch = paths.some((p) => {
         const lastId = p[p.length - 1]
@@ -162,6 +191,7 @@
         formModel.value.regionId = undefined
         formModel.value.storeId = undefined
         formModel.value.storeIds = undefined
+        formModel.value.departmentId = undefined
       }
     }
   )
@@ -172,8 +202,8 @@
       value: n.id,
       label: n.name,
       disabled:
-        n.type === 'department' ||
         n.type === 'group' ||
+        (!isDepartmentRole.value && n.type === 'department') ||
         (!allowTypes.includes(n.type) && ['brand', 'region', 'store'].includes(n.type)),
       children: Array.isArray(n.children) ? n.children.map(mapNode) : undefined
     })
@@ -220,7 +250,6 @@
       {
         validator: (_rule, _val, cb) => {
           const level = requiredLevel.value
-          // 统一转为路径数组
           const normalizePaths = (): number[][] => {
             const v: any = departmentPath.value
             if (!v) return []
@@ -235,13 +264,16 @@
             const node = idMap.value[lastId]
             return node?.type
           }
+          if (isDepartmentRole.value) {
+            const type = lastNodeType(paths[0])
+            if (type !== 'department') return cb(new Error('该岗位需选择门店下的小组'))
+            return cb()
+          }
           if (level === 'store') {
-            // 支持多选门店：所有路径末尾必须为 store
             const bad = paths.some((p) => lastNodeType(p) !== 'store')
             if (bad) return cb(new Error('请选择门店层级'))
             return cb()
           } else if (level === 'brand' || level === 'region') {
-            // 仅校验第一条路径是否匹配
             const first = paths[0]
             const type = lastNodeType(first)
             if (level === 'brand' && type !== 'brand') return cb(new Error('请选择品牌层级'))
@@ -266,13 +298,15 @@
       const data = pendingInitData.value || props.employeeData
       if (data) {
         const targetId =
-          typeof data?.storeId !== 'undefined'
-            ? Number(data.storeId)
-            : typeof data?.regionId !== 'undefined'
-              ? Number(data.regionId)
-              : typeof data?.brandId !== 'undefined'
-                ? Number(data.brandId)
-                : undefined
+          typeof data?.departmentId !== 'undefined'
+            ? Number(data.departmentId)
+            : typeof data?.storeId !== 'undefined'
+              ? Number(data.storeId)
+              : typeof data?.regionId !== 'undefined'
+                ? Number(data.regionId)
+                : typeof data?.brandId !== 'undefined'
+                  ? Number(data.brandId)
+                  : undefined
         if (typeof targetId === 'number') {
           const path = findPathById(deptTree.value, targetId)
           departmentPath.value = path && path.length ? path : undefined
@@ -285,9 +319,8 @@
   }
   onMounted(loadDeptTree)
 
-  // 当部门或岗位变化时，联动过滤岗位或填充 brand/region/store
+  // 当部门或岗位变化时，联动过滤岗位或填充 brand/region/store/department
   const roleOptions = computed(() => {
-    // 如果已选部门，则根据层级过滤岗位
     const normalizePaths = (): number[][] => {
       const v: any = departmentPath.value
       if (!v) return []
@@ -331,11 +364,12 @@
   watch(
     () => departmentPath.value,
     () => {
-      // 映射到 brandId/regionId/storeId/storeIds
+      // 映射到 brandId/regionId/storeId/storeIds/departmentId
       formModel.value.brandId = undefined
       formModel.value.regionId = undefined
       formModel.value.storeId = undefined
       formModel.value.storeIds = undefined
+      formModel.value.departmentId = undefined
       const normalizePaths = (): number[][] => {
         const v: any = departmentPath.value
         if (!v) return []
@@ -345,15 +379,16 @@
       }
       const paths = normalizePaths()
       if (!paths.length) return
-      // 用第一条路径填充品牌/区域
+      // 用第一条路径填充品牌/区域/门店/小组
       for (const id of paths[0]) {
         const node = idMap.value[id]
         if (!node) continue
         if (node.type === 'brand') formModel.value.brandId = id
         if (node.type === 'region') formModel.value.regionId = id
         if (node.type === 'store') formModel.value.storeId = id
+        if (node.type === 'department') formModel.value.departmentId = id
       }
-      // 收集所有选中路径的门店ID集合
+      // 收集所有选中路径的门店ID集合（仅当末尾为 store 时）
       const storeIds: number[] = []
       for (const p of paths) {
         const lastId = p[p.length - 1]

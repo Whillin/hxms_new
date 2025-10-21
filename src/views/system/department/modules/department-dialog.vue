@@ -67,7 +67,7 @@
       nodes.map((n) => ({
         id: n.id,
         name: n.name,
-        disabled: n.type === 'store',
+        disabled: n.type === 'department',
         children: Array.isArray(n.children) ? enrich(n.children) : []
       }))
     return enrich(deptTree.value as any)
@@ -103,10 +103,10 @@
     Api.SystemManage.DepartmentItem['type']
   > = {
     group: 'brand',
-    brand: 'department',
-    department: 'region',
+    brand: 'region',
+    department: 'department',
     region: 'store',
-    store: 'store'
+    store: 'department'
   }
 
   const findNodeById = (nodes: any[] = [], id?: number): any | undefined => {
@@ -157,8 +157,8 @@
         if (!isEdit.value) {
           // 新增：根据选择的父级推断类型；未选择则创建集团
           const parent = findNodeById(deptTree.value as any, formData.parentId as number)
-          if (parent && parent.type === 'store') {
-            ElMessage.warning('门店为最低层级，不能新增子级')
+          if (parent && parent.type === 'department') {
+            ElMessage.warning('小组为最低层级，不能新增子级')
             return
           }
           const nextType = parent

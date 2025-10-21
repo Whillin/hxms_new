@@ -34,6 +34,7 @@ export default ({ mode }: { mode: string }) => {
 
   console.log(`🚀 API_URL = ${VITE_API_URL}`)
   console.log(`🚀 VERSION = ${VITE_VERSION}`)
+  console.log(`[proxy] useMock=${useMock} useProxy=${useProxy} target=${devApiTarget}`)
 
   return defineConfig({
     define: {

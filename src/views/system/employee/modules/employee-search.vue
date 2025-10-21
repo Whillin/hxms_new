@@ -55,7 +55,8 @@
     const mapNode = (n: any): any => ({
       value: n.id,
       label: n.name,
-      disabled: n.type === 'department' || n.type === 'group',
+      // 只禁用 department 类型，允许选择 group（小组）
+      disabled: n.type === 'department',
       children: Array.isArray(n.children) ? n.children.map(mapNode) : undefined
     })
     return nodes.map(mapNode)
@@ -98,14 +99,15 @@
       }
     },
     {
-      label: '部门',
+      label: '部门/小组',
       key: 'departmentPath',
       type: 'cascader',
       props: {
         options: deptOptions.value,
         props: { checkStrictly: true, emitPath: true },
-        placeholder: '请选择部门',
-        clearable: true
+        placeholder: '请选择部门/小组',
+        clearable: true,
+        showAllLevels: false // 只显示最后一级的名称
       }
     },
     {
@@ -133,19 +135,21 @@
   const onSearch = async () => {
     await searchBarRef.value?.validate?.()
     const payload = { ...formModel.value }
-    // 将部门路径映射为 brandId/regionId/storeId
+    // 将部门路径映射为 brandId/regionId/storeId/departmentId
     const path: number[] | undefined = payload.departmentPath
     delete payload.departmentPath
     if (Array.isArray(path) && path.length) {
       payload.brandId = undefined
       payload.regionId = undefined
       payload.storeId = undefined
+      payload.departmentId = undefined
       for (const id of path) {
         const node = idMap.value[id]
         if (!node) continue
         if (node.type === 'brand') payload.brandId = id
         if (node.type === 'region') payload.regionId = id
         if (node.type === 'store') payload.storeId = id
+        if (node.type === 'group') payload.departmentId = id // 小组ID映射到departmentId
       }
     }
     emit('search', payload)

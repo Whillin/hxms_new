@@ -164,13 +164,26 @@ declare namespace Api {
       regionId?: number
       /** 门店ID */
       storeId?: number
+      /** 小组ID（门店下的 department）*/
+      departmentId?: number
       /** 入职时间 */
       hireDate?: string
     }
 
     /** 员工搜索参数 */
     type EmployeeSearchParams = Partial<
-      Pick<EmployeeItem, 'name' | 'phone' | 'role' | 'gender' | 'status'> &
+      Pick<
+        EmployeeItem,
+        | 'name'
+        | 'phone'
+        | 'role'
+        | 'gender'
+        | 'status'
+        | 'brandId'
+        | 'regionId'
+        | 'storeId'
+        | 'departmentId'
+      > &
         Api.Common.CommonSearchParams
     >
   }

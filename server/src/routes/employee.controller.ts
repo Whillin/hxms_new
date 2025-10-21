@@ -1,9 +1,11 @@
-import { Body, Controller, Get, Post, Query } from '@nestjs/common'
+import { Body, Controller, Get, Post, Query, Req, UseGuards, Inject } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository, Like, In } from 'typeorm'
 import { Employee } from '../employees/employee.entity'
 import { Department } from '../departments/department.entity'
 import { EmployeeStoreLink } from '../employees/employee-store.entity'
+import { JwtGuard } from '../auth/jwt.guard'
+import { DataScopeService } from '../common/data-scope.service'
 
 function requiredLevelByRole(role?: string): 'brand' | 'region' | 'store' {
   const map: Record<string, 'brand' | 'region' | 'store'> = {
@@ -24,7 +26,9 @@ function requiredLevelByRole(role?: string): 'brand' | 'region' | 'store' {
 }
 
 // 初始示例数据，用于首次访问时回填数据库
-const SEED_EMPLOYEES: Omit<Employee, 'id' | 'createdAt' | 'updatedAt'>[] = Array.from({ length: 25 }).map((_, i) => {
+const SEED_EMPLOYEES: Omit<Employee, 'id' | 'createdAt' | 'updatedAt'>[] = Array.from({
+  length: 25
+}).map((_, i) => {
   const id = i + 1
   const genders: Employee['gender'][] = ['male', 'female', 'other']
   const roles = [
@@ -73,7 +77,8 @@ export class EmployeeController {
   constructor(
     @InjectRepository(Employee) private readonly repo: Repository<Employee>,
     @InjectRepository(Department) private readonly deptRepo: Repository<Department>,
-    @InjectRepository(EmployeeStoreLink) private readonly linkRepo: Repository<EmployeeStoreLink>
+    @InjectRepository(EmployeeStoreLink) private readonly linkRepo: Repository<EmployeeStoreLink>,
+    @Inject(DataScopeService) private readonly dataScopeService: DataScopeService
   ) {}
 
   private async seedIfEmpty() {
@@ -87,8 +92,9 @@ export class EmployeeController {
    * 员工列表（分页+搜索）
    * 支持参数：current, size, name, phone, role, gender, status, brandId, regionId, storeId
    */
+  @UseGuards(JwtGuard)
   @Get('list')
-  async list(@Query() query: Record<string, any>) {
+  async list(@Req() req: any, @Query() query: Record<string, any>) {
     await this.seedIfEmpty()
 
     const current = Number(query.current || 1)
@@ -101,6 +107,7 @@ export class EmployeeController {
     const brandId = query.brandId !== undefined ? Number(query.brandId) : undefined
     const regionId = query.regionId !== undefined ? Number(query.regionId) : undefined
     const storeId = query.storeId !== undefined ? Number(query.storeId) : undefined
+    const departmentId = query.departmentId !== undefined ? Number(query.departmentId) : undefined
 
     const where: any = {}
     if (name) where.name = Like(`%${name}%`)
@@ -111,6 +118,19 @@ export class EmployeeController {
     if (typeof brandId === 'number' && !Number.isNaN(brandId)) where.brandId = brandId
     if (typeof regionId === 'number' && !Number.isNaN(regionId)) where.regionId = regionId
     if (typeof storeId === 'number' && !Number.isNaN(storeId)) where.storeId = storeId
+    if (typeof departmentId === 'number' && !Number.isNaN(departmentId))
+      where.departmentId = departmentId
+
+    // 数据范围过滤（基于登录用户的岗位与部门）
+    const roles: string[] = Array.isArray(req.user?.roles) ? req.user.roles : []
+    const userId: number = Number(req.user?.sub)
+    const isAdmin = roles.includes('R_ADMIN') || roles.includes('R_SUPER')
+
+    if (!isAdmin && userId && !Number.isNaN(userId)) {
+      const scope = await this.dataScopeService.getScope(req.user)
+      const scopeWhere = this.dataScopeService.buildWhereForStandard(scope, { storeId })
+      Object.assign(where, scopeWhere)
+    }
 
     const [records, total] = await this.repo.findAndCount({
       where,
@@ -172,7 +192,8 @@ export class EmployeeController {
     if (level === 'store') {
       // store 层级允许单店或多店（storeId 或 storeIds）
       const hasSingle = typeof incoming.storeId === 'number'
-      const hasMulti = Array.isArray((incoming as any).storeIds) && (incoming as any).storeIds.length > 0
+      const hasMulti =
+        Array.isArray((incoming as any).storeIds) && (incoming as any).storeIds.length > 0
       if (!hasSingle && !hasMulti) {
         return { code: 400, msg: '请选择门店层级部门', data: false }
       }
@@ -188,27 +209,71 @@ export class EmployeeController {
         // 校验同品牌同区域：沿父链找到 region 与 brand
         const byId = new Map<number, Department>()
         stores.forEach((s) => byId.set(s.id, s))
-        const getById = async (id: number) => byId.get(id) || (await this.deptRepo.findOne({ where: { id } }))
+        const getById = async (id: number) =>
+          byId.get(id) || (await this.deptRepo.findOne({ where: { id } }))
         const findAncestors = async (id: number) => {
           let regionId: number | undefined
           let brandId: number | undefined
+          let storeId: number | undefined
           let cur = await getById(id)
           const guard = new Set<number>()
           while (cur && typeof cur.parentId === 'number' && !guard.has(cur.parentId!)) {
             guard.add(cur.parentId!)
             const p = await getById(cur.parentId!)
             if (!p) break
+            if (p.type === 'store') storeId = p.id
             if (p.type === 'region') regionId = p.id
             if (p.type === 'brand') brandId = p.id
             cur = p
           }
-          return { regionId, brandId }
+          return { storeId, regionId, brandId }
         }
         for (const sid of storeIds) {
           const { regionId, brandId } = await findAncestors(sid)
           if (regionId !== incoming.regionId || brandId !== incoming.brandId) {
             return { code: 400, msg: '请选择同品牌同区域的多家门店', data: false }
           }
+        }
+      }
+
+      // 计算允许门店集合，用于校验小组归属
+      const allowedStoreIds: number[] = hasMulti
+        ? ((incoming as any).storeIds as number[])
+        : typeof incoming.storeId === 'number'
+          ? [incoming.storeId]
+          : []
+
+      // 销售经理必须选择小组（departmentId）
+      if (
+        incoming.role === 'R_SALES_MANAGER' &&
+        typeof (incoming as any).departmentId !== 'number'
+      ) {
+        return { code: 400, msg: '销售经理必须选择所属门店小组', data: false }
+      }
+
+      // 若选择了小组，校验其归属门店是否在允许范围内
+      if (typeof (incoming as any).departmentId === 'number') {
+        const deptId = Number((incoming as any).departmentId)
+        const dept = await this.deptRepo.findOne({ where: { id: deptId } })
+        if (!dept || dept.type !== 'department') {
+          return { code: 400, msg: '请选择有效的小组节点', data: false }
+        }
+        const getById2 = async (id: number) => await this.deptRepo.findOne({ where: { id } })
+        const findStoreAncestor = async (id: number) => {
+          let cur = await getById2(id)
+          const guard = new Set<number>()
+          while (cur && typeof cur.parentId === 'number' && !guard.has(cur.parentId!)) {
+            guard.add(cur.parentId!)
+            const p = await getById2(cur.parentId!)
+            if (!p) break
+            if (p.type === 'store') return p.id
+            cur = p
+          }
+          return undefined as number | undefined
+        }
+        const deptStoreId = await findStoreAncestor(dept.id)
+        if (typeof deptStoreId !== 'number' || !allowedStoreIds.includes(deptStoreId)) {
+          return { code: 400, msg: '小组不属于所选门店，请检查', data: false }
         }
       }
     }
@@ -234,14 +299,22 @@ export class EmployeeController {
       exists.brandId = incoming.brandId
       exists.regionId = incoming.regionId
       exists.storeId = incoming.storeId
+      ;(exists as any).departmentId = (incoming as any).departmentId
       exists.hireDate = incoming.hireDate!
       try {
         await this.repo.save(exists)
         // 维护多门店关联
         await this.linkRepo.delete({ employeeId: exists.id })
-        const storeIds: number[] = Array.isArray((incoming as any).storeIds) ? ((incoming as any).storeIds as number[]) : []
-        const toInsert = (storeIds.length ? storeIds : (typeof incoming.storeId === 'number' ? [incoming.storeId] : []))
-          .map((sid) => this.linkRepo.create({ employeeId: exists.id, storeId: sid }))
+        const storeIds: number[] = Array.isArray((incoming as any).storeIds)
+          ? ((incoming as any).storeIds as number[])
+          : []
+        const toInsert = (
+          storeIds.length
+            ? storeIds
+            : typeof incoming.storeId === 'number'
+              ? [incoming.storeId]
+              : []
+        ).map((sid) => this.linkRepo.create({ employeeId: exists.id, storeId: sid }))
         if (toInsert.length) await this.linkRepo.save(toInsert)
       } catch (err: any) {
         // 兜底处理数据库唯一约束
@@ -263,14 +336,22 @@ export class EmployeeController {
         brandId: incoming.brandId,
         regionId: incoming.regionId,
         storeId: incoming.storeId,
+        departmentId: (incoming as any).departmentId,
         hireDate: incoming.hireDate!
       })
       try {
         const saved = await this.repo.save(record)
         // 维护多门店关联
-        const storeIds: number[] = Array.isArray((incoming as any).storeIds) ? ((incoming as any).storeIds as number[]) : []
-        const toInsert = (storeIds.length ? storeIds : (typeof incoming.storeId === 'number' ? [incoming.storeId] : []))
-          .map((sid) => this.linkRepo.create({ employeeId: saved.id, storeId: sid }))
+        const storeIds: number[] = Array.isArray((incoming as any).storeIds)
+          ? ((incoming as any).storeIds as number[])
+          : []
+        const toInsert = (
+          storeIds.length
+            ? storeIds
+            : typeof incoming.storeId === 'number'
+              ? [incoming.storeId]
+              : []
+        ).map((sid) => this.linkRepo.create({ employeeId: saved.id, storeId: sid }))
         if (toInsert.length) await this.linkRepo.save(toInsert)
       } catch (err: any) {
         if (err?.code === 'ER_DUP_ENTRY') {

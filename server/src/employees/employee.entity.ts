@@ -32,6 +32,9 @@ export class Employee {
   @Column('int', { nullable: true })
   storeId?: number
 
+  @Column('int', { nullable: true })
+  departmentId?: number
+
   // 存储为 YYYY-MM-DD 字符串，便于前端直接显示
   @Column('varchar', { length: 10 })
   hireDate!: string

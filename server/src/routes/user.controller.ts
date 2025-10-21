@@ -20,4 +20,18 @@ export class UserController {
       }
     }
   }
+
+  // 调试接口：返回解析后的用户与请求头，便于定位 500
+  @UseGuards(JwtGuard)
+  @Get('debug')
+  debug(@Req() req: any) {
+    return {
+      code: 200,
+      msg: 'ok',
+      data: {
+        user: req.user ?? null,
+        headers: req.headers ?? {}
+      }
+    }
+  }
 }

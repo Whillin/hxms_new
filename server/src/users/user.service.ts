@@ -34,6 +34,12 @@ export class UserService implements OnModuleInit {
     return bcrypt.compareSync(password, user.passwordHash)
   }
 
+  // 新增：按ID查找用户
+  async findById(id: number): Promise<User | null> {
+    if (!id || Number.isNaN(id)) return null
+    return (await this.repo.findOne({ where: { id } })) || null
+  }
+
   async createUser(
     userName: string,
     password: string,
