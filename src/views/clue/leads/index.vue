@@ -28,6 +28,7 @@
               size="small"
               @import-success="handleImportSuccess"
               @import-error="handleImportError"
+              v-auth="'import'"
             >
               <template #default>导入线索</template>
             </ArtExcelImport>
@@ -72,11 +73,13 @@
       >
         <template #operation="{ row }">
           <ElSpace>
-            <ElButton size="small" @click="viewDetail(row)">查看</ElButton>
-            <ElButton size="small" type="primary" plain @click="editRow(row)">编辑</ElButton>
+            <ElButton size="small" @click="viewDetail(row)" v-auth="'view'">查看</ElButton>
+            <ElButton size="small" type="primary" plain @click="editRow(row)" v-auth="'edit'"
+              >编辑</ElButton
+            >
             <ElPopconfirm title="确认删除该线索？" @confirm="deleteRow(row)">
               <template #reference>
-                <ElButton size="small" type="danger" plain>删除</ElButton>
+                <ElButton size="small" type="danger" plain v-auth="'delete'">删除</ElButton>
               </template>
             </ElPopconfirm>
           </ElSpace>

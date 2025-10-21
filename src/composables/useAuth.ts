@@ -22,7 +22,7 @@ export const useAuth = () => {
   // 前端按钮权限（兼容多种标识形式，如：'add'、'B_ADD'）
   const frontendAuthList = info.value?.buttons ?? []
 
-  // 后端路由 meta 配置的权限列表（例如：[{ authMark: 'add' }]）
+  // 后端路由 meta 配置的权限列表（例如：[{ authMark: 'add' }])
   const backendAuthList: AuthItem[] = Array.isArray(route.meta.authList)
     ? (route.meta.authList as AuthItem[])
     : []
@@ -33,9 +33,8 @@ export const useAuth = () => {
    * @returns 是否有权限
    */
   const hasAuth = (auth: string): boolean => {
-    // 前端模式
-    if (isFrontendMode.value) {
-      // 兼容不同大小写和前缀（例如：'add'、'ADD'、'B_ADD'、'b_add'）
+    // 优先使用用户信息中的按钮权限（后端返回），适用于前后端两种模式
+    if (Array.isArray(frontendAuthList) && frontendAuthList.length > 0) {
       const lower = String(auth).toLowerCase()
       const upper = String(auth).toUpperCase()
       const withPrefixUpper = `B_${upper}`
@@ -44,7 +43,17 @@ export const useAuth = () => {
       return frontendAuthList.some((mark) => candidates.includes(String(mark)))
     }
 
-    // 后端模式
+    // 若用户信息未返回按钮权限，则按模式回退
+    if (isFrontendMode.value) {
+      const lower = String(auth).toLowerCase()
+      const upper = String(auth).toUpperCase()
+      const withPrefixUpper = `B_${upper}`
+      const withPrefixLower = `b_${lower}`
+      const candidates = [auth, lower, upper, withPrefixUpper, withPrefixLower]
+      return frontendAuthList.some((mark) => candidates.includes(String(mark)))
+    }
+
+    // 后端模式：回退使用路由 meta.authList
     return backendAuthList.some((item) => item?.authMark === auth)
   }
 

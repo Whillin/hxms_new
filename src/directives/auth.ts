@@ -1,5 +1,7 @@
 import { router } from '@/router'
 import { App, Directive, DirectiveBinding } from 'vue'
+import { useUserStore } from '@/store/modules/user'
+import { storeToRefs } from 'pinia'
 
 /**
  * 权限指令（后端控制模式可用）
@@ -12,11 +14,27 @@ interface AuthBinding extends DirectiveBinding {
 }
 
 function checkAuthPermission(el: HTMLElement, binding: AuthBinding): void {
-  // 获取当前路由的权限列表
-  const authList = (router.currentRoute.value.meta.authList as Array<{ authMark: string }>) || []
+  // 优先使用用户信息中的按钮权限（后端返回）
+  const userStore = useUserStore()
+  const { info } = storeToRefs(userStore)
+  const buttons: string[] = Array.isArray(info.value?.buttons)
+    ? (info.value?.buttons as string[])
+    : []
 
-  // 检查是否有对应的权限标识
-  const hasPermission = authList.some((item) => item.authMark === binding.value)
+  const lower = String(binding.value).toLowerCase()
+  const upper = String(binding.value).toUpperCase()
+  const withPrefixUpper = `B_${upper}`
+  const withPrefixLower = `b_${lower}`
+  const candidates = [binding.value, lower, upper, withPrefixUpper, withPrefixLower]
+
+  let hasPermission = false
+  if (buttons.length) {
+    hasPermission = buttons.some((mark) => candidates.includes(String(mark)))
+  } else {
+    // 回退：使用当前路由的权限列表（meta.authList）
+    const authList = (router.currentRoute.value.meta.authList as Array<{ authMark: string }>) || []
+    hasPermission = authList.some((item) => item.authMark === binding.value)
+  }
 
   // 如果没有权限，移除元素
   if (!hasPermission) {

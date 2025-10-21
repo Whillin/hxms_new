@@ -186,5 +186,19 @@ declare namespace Api {
       > &
         Api.Common.CommonSearchParams
     >
+
+    /** 角色权限：获取参数 */
+    interface RolePermissionsGetParams {
+      roleId: number
+    }
+
+    /** 角色权限：保存参数 */
+    interface RolePermissionsSaveParams {
+      roleId: number
+      keys: string[]
+    }
+
+    /** 角色权限：键列表 */
+    type RolePermissionKeys = string[]
   }
 }

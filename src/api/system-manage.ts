@@ -77,6 +77,23 @@ export function fetchDeleteEmployee(id: number) {
   })
 }
 
+// 角色权限：获取键列表
+export function fetchGetRolePermissions(params: Api.SystemManage.RolePermissionsGetParams) {
+  return request.get<Api.SystemManage.RolePermissionKeys>({
+    url: '/api/role/permissions',
+    params
+  })
+}
+
+// 角色权限：保存键列表（全量覆盖）
+export function fetchSaveRolePermissions(data: Api.SystemManage.RolePermissionsSaveParams) {
+  return request.post<boolean>({
+    url: '/api/role/permissions/save',
+    data,
+    showSuccessMessage: true
+  })
+}
+
 interface MenuResponse {
   menuList: AppRouteRecord[]
 }

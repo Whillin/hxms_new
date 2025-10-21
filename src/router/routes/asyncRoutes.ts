@@ -34,7 +34,18 @@ export const asyncRoutes: AppRouteRecord[] = [
     meta: {
       title: 'menus.dashboard.title',
       icon: '&#xe721;',
-      roles: ['R_SUPER', 'R_ADMIN'] // 角色权限，前端控制模式（只有拥有这些角色的用户才能访问）
+      roles: [
+        'R_SUPER',
+        'R_ADMIN',
+        'R_INFO',
+        'R_BRAND_GM',
+        'R_REGION_GM',
+        'R_STORE_DIRECTOR',
+        'R_STORE_MANAGER',
+        'R_SALES_MANAGER',
+        'R_SALES',
+        'R_APPOINTMENT'
+      ]
     },
     children: [
       {
@@ -65,7 +76,18 @@ export const asyncRoutes: AppRouteRecord[] = [
     meta: {
       title: '客户管理',
       icon: '&#xe7ae;',
-      roles: ['R_SUPER', 'R_ADMIN']
+      roles: [
+        'R_SUPER',
+        'R_ADMIN',
+        'R_INFO',
+        'R_BRAND_GM',
+        'R_REGION_GM',
+        'R_STORE_DIRECTOR',
+        'R_STORE_MANAGER',
+        'R_SALES_MANAGER',
+        'R_SALES',
+        'R_APPOINTMENT'
+      ]
     },
     children: [
       {
@@ -90,7 +112,18 @@ export const asyncRoutes: AppRouteRecord[] = [
     meta: {
       title: '商机管理',
       icon: '&#xe8d4;',
-      roles: ['R_SUPER', 'R_ADMIN']
+      roles: [
+        'R_SUPER',
+        'R_ADMIN',
+        'R_INFO',
+        'R_BRAND_GM',
+        'R_REGION_GM',
+        'R_STORE_DIRECTOR',
+        'R_STORE_MANAGER',
+        'R_SALES_MANAGER',
+        'R_SALES',
+        'R_APPOINTMENT'
+      ]
     },
     children: [
       {
@@ -178,7 +211,19 @@ export const asyncRoutes: AppRouteRecord[] = [
     meta: {
       title: 'menus.clue.title',
       icon: '&#xe7ae;',
-      roles: ['R_SUPER', 'R_ADMIN']
+      roles: [
+        'R_SUPER',
+        'R_ADMIN',
+        'R_INFO',
+        'R_BRAND_GM',
+        'R_REGION_GM',
+        'R_STORE_DIRECTOR',
+        'R_STORE_MANAGER',
+        'R_SALES_MANAGER',
+        'R_SALES',
+        'R_APPOINTMENT',
+        'R_FRONT_DESK'
+      ]
     },
     children: [
       {

@@ -124,7 +124,8 @@ export class EmployeeController {
     // 数据范围过滤（基于登录用户的岗位与部门）
     const roles: string[] = Array.isArray(req.user?.roles) ? req.user.roles : []
     const userId: number = Number(req.user?.sub)
-    const isAdmin = roles.includes('R_ADMIN') || roles.includes('R_SUPER')
+    const isAdmin =
+      roles.includes('R_ADMIN') || roles.includes('R_SUPER') || roles.includes('R_INFO')
 
     if (!isAdmin && userId && !Number.isNaN(userId)) {
       const scope = await this.dataScopeService.getScope(req.user)

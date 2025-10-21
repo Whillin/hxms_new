@@ -14,7 +14,7 @@
         show-checkbox
         node-key="name"
         :default-expand-all="isExpandAll"
-        :default-checked-keys="[1, 2, 3]"
+        :default-checked-keys="defaultCheckedKeys"
         :props="defaultProps"
         @check="handleTreeCheck"
       >
@@ -45,6 +45,7 @@
 <script setup lang="ts">
   import { useMenuStore } from '@/store/modules/menu'
   import { formatMenuTitle } from '@/router/utils/utils'
+  import { fetchGetRolePermissions, fetchSaveRolePermissions } from '@/api/system-manage'
 
   type RoleListItem = Api.SystemManage.RoleListItem
 
@@ -74,6 +75,7 @@
   const treeRef = ref()
   const isExpandAll = ref(true)
   const isSelectAll = ref(false)
+  const defaultCheckedKeys = ref<string[]>([])
 
   // 处理菜单数据，将 authList 转换为子节点
   const processedMenuList = computed(() => {
@@ -113,24 +115,56 @@
   // 监听弹窗打开，初始化权限数据
   watch(
     () => props.modelValue,
-    (newVal) => {
+    async (newVal) => {
       if (newVal && props.roleData) {
-        // TODO: 根据角色加载对应的权限数据
-        console.log('设置权限:', props.roleData)
+        try {
+          const roleId = props.roleData.roleId
+          const resp = await fetchGetRolePermissions({ roleId })
+          const loadedKeys = Array.isArray(resp) ? resp : []
+          // 过滤无效键，仅保留树中存在的键
+          const allKeys = getAllNodeKeys(processedMenuList.value)
+          const validKeys = loadedKeys.filter((k) => allKeys.includes(k))
+          defaultCheckedKeys.value = validKeys
+          await nextTick()
+          treeRef.value?.setCheckedKeys(validKeys)
+          // 更新全选状态
+          isSelectAll.value = validKeys.length === allKeys.length && allKeys.length > 0
+        } catch (error) {
+          console.error('加载角色权限失败:', error)
+          ElMessage.error('加载角色权限失败')
+        }
       }
     }
   )
 
   const handleClose = () => {
     visible.value = false
+    defaultCheckedKeys.value = []
     treeRef.value?.setCheckedKeys([])
   }
 
-  const savePermission = () => {
-    // TODO: 调用保存权限接口
-    ElMessage.success('权限保存成功')
-    emit('success')
-    handleClose()
+  const savePermission = async () => {
+    if (!props.roleData) return
+    const tree = treeRef.value
+    if (!tree) return
+
+    try {
+      const checkedKeys: string[] = tree.getCheckedKeys()
+      const halfCheckedKeys: string[] = tree.getHalfCheckedKeys()
+      // 合并并去重，包含父节点半选中情况
+      const keys = Array.from(new Set([...checkedKeys, ...halfCheckedKeys]))
+      // 仅提交有效键
+      const allKeys = getAllNodeKeys(processedMenuList.value)
+      const validKeys = keys.filter((k) => allKeys.includes(k))
+
+      await fetchSaveRolePermissions({ roleId: props.roleData.roleId, keys: validKeys })
+      ElMessage.success('权限保存成功')
+      emit('success')
+      handleClose()
+    } catch (error) {
+      console.error('保存角色权限失败:', error)
+      ElMessage.error('保存角色权限失败')
+    }
   }
 
   const toggleExpandAll = () => {

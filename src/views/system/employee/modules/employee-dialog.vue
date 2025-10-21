@@ -386,16 +386,20 @@
         if (node.type === 'brand') formModel.value.brandId = id
         if (node.type === 'region') formModel.value.regionId = id
         if (node.type === 'store') formModel.value.storeId = id
-        if (node.type === 'department') formModel.value.departmentId = id
+        // 仅当岗位需要选择小组且最后一级为 department 时，才映射 departmentId
+        if (node.type === 'department' && isDepartmentRole.value) {
+          const lastId = paths[0][paths[0].length - 1]
+          if (id === lastId) formModel.value.departmentId = id
+        }
       }
       // 收集所有选中路径的门店ID集合（仅当末尾为 store 时）
       const storeIds: number[] = []
       for (const p of paths) {
         const lastId = p[p.length - 1]
         const node = idMap.value[lastId]
-        if (node?.type === 'store') storeIds.push(lastId)
+        if (node && node.type === 'store') storeIds.push(lastId)
       }
-      if (storeIds.length) formModel.value.storeIds = storeIds
+      formModel.value.storeIds = storeIds.length ? storeIds : undefined
     },
     { deep: true }
   )

@@ -29,7 +29,8 @@ export class DataScopeService {
   async getScope(user: any): Promise<DataScope> {
     const roles: string[] = Array.isArray(user?.roles) ? user.roles : []
     const userId: number = Number(user?.sub)
-    const isAdmin = roles.includes('R_ADMIN') || roles.includes('R_SUPER')
+    const isAdmin =
+      roles.includes('R_ADMIN') || roles.includes('R_SUPER') || roles.includes('R_INFO')
     if (isAdmin) return { level: 'all' }
 
     if (!userId || Number.isNaN(userId)) return { level: 'self' }
