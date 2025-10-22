@@ -75,12 +75,13 @@ function get(path, headers = {}) {
     }
     console.log('info.body:', infoData || infoResp.body)
 
-    // 3) 简要断言：roles 应包含员工角色（例如 R_TECH）
+    // 3) 简要断言：roles 应包含至少一个角色；如仅包含 R_FRONT_DESK 则为兜底前台
     const roles = infoData?.data?.roles || []
-    const hasUserRole = roles.includes('R_USER')
-    const hasEmployeeRole = roles.some((r) => r !== 'R_USER')
-    if (hasUserRole && hasEmployeeRole) {
-      console.log('OK: roles include R_USER and employee role ->', roles)
+    const hasAnyRole = Array.isArray(roles) && roles.length > 0
+    const onlyFrontDesk = hasAnyRole && roles.every((r) => r === 'R_FRONT_DESK')
+    if (hasAnyRole) {
+      console.log('OK: roles present ->', roles)
+      if (onlyFrontDesk) console.log('Note: fallback to front desk (R_FRONT_DESK)')
     } else {
       console.warn('WARN: roles look suspicious ->', roles)
     }

@@ -74,14 +74,14 @@
               </div>
             </div>
 
-            <!-- 所有已登录用户可见 -->
+            <!-- 前台角色可见 -->
             <div class="button-item">
-              <ElButton type="success" plain v-roles="['R_SUPER', 'R_ADMIN', 'R_USER']">
-                所有用户可见
+              <ElButton type="success" plain v-roles="'R_FRONT_DESK'">
+                前台可见
               </ElButton>
               <div class="button-desc">
-                <code>v-roles="['R_SUPER', 'R_ADMIN', 'R_USER']"</code>
-                <span>所有已登录用户可见</span>
+                <code>v-roles="'R_FRONT_DESK'"</code>
+                <span>前台岗位可见</span>
               </div>
             </div>
           </div>
@@ -432,7 +432,7 @@
     const roleMap: Record<string, 'primary' | 'success' | 'info' | 'warning' | 'danger'> = {
       R_SUPER: 'warning',
       R_ADMIN: 'primary',
-      R_USER: 'success'
+      R_FRONT_DESK: 'success'
     }
     return roleMap[role] || 'info'
   }
@@ -442,7 +442,7 @@
     const roleMap: Record<string, string> = {
       R_SUPER: '超级管理员',
       R_ADMIN: '管理员',
-      R_USER: '普通用户'
+      R_FRONT_DESK: '前台'
     }
     return roleMap[role] || '未知角色'
   }

@@ -33,16 +33,7 @@ export enum RoutesAlias {
   Cards = '/template/cards', // 卡片
   Banners = '/template/banners', // 横幅
   Charts = '/template/charts', // 图表
-  Map = '/template/map', // 地图
-  Calendar = '/template/calendar', // 日历
-  Pricing = '/template/pricing', // 定价
-  ArticleList = '/article/list', // 文章列表
-  ArticleDetail = '/article/detail', // 文章详情
-  Comment = '/article/comment', // 评论
-  ArticlePublish = '/article/publish', // 文章发布
-  ProductCategory = '/product/category', // 车型分类
-  ProductManagement = '/product/management', // 车型管理
-  ClueManagement = '/clue/management', // 线索管理
+  // 新增：线索列表页面别名
   ClueLeads = '/clue/leads', // 线索列表
   User = '/system/user', // 账户
   Role = '/system/role', // 角色
@@ -65,5 +56,17 @@ export enum RoutesAlias {
   // 客户与商机
   CustomerList = '/customer/list', // 客户列表
   OpportunityList = '/opportunity/list', // 商机列表
-  OpportunityFollow = '/opportunity/follow' // 跟进记录
+  OpportunityFollow = '/opportunity/follow', // 跟进记录
+  // 产品模块（补齐缺失别名）
+  ProductCategory = '/product/category', // 产品分类
+  ProductManagement = '/product/management', // 产品管理
+  // 模板页面（补齐缺失别名）
+  Map = '/template/map', // 地图
+  Calendar = '/template/calendar', // 日历
+  Pricing = '/template/pricing', // 定价页
+  // 文章模块（补齐缺失别名）
+  ArticleList = '/article/list', // 文章列表
+  ArticleDetail = '/article/detail', // 文章详情
+  Comment = '/article/comment', // 评论
+  ArticlePublish = '/article/publish' // 发布
 }

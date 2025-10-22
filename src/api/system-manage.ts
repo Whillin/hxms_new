@@ -12,6 +12,15 @@ export function fetchGetUserList(params: Api.SystemManage.UserSearchParams) {
   })
 }
 
+// 删除用户
+export function fetchDeleteUser(id: number) {
+  return request.post<boolean>({
+    url: '/api/user/delete',
+    data: { id },
+    showSuccessMessage: true
+  })
+}
+
 // 获取角色列表
 export function fetchGetRoleList(params: Api.SystemManage.RoleSearchParams) {
   return request.get<Api.SystemManage.RoleList>({
@@ -90,6 +99,24 @@ export function fetchSaveRolePermissions(data: Api.SystemManage.RolePermissionsS
   return request.post<boolean>({
     url: '/api/role/permissions/save',
     data,
+    showSuccessMessage: true
+  })
+}
+
+// 保存角色（新增/编辑）
+export function fetchSaveRole(data: Partial<Api.SystemManage.RoleListItem>) {
+  return request.post<boolean>({
+    url: '/api/role/save',
+    data,
+    showSuccessMessage: true
+  })
+}
+
+// 删除角色
+export function fetchDeleteRole(roleId: number) {
+  return request.post<boolean>({
+    url: '/api/role/delete',
+    data: { roleId },
     showSuccessMessage: true
   })
 }

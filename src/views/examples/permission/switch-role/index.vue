@@ -129,13 +129,13 @@
       description: '拥有管理权限，可以管理用户和部分系统设置'
     },
     {
-      key: 'user',
-      label: t('login.roles.user'),
-      userName: 'User',
+      key: 'frontDesk',
+      label: '前台',
+      userName: 'FrontDesk',
       password: '123456',
-      roles: ['R_USER'],
+      roles: ['R_FRONT_DESK'],
       color: '#67C23A',
-      description: '普通用户权限，只能访问基础功能模块'
+      description: '前台岗位权限，可访问线索与个人中心的基础功能'
     }
   ])
 
@@ -145,7 +145,7 @@
     const roleMap: Record<string, 'info' | 'warning' | 'primary' | 'success' | 'danger'> = {
       R_SUPER: 'warning',
       R_ADMIN: 'primary',
-      R_USER: 'success'
+      R_FRONT_DESK: 'success'
     }
     return roleMap[role] || 'info'
   }
@@ -156,7 +156,7 @@
     const roleMap: Record<string, string> = {
       R_SUPER: '超级管理员',
       R_ADMIN: '管理员',
-      R_USER: '普通用户'
+      R_FRONT_DESK: '前台'
     }
     return roleMap[role] || '未知角色'
   }

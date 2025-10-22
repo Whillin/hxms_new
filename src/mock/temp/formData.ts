@@ -215,9 +215,9 @@ export const ROLE_LIST_DATA: Role[] = [
     enable: true
   },
   {
-    roleName: '普通用户',
-    roleCode: 'R_USER',
-    des: '拥有系统普通权限',
+    roleName: '前台',
+    roleCode: 'R_FRONT_DESK',
+    des: '拥有线索与个人中心的基础权限',
     date: '2025-05-15 12:30:45',
     enable: true
   },

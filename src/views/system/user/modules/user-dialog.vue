@@ -39,7 +39,7 @@
 </template>
 
 <script setup lang="ts">
-  import { ROLE_LIST_DATA } from '@/mock/temp/formData'
+  import { fetchGetRoleList } from '@/api/system-manage'
   import type { FormInstance, FormRules } from 'element-plus'
 
   interface Props {
@@ -56,8 +56,26 @@
   const props = defineProps<Props>()
   const emit = defineEmits<Emits>()
 
-  // 角色列表数据
-  const roleList = ref(ROLE_LIST_DATA)
+  // 角色列表数据（改为从后端获取）
+  const roleList = ref<any[]>([])
+  const loadRoles = async () => {
+    try {
+      const res = await fetchGetRoleList({ current: 1, size: 100, enabled: true } as any)
+      const records =
+        (res as any)?.data?.records ??
+        (res as any)?.data?.list ??
+        (res as any)?.records ??
+        (res as any)?.list ??
+        []
+      // 彻底移除 R_USER 选项
+      roleList.value = Array.isArray(records)
+        ? records.filter((r: any) => r?.roleCode !== 'R_USER')
+        : []
+    } catch {
+      roleList.value = []
+    }
+  }
+  onMounted(loadRoles)
 
   // 对话框显示控制
   const dialogVisible = computed({
@@ -101,7 +119,10 @@
       username: isEdit ? row.userName || '' : '',
       phone: isEdit ? row.userPhone || '' : '',
       gender: isEdit ? row.userGender || '男' : '男',
-      role: isEdit ? (Array.isArray(row.userRoles) ? row.userRoles : []) : []
+      // 预填时过滤掉 R_USER
+      role: isEdit
+        ? (Array.isArray(row.userRoles) ? row.userRoles.filter((code: string) => code !== 'R_USER') : [])
+        : []
     })
   }
 

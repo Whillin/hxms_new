@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Query } from '@nestjs/common'
+import { Body, Controller, Get, Post, Query, Req } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository, Like, Between } from 'typeorm'
 import { Role } from '../roles/role.entity'
@@ -36,29 +36,58 @@ export class RoleController {
   ) {}
 
   private async seedIfEmpty() {
-    const count = await this.repo.count()
-    if (count === 0) {
-      const seeds: Omit<Role, 'id' | 'createTime' | 'updateTime'>[] = [
-        {
-          roleName: '超级管理员',
-          roleCode: 'R_SUPER',
-          description: '系统最高权限，可访问所有模块',
-          enabled: true
-        },
-        {
-          roleName: '管理员',
-          roleCode: 'R_ADMIN',
-          description: '系统管理权限，可访问管理模块',
-          enabled: true
-        },
-        {
-          roleName: '普通用户',
-          roleCode: 'R_USER',
-          description: '基础使用权限，仅访问基础模块',
-          enabled: true
-        }
-      ]
-      await this.repo.save(seeds.map((s) => this.repo.create(s)))
+    const existing = await this.repo.find({
+      select: ['id', 'roleCode', 'roleName', 'description', 'enabled']
+    })
+    console.log('[RoleController.seedIfEmpty] existing count =', existing.length)
+    const byCode = new Map(existing.map((r) => [r.roleCode, r]))
+
+    const seeds = [
+      {
+        roleCode: 'R_SUPER',
+        roleName: '超级管理员',
+        description: '系统的超级管理员，可访问所有功能',
+        enabled: true
+      },
+      {
+        roleCode: 'R_ADMIN',
+        roleName: '系统管理员',
+        description: '系统基础管理角色，可访问大部分功能',
+        enabled: true
+      },
+      { roleCode: 'R_STAFF', roleName: '员工', description: '普通员工角色，可访问与其岗位相关功能', enabled: true },
+      { roleCode: 'R_FINANCE', roleName: '财务', description: '财务相关操作与对账', enabled: true },
+      { roleCode: 'R_SALE', roleName: '销售', description: '销售相关功能与报表', enabled: true }
+    ]
+
+    // 仅当表为空时进行种子插入，避免用户删除后被再次重建
+    if (existing.length === 0) {
+      console.log('[RoleController.seedIfEmpty] roles table empty, seeding:', seeds.map((s) => s.roleCode))
+      const toCreate = seeds.map((s) => this.repo.create(s as any))
+      if (toCreate.length) {
+        await this.repo.save(toCreate)
+        console.log('[RoleController.seedIfEmpty] seeded roles:', toCreate.map((r) => r.roleCode))
+      }
+      return
+    }
+
+    // 表不为空：只对已存在的标准角色进行名称/描述纠正，不补齐缺失项
+    const toUpdate: Role[] = []
+    for (const s of seeds) {
+      const ex = byCode.get(s.roleCode) as Role | undefined
+      if (!ex) continue // 不再自动补充缺失的标准角色
+      const nameBad = !ex.roleName || ex.roleName.trim() === '' || ex.roleName.length > 50
+      const descBad = !ex.description || ex.description.trim() === '' || ex.description.length > 200
+      if (nameBad || descBad) {
+        if (nameBad) ex.roleName = s.roleName
+        if (descBad) ex.description = s.description
+        if (typeof ex.enabled === 'undefined') ex.enabled = s.enabled as boolean
+        toUpdate.push(ex)
+      }
+    }
+    if (toUpdate.length) {
+      await this.repo.save(toUpdate)
+      console.log('[RoleController.seedIfEmpty] corrected roles:', toUpdate.map((r) => r.roleCode))
     }
   }
 
@@ -108,8 +137,15 @@ export class RoleController {
 
   /** 保存角色（新增/编辑） */
   @Post('save')
-  async save(@Body() body: Partial<Role> & { roleId?: number }) {
+  async save(@Body() body: Partial<Role> & { roleId?: number }, @Req() req: any) {
     const incoming = body || {}
+    const headers = req?.headers || {}
+    console.log('[RoleController.save] incoming:', incoming)
+    console.log('[RoleController.save] from:', {
+      referer: headers['referer'] || headers['referrer'] || '',
+      origin: headers['origin'] || '',
+      ua: headers['user-agent'] || ''
+    })
 
     // 必填校验
     const required = ['roleName', 'roleCode', 'description'] as const
@@ -140,6 +176,7 @@ export class RoleController {
       exists.description = incoming.description!
       exists.enabled = enabled
       await this.repo.save(exists)
+      console.log('[RoleController.save] updated role:', { id, roleCode: exists.roleCode })
     } else {
       if (existingByCode) {
         return { code: 400, msg: '角色编码已存在', data: false }
@@ -151,6 +188,7 @@ export class RoleController {
         enabled
       })
       await this.repo.save(record)
+      console.log('[RoleController.save] created role:', { id: record.id, roleCode: record.roleCode })
     }
 
     return { code: 200, msg: '保存成功', data: true }
@@ -196,12 +234,20 @@ export class RoleController {
     const exists = await this.repo.findOne({ where: { id: roleId } })
     if (!exists) return { code: 404, msg: '未找到角色', data: false }
 
+    // 归一化键名至 RouteName_action 格式：将 '.'、'-'、'\\' 替换为 '_'，压缩重复下划线
+    const normalize = (k: string) =>
+      String(k)
+        .trim()
+        .replace(/[.\\-]/g, '_')
+        .replace(/_+/g, '_')
+        .replace(/^_+|_+$/g, '')
+    const normalizedKeys = Array.from(
+      new Set(keys.map(normalize).filter((k) => !!k))
+    )
+
     // 覆盖保存
     await this.permRepo.delete({ roleId })
-    const toInsert = keys
-      .map((k) => String(k).trim())
-      .filter((k) => !!k)
-      .map((k) => this.permRepo.create({ roleId, permissionKey: k }))
+    const toInsert = normalizedKeys.map((k) => this.permRepo.create({ roleId, permissionKey: k }))
     if (toInsert.length) await this.permRepo.save(toInsert)
 
     return { code: 200, msg: '保存成功', data: true }

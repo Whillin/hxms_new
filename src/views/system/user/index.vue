@@ -44,7 +44,7 @@
   import ArtButtonTable from '@/components/core/forms/art-button-table/index.vue'
   import { ACCOUNT_TABLE_DATA } from '@/mock/temp/formData'
   import { useTable } from '@/composables/useTable'
-  import { fetchGetUserList } from '@/api/system-manage'
+  import { fetchGetUserList, fetchGetRoleList, fetchDeleteUser } from '@/api/system-manage'
   import UserSearch from './modules/user-search.vue'
   import UserDialog from './modules/user-dialog.vue'
   import { ElImage, ElTag, ElMessageBox, ElMessage } from 'element-plus'
@@ -91,112 +91,33 @@
     )
   }
 
-  const {
-    columns,
-    columnChecks,
-    data,
-    loading,
-    pagination,
-    getData,
-    searchParams,
-    resetSearchParams,
-    handleSizeChange,
-    handleCurrentChange,
-    refreshData
-  } = useTable({
-    // 核心配置
-    core: {
-      apiFn: fetchGetUserList,
-      apiParams: {
-        current: 1,
-        size: 20,
-        ...searchForm.value
-      },
-      // 排除 apiParams 中的属性
-      excludeParams: [],
-      columnsFactory: () => [
-        { type: 'selection' }, // 勾选列
-        { type: 'index', width: 60, label: '序号' }, // 序号
-        {
-          prop: 'avatar',
-          label: '用户名',
-          width: 280,
-          formatter: (row) => {
-            return h('div', { class: 'user', style: 'display: flex; align-items: center' }, [
-              h(ElImage, {
-                class: 'avatar',
-                src: row.avatar,
-                previewSrcList: [row.avatar],
-                // 图片预览是否插入至 body 元素上，用于解决表格内部图片预览样式异常
-                previewTeleported: true
-              }),
-              h('div', {}, [
-                h('p', { class: 'user-name' }, row.userName),
-                h('p', { class: 'email' }, row.userEmail)
-              ])
-            ])
-          }
-        },
-        {
-          prop: 'userGender',
-          label: '性别',
-          sortable: true,
-          // checked: false, // 隐藏列
-          formatter: (row) => row.userGender
-        },
-        { prop: 'userPhone', label: '手机号' },
-        {
-          prop: 'status',
-          label: '状态',
-          formatter: (row) => {
-            const statusConfig = getUserStatusConfig(row.status)
-            return h(ElTag, { type: statusConfig.type }, () => statusConfig.text)
-          }
-        },
-        {
-          prop: 'createTime',
-          label: '创建日期',
-          sortable: true
-        },
-        {
-          prop: 'operation',
-          label: '操作',
-          width: 120,
-          fixed: 'right', // 固定列
-          formatter: (row) =>
-            h('div', [
-              h(ArtButtonTable, {
-                type: 'edit',
-                onClick: () => showDialog('edit', row)
-              }),
-              h(ArtButtonTable, {
-                type: 'delete',
-                onClick: () => deleteUser(row)
-              })
-            ])
-        }
-      ]
-    },
-    // 数据处理
-    transform: {
-      // 数据转换器 - 替换头像
-      dataTransformer: (records) => {
-        // 类型守卫检查
-        if (!Array.isArray(records)) {
-          console.warn('数据转换器: 期望数组类型，实际收到:', typeof records)
-          return []
-        }
-
-        // 使用本地头像替换接口返回的头像
-        return records.map((item, index: number) => {
-          return {
-            ...item,
-            avatar: ACCOUNT_TABLE_DATA[index % ACCOUNT_TABLE_DATA.length].avatar
-          }
+  // 角色映射：roleCode -> roleName
+  const roleMap = ref<Record<string, string>>({})
+  const loadRoleMap = async () => {
+    try {
+      const res = await fetchGetRoleList({ current: 1, size: 200 } as any)
+      const records =
+        (res as any)?.data?.records ??
+        (res as any)?.data?.list ??
+        (res as any)?.records ??
+        (res as any)?.list ??
+        []
+      const map: Record<string, string> = {}
+      if (Array.isArray(records)) {
+        records.forEach((r: any) => {
+          if (r?.roleCode) map[r.roleCode] = r?.roleName || r.roleCode
         })
       }
+      roleMap.value = map
+      // 角色映射更新后刷新表格以重新渲染列
+      refreshData()
+    } catch (e) {
+      // 保持空映射，表格将显示代码作为后备
+      roleMap.value = {}
     }
-  })
+  }
+
+  onMounted(loadRoleMap)
 
   /**
    * 搜索处理
@@ -230,8 +151,21 @@
       confirmButtonText: '确定',
       cancelButtonText: '取消',
       type: 'error'
-    }).then(() => {
-      ElMessage.success('注销成功')
+    }).then(async () => {
+      try {
+        const ok = await fetchDeleteUser(row.id)
+        if ((ok as any)?.data === true || ok === true) {
+          ElMessage.success('注销成功')
+        } else {
+          ElMessage.warning('后端未确认删除，已取消')
+        }
+      } catch (e) {
+        ElMessage.error('删除失败')
+        console.error('删除失败:', e)
+      } finally {
+        // 无论成功与否都刷新列表，保证视图与后端一致
+        refreshData()
+      }
     })
   }
 
@@ -254,6 +188,123 @@
     selectedRows.value = selection
     console.log('选中行数据:', selectedRows.value)
   }
+
+  const {
+    columns,
+    columnChecks,
+    data,
+    loading,
+    pagination,
+    getData,
+    searchParams,
+    resetSearchParams,
+    handleSizeChange,
+    handleCurrentChange,
+    refreshData
+  } = useTable({
+    core: {
+      apiFn: fetchGetUserList,
+      apiParams: {
+        current: 1,
+        size: 20,
+        ...searchForm.value
+      },
+      excludeParams: [],
+      columnsFactory: () => [
+        { type: 'selection' },
+        { type: 'index', width: 60, label: '序号' },
+        {
+          prop: 'avatar',
+          label: '用户名',
+          width: 280,
+          formatter: (row) => {
+            return h('div', { class: 'user', style: 'display: flex; align-items: center' }, [
+              h(ElImage, {
+                class: 'avatar',
+                src: row.avatar,
+                previewSrcList: [row.avatar],
+                previewTeleported: true
+              }),
+              h('div', {}, [
+                h('p', { class: 'user-name' }, row.userName),
+                h('p', { class: 'email' }, row.userEmail)
+              ])
+            ])
+          }
+        },
+        {
+          prop: 'userGender',
+          label: '性别',
+          sortable: true,
+          formatter: (row) => row.userGender
+        },
+        { prop: 'userPhone', label: '手机号' },
+        // 新增“角色”列
+        {
+          prop: 'userRoles',
+          label: '角色',
+          minWidth: 180,
+          formatter: (row) => {
+            const codes: string[] = Array.isArray(row.userRoles)
+              ? row.userRoles.filter((code: string) => code !== 'R_USER')
+              : []
+            const tags = codes.map((code) =>
+              h(
+                ElTag,
+                { size: 'small', style: 'margin-right: 6px' },
+                () => roleMap.value[code] || code
+              )
+            )
+            return h('div', { style: 'display:flex; flex-wrap:wrap' }, tags)
+          }
+        },
+        {
+          prop: 'status',
+          label: '状态',
+          formatter: (row) => {
+            const statusConfig = getUserStatusConfig(row.status)
+            return h(ElTag, { type: statusConfig.type }, () => statusConfig.text)
+          }
+        },
+        {
+          prop: 'createTime',
+          label: '创建日期',
+          sortable: true
+        },
+        {
+          prop: 'operation',
+          label: '操作',
+          width: 120,
+          fixed: 'right',
+          formatter: (row) =>
+            h('div', [
+              h(ArtButtonTable, {
+                type: 'edit',
+                onClick: () => showDialog('edit', row)
+              }),
+              h(ArtButtonTable, {
+                type: 'delete',
+                onClick: () => deleteUser(row)
+              })
+            ])
+        }
+      ]
+    },
+    transform: {
+      dataTransformer: (records) => {
+        if (!Array.isArray(records)) {
+          console.warn('数据转换器: 期望数组类型，实际收到:', typeof records)
+          return []
+        }
+        return records.map((item, index: number) => {
+          return {
+            ...item,
+            avatar: ACCOUNT_TABLE_DATA[index % ACCOUNT_TABLE_DATA.length].avatar
+          }
+        })
+      }
+    }
+  })
 </script>
 
 <style lang="scss" scoped>

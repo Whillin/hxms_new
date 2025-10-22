@@ -172,7 +172,7 @@
       label: t('login.roles.user'),
       userName: 'User',
       password: '123456',
-      roles: ['R_USER']
+      roles: ['R_FRONT_DESK']
     }
   ])
 

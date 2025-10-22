@@ -62,7 +62,7 @@
 }</code></pre>
                 <p><strong>权限验证流程：</strong></p>
                 <ul>
-                  <li>用户登录后，接口返回用户角色信息（如 R_SUPER、R_ADMIN、R_USER）</li>
+                  <li>用户登录后，接口返回用户角色信息（如 R_SUPER、R_ADMIN、R_FRONT_DESK）</li>
                   <li>
                     在 <code>beforeEach</code> 路由守卫中检查目标路由的 <code>roles</code> 配置
                   </li>
@@ -218,7 +218,7 @@
     const roleMap: Record<string, string> = {
       R_SUPER: '超级管理员',
       R_ADMIN: '管理员',
-      R_USER: '普通用户'
+      R_FRONT_DESK: '前台'
     }
     return roleMap[role] || '未知角色'
   }

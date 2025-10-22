@@ -222,6 +222,7 @@
   import { useProductStore } from '@/store/modules/product'
   import { storeToRefs } from 'pinia'
   import { useAuth } from '@/composables/useAuth'
+  import { fetchGetClueList, fetchSaveClue, fetchDeleteClue } from '@/api/clue'
 
   defineOptions({ name: 'ClueLeads' })
 
@@ -490,7 +491,7 @@
         size
       }: Api.Common.CommonSearchParams): Promise<Api.Common.PaginatedResponse<ClueItem>> => {
         const params = { current, size, ...searchForm.value }
-        const res = await mockApi(params)
+        const res = await fetchGetClueList(params)
         // 返回标准分页响应结构，便于泛型正确推断记录类型
         return { records: res.records, total: res.total, current, size }
       },
@@ -1204,39 +1205,14 @@
   }
   const submitAdd = async () => {
     await addFormRef.value.validate()
-    // 合并日期与时间为完整时刻
-    const { visitDate, enterTime, leaveTime } = addForm.value as any
-    const combinedEnter = visitDate && enterTime ? `${visitDate} ${enterTime}` : ''
-    const combinedLeave = visitDate && leaveTime ? `${visitDate} ${leaveTime}` : ''
-    const merged = {
-      // 如果是编辑则沿用原 id
-      id: editingId.value ? editingId.value : String(Date.now()),
-      ...addForm.value,
-      enterTime: combinedEnter,
-      leaveTime: combinedLeave,
-      receptionDuration:
-        addForm.value.receptionDuration || calcDuration(combinedEnter, combinedLeave)
+    const payload = {
+      ...(addForm.value as any),
+      id: editingId.value || undefined
     } as any
-    if (editingId.value) {
-      // 先尝试更新本地新增缓存
-      const idxLocal = localCreates.value.findIndex((r) => r.id === editingId.value)
-      if (idxLocal >= 0) {
-        localCreates.value.splice(idxLocal, 1, merged)
-        saveLocalCreates()
-      } else if (baseAll) {
-        const idxBase = baseAll.findIndex((r) => r.id === editingId.value)
-        if (idxBase >= 0) baseAll.splice(idxBase, 1, merged)
-      }
-      ElMessage.success('更新线索成功')
-    } else {
-      // 写入本地新增缓存并刷新，确保与查询/重置一致
-      localCreates.value = [merged, ...localCreates.value]
-      saveLocalCreates()
-      ElMessage.success('新增线索成功')
-    }
+    await fetchSaveClue(payload)
+    ElMessage.success(editingId.value ? '更新线索成功' : '新增线索成功')
     await getData()
     addDialogVisible.value = false
-    // 提交后重置，避免下次打开看到上次内容
     resetAddForm()
   }
 
@@ -1246,20 +1222,14 @@
     fillEditForm(row)
     addDialogVisible.value = true
   }
-  const deleteRow = (row: ClueItem) => {
-    // 从本地新增缓存移除
-    const before = localCreates.value.length
-    localCreates.value = localCreates.value.filter((r) => r.id !== row.id)
-    if (before !== localCreates.value.length) {
-      saveLocalCreates()
+  const deleteRow = async (row: ClueItem) => {
+    if (!row.id) {
+      ElMessage.error('无有效ID，无法删除')
+      return
     }
-    // 如果不是本地新增数据，尝试从基础数据集中移除
-    if (before === localCreates.value.length && baseAll) {
-      baseAll = baseAll.filter((r) => r.id !== row.id)
-    }
-    // 刷新
-    getData()
+    await fetchDeleteClue(row.id as any)
     ElMessage.success('删除成功')
+    await getData()
   }
 
   // 查看详情

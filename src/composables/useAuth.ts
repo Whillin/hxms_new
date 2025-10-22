@@ -2,6 +2,7 @@ import { useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useUserStore } from '@/store/modules/user'
 import { useCommon } from '@/composables/useCommon'
+import { matchPermission } from '@/utils/auth/permission'
 import type { AppRouteRecord } from '@/types/router'
 
 type AuthItem = NonNullable<AppRouteRecord['meta']['authList']>[number]
@@ -27,6 +28,8 @@ export const useAuth = () => {
     ? (route.meta.authList as AuthItem[])
     : []
 
+  // 统一匹配逻辑已抽取到 utils/auth/permission.ts
+
   /**
    * 检查是否拥有某权限标识（前后端模式通用）
    * @param auth 权限标识
@@ -35,26 +38,17 @@ export const useAuth = () => {
   const hasAuth = (auth: string): boolean => {
     // 优先使用用户信息中的按钮权限（后端返回），适用于前后端两种模式
     if (Array.isArray(frontendAuthList) && frontendAuthList.length > 0) {
-      const lower = String(auth).toLowerCase()
-      const upper = String(auth).toUpperCase()
-      const withPrefixUpper = `B_${upper}`
-      const withPrefixLower = `b_${lower}`
-      const candidates = [auth, lower, upper, withPrefixUpper, withPrefixLower]
-      return frontendAuthList.some((mark) => candidates.includes(String(mark)))
+      return frontendAuthList.some((mark) => matchPermission(String(mark), auth))
     }
 
     // 若用户信息未返回按钮权限，则按模式回退
     if (isFrontendMode.value) {
-      const lower = String(auth).toLowerCase()
-      const upper = String(auth).toUpperCase()
-      const withPrefixUpper = `B_${upper}`
-      const withPrefixLower = `b_${lower}`
-      const candidates = [auth, lower, upper, withPrefixUpper, withPrefixLower]
-      return frontendAuthList.some((mark) => candidates.includes(String(mark)))
+      // 前端模式下无用户按钮权限时，默认无权
+      return false
     }
 
     // 后端模式：回退使用路由 meta.authList
-    return backendAuthList.some((item) => item?.authMark === auth)
+    return backendAuthList.some((item) => matchPermission(String(item?.authMark || ''), auth))
   }
 
   return {

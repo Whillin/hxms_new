@@ -16,6 +16,14 @@
         description="可点击全部选择或手动勾选后保存，再次打开将显示默认勾选。"
         style="margin: 0 0 12px 0"
       />
+      <!-- 键名规范提示：统一使用 RouteName_action 格式，例如 ClueLeads_add -->
+      <ElAlert
+        title="权限键名规范"
+        type="success"
+        :closable="false"
+        description="统一使用 RouteName_action 格式（例如：ClueLeads_add、CustomerList_edit）。保存时会自动归一（将 .、-、\\ 转为 _），避免歧义。"
+        style="margin: 0 0 12px 0"
+      />
       <ElTree
         ref="treeRef"
         :data="processedMenuList"
@@ -347,9 +355,11 @@
       const halfCheckedKeys: string[] = tree.getHalfCheckedKeys()
       // 合并并去重，包含父节点半选中情况
       const keys = Array.from(new Set([...checkedKeys, ...halfCheckedKeys]))
+      // 归一化（保证 RouteName_action 一致性）
+      const normalizedKeys = keys.map((k) => String(k).replace(/[.\-\\]/g, '_'))
       // 仅提交有效键
       const allKeys = getAllNodeKeys(processedMenuList.value)
-      const validKeys = keys.filter((k) => allKeys.includes(k))
+      const validKeys = normalizedKeys.filter((k) => allKeys.includes(k))
 
       console.log('[权限弹窗] 保存前校验:', {
         roleId: props.roleData.roleId,

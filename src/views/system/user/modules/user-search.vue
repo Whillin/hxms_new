@@ -34,8 +34,11 @@
     // userName: [{ required: true, message: '请输入用户名', trigger: 'blur' }]
   }
 
+  import { fetchGetRoleList } from '@/api/system-manage'
+
   // 动态 options
   const statusOptions = ref<{ label: string; value: string; disabled?: boolean }[]>([])
+  const roleOptions = ref<{ label: string; value: string }[]>([])
 
   // 模拟接口返回状态数据
   function fetchStatusOptions(): Promise<typeof statusOptions.value> {
@@ -51,8 +54,21 @@
     })
   }
 
+  async function loadRoleOptions() {
+    try {
+      const res = await fetchGetRoleList({ current: 1, size: 200 } as any)
+      const records = (res as any)?.data?.records ?? (res as any)?.records ?? []
+      roleOptions.value = Array.isArray(records)
+        ? records.map((r: any) => ({ label: r.roleName, value: r.roleCode }))
+        : []
+    } catch {
+      roleOptions.value = []
+    }
+  }
+
   onMounted(async () => {
     statusOptions.value = await fetchStatusOptions()
+    await loadRoleOptions()
   })
 
   // 表单配置
@@ -94,6 +110,16 @@
           { label: '男', value: '1' },
           { label: '女', value: '2' }
         ]
+      }
+    },
+    {
+      label: '角色',
+      key: 'roleCode',
+      type: 'select',
+      props: {
+        placeholder: '请选择角色',
+        options: roleOptions.value,
+        clearable: true
       }
     }
   ])

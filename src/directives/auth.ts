@@ -2,6 +2,7 @@ import { router } from '@/router'
 import { App, Directive, DirectiveBinding } from 'vue'
 import { useUserStore } from '@/store/modules/user'
 import { storeToRefs } from 'pinia'
+import { matchPermission } from '@/utils/auth/permission'
 
 /**
  * 权限指令（后端控制模式可用）
@@ -21,19 +22,15 @@ function checkAuthPermission(el: HTMLElement, binding: AuthBinding): void {
     ? (info.value?.buttons as string[])
     : []
 
-  const lower = String(binding.value).toLowerCase()
-  const upper = String(binding.value).toUpperCase()
-  const withPrefixUpper = `B_${upper}`
-  const withPrefixLower = `b_${lower}`
-  const candidates = [binding.value, lower, upper, withPrefixUpper, withPrefixLower]
+  // 统一匹配逻辑已抽取到 utils/auth/permission.ts
 
   let hasPermission = false
   if (buttons.length) {
-    hasPermission = buttons.some((mark) => candidates.includes(String(mark)))
+    hasPermission = buttons.some((mark) => matchPermission(String(mark), binding.value))
   } else {
     // 回退：使用当前路由的权限列表（meta.authList）
     const authList = (router.currentRoute.value.meta.authList as Array<{ authMark: string }>) || []
-    hasPermission = authList.some((item) => item.authMark === binding.value)
+    hasPermission = authList.some((item) => matchPermission(String(item.authMark), binding.value))
   }
 
   // 如果没有权限，移除元素

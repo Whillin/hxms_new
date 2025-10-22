@@ -39,6 +39,8 @@
 
   type RoleListItem = Api.SystemManage.RoleListItem
 
+  import { fetchSaveRole } from '@/api/system-manage'
+
   interface Props {
     modelValue: boolean
     dialogType: 'add' | 'edit'
@@ -140,13 +142,22 @@
 
     try {
       await formRef.value.validate()
-      // TODO: 调用新增/编辑接口
-      const message = props.dialogType === 'add' ? '新增成功' : '修改成功'
-      ElMessage.success(message)
-      emit('success')
-      handleClose()
+      const payload = {
+        roleId: form.roleId,
+        roleName: form.roleName,
+        roleCode: form.roleCode,
+        description: form.description,
+        enabled: form.enabled
+      }
+      const ok = await fetchSaveRole(payload)
+      if ((ok as any)?.data === true || ok === true) {
+        const message = props.dialogType === 'add' ? '新增成功' : '修改成功'
+        ElMessage.success(message)
+        emit('success')
+        handleClose()
+      }
     } catch (error) {
-      console.log('表单验证失败:', error)
+      console.log('表单验证或保存失败:', error)
     }
   }
 </script>
