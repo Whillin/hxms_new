@@ -178,8 +178,18 @@ async function handleDynamicRoutes(
       try {
         const data = await fetchGetUserInfo()
         userStore.setUserInfo(data)
-      } catch (error) {
+      } catch (error: any) {
         console.error('获取用户信息失败', error)
+        const status = error?.response?.status ?? error?.statusCode ?? error?.response?.data?.statusCode
+        if (status === 401) {
+          // 鉴权失败：登出并跳转登录页，而不是 500
+          userStore.logOut()
+          loadingService.hideLoading()
+          next(RoutesAlias.Login)
+          return
+        }
+        // 非鉴权错误，交由外层捕获并展示 500
+        throw error
       }
     }
 

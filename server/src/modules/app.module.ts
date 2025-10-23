@@ -20,6 +20,10 @@ import { Customer } from '../customers/customer.entity'
 import { Channel } from '../channels/channel.entity'
 import { ProductModel } from '../products/product-model.entity'
 import { ChannelsController } from '../routes/channel.controller'
+import { ProductCategory } from '../products/product-category.entity'
+import { ProductCategoryLink } from '../products/product-category-link.entity'
+import { CategoryController } from '../routes/category.controller'
+import { SeedService } from '../common/seed.service'
 
 @Module({
   imports: [
@@ -30,12 +34,12 @@ import { ChannelsController } from '../routes/channel.controller'
       username: process.env.MYSQL_USER || 'root',
       password: process.env.MYSQL_PASSWORD || '123456',
       database: process.env.MYSQL_DB || 'hxms_dev',
-      entities: [User, Department, Employee, EmployeeStoreLink, Role, RolePermission, Clue, Customer, Channel, ProductModel],
+      entities: [User, Department, Employee, EmployeeStoreLink, Role, RolePermission, Clue, Customer, Channel, ProductModel, ProductCategory, ProductCategoryLink],
       synchronize: true,
       logging: false
     }),
     // 注入各控制器需要的仓库
-    TypeOrmModule.forFeature([Department, Employee, EmployeeStoreLink, Role, RolePermission, Clue, Customer, Channel, ProductModel]),
+    TypeOrmModule.forFeature([Department, Employee, EmployeeStoreLink, Role, RolePermission, Clue, Customer, Channel, ProductModel, ProductCategory, ProductCategoryLink]),
     AuthModule,
     UserModule
   ],
@@ -45,8 +49,9 @@ import { ChannelsController } from '../routes/channel.controller'
     EmployeeController,
     RoleController,
     ClueController,
-    ChannelsController
+    ChannelsController,
+    CategoryController
   ],
-  providers: [JwtGuard, DataScopeService]
+  providers: [JwtGuard, DataScopeService, SeedService]
 })
 export class AppModule {}

@@ -139,6 +139,7 @@
   import { useProductCategoryStore } from '@/store/modules/productCategory'
   import { ElMessage, ElMessageBox } from 'element-plus'
   import { Plus, Search, Refresh, Shop, Discount } from '@element-plus/icons-vue'
+  import { fetchSaveCategory, fetchDeleteCategory, fetchGetAllCategories } from '@/api/category'
 
   defineOptions({ name: 'ProductCategory' })
 
@@ -253,15 +254,66 @@
       return acc
     }, [])
   }
+
+  // 新增：从服务端拉取分类并构建树，写回到 tableData 与 store
+  const refreshCategories = async () => {
+    try {
+      const list = await fetchGetAllCategories()
+      const treeBuilt = buildTreeFromList(Array.isArray(list) ? list : [])
+      tableData.value = treeBuilt
+      categoryStore.tree = treeBuilt as any
+    } catch (e) {
+      ElMessage.error('刷新分类数据失败')
+    }
+  }
+
+  // 新增：将后端返回的扁平列表按 parentId 构造成树并字段映射
+  const buildTreeFromList = (list: any[]) => {
+    const map = new Map<number, any>()
+    const roots: any[] = []
+
+    // 先做字段映射，统一前端结构
+    const normalized = list.map((it) => ({
+      id: Number(it.id),
+      name: it.name,
+      code: it.slug,
+      parentId: Number(it.parentId ?? 0),
+      level: (it.parentId ?? 0) === 0 ? 1 : 2,
+      sort: Number(it.sortOrder ?? 0),
+      status: it.status === 'active' ? 1 : 0,
+      description: it.description ?? '',
+      createTime: it.createdAt ? new Date(it.createdAt).toLocaleString('zh-CN') : '',
+      hasChildren: false,
+      children: []
+    }))
+
+    // 建索引
+    normalized.forEach((n) => map.set(n.id, n))
+
+    // 组装树
+    normalized.forEach((n) => {
+      if (n.parentId && n.parentId !== 0) {
+        const p = map.get(n.parentId)
+        if (p) {
+          p.children = p.children || []
+          p.children.push(n)
+          p.hasChildren = true
+        } else {
+          // 父类缺失，作为根兜底展示，避免界面卡死
+          roots.push(n)
+        }
+      } else {
+        roots.push(n)
+      }
+    })
+
+    return roots
+  }
+
   const loadData = async () => {
     loading.value = true
     try {
-      // 这里应该调用实际的API
-      // const response = await getCategoryList(searchForm)
-      // tableData.value = response.data
-
-      // 模拟API调用延迟
-      await new Promise((resolve) => setTimeout(resolve, 500))
+      await refreshCategories()
     } catch {
       ElMessage.error('加载数据失败')
     } finally {
@@ -339,16 +391,17 @@
 
       loading.value = true
 
-      // 模拟删除API调用
-      await new Promise((resolve) => setTimeout(resolve, 500))
+      // 调用后端删除接口
+      await fetchDeleteCategory(Number(row.id), { showSuccessMessage: true })
 
-      // 从数据中删除该项
-      removeFromTableData(row.id)
+      // 成功后改为刷新服务端数据（不本地移除，避免不一致）
+      await refreshCategories()
 
       ElMessage.success('删除成功')
-    } catch (error) {
+    } catch (error: any) {
       if (error !== 'cancel') {
-        ElMessage.error('删除失败，请重试')
+        const msg = error?.message || '删除失败，请重试'
+        ElMessage.error(msg)
       }
     } finally {
       loading.value = false
@@ -362,22 +415,20 @@
       await formRef.value.validate()
       submitLoading.value = true
 
-      // 模拟API调用
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-
-      if (formData.id) {
-        // 编辑模式：更新现有数据
-        updateTableData(formData)
-        ElMessage.success('更新成功')
-      } else {
-        // 新增模式：根据是否选择父级，添加一级或二级
-        addToTableData({
-          ...formData,
-          parentId: Number(formData.parentId) || 0,
-          level: formData.parentId && Number(formData.parentId) > 0 ? 2 : 1
-        })
-        ElMessage.success('创建成功')
+      // 调用后端保存分类（新增或编辑）
+      const payload = {
+        id: formData.id || undefined,
+        name: formData.name,
+        parentId: Number(formData.parentId) || 0,
+        sortOrder: Number(formData.sort) || 0,
+        status: formData.status === 1 ? 'active' : 'inactive',
+        slug: formData.code || undefined
       }
+      const res = await fetchSaveCategory(payload, { showSuccessMessage: true })
+      const saved = (res as any)?.data ?? res
+
+      // 统一改为刷新后端数据，不再本地拼接/更新
+      await refreshCategories()
 
       dialogVisible.value = false
     } catch (error) {
@@ -393,7 +444,7 @@
   const addToTableData = (data: any) => {
     const newItem = {
       ...data,
-      id: Date.now(), // 临时ID，实际应该由后端返回
+      id: data.id ?? Date.now(),
       level: data.level ?? (data.parentId === 0 ? 1 : 2),
       createTime: new Date().toLocaleString('zh-CN'),
       children: data.parentId === 0 ? [] : undefined,
@@ -550,11 +601,10 @@
   // 生成分类编码
   const generateCategoryCode = (parentCode: string = '', level: number = 1, name: string = '') => {
     if (level === 1) {
-      // 一级分类：根据名称英文前缀 + 两位序号
+      // 一级分类：根据名称英文前缀 + 两位序号（与后端现有 XPENG01 对齐）
       const prefix = toEnglishPrefix(name)
       if (prefix) {
         const level1 = getAllCategories().filter((item) => item.level === 1)
-        // 找到相同前缀的最大序号（两位）
         let maxNum = 0
         level1.forEach((item) => {
           const match = item.code.match(new RegExp(`^${prefix}(\\d{2})$`))
@@ -566,7 +616,7 @@
         const nextNum = (maxNum + 1).toString().padStart(2, '0')
         return `${prefix}${nextNum}`
       }
-      // 名称为空或无法转换英文时，回退到通用前缀
+      // 名称为空或无法转换英文时，回退到通用前缀（两位）
       const existingCodes = tableData.value
         .filter((item) => item.level === 1)
         .map((item) => item.code)
@@ -701,7 +751,7 @@
       vertical-align: middle;
     }
 
-    /* 为一级分类添加更明显的样式 */
+    /* 为一级分类添加更明确的样式 */
     :deep(.el-table__row--level-0) {
       font-weight: 600;
       background-color: #fafafa;

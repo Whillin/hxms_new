@@ -81,7 +81,8 @@ axiosInstance.interceptors.request.use(
 axiosInstance.interceptors.response.use(
   (response: AxiosResponse<Http.BaseResponse>) => {
     const { code, msg } = response.data
-    if (code === ApiStatus.success) return response
+    // 兼容后端成功码为 0 的情况
+    if (code === ApiStatus.success || code === 0) return response
     if (code === ApiStatus.unauthorized && !isAuthUrl(response.config?.url)) {
       const originalConfig = response.config as InternalAxiosRequestConfig
       return attemptRefreshAndRetry(originalConfig, msg)

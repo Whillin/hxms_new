@@ -134,17 +134,16 @@ export const useProductCategoryStore = defineStore(
 
     // 添加/更新/删除，供分类管理页调用以同步管理页选项
     const addCategory = (
-      node: Omit<CategoryNode, 'id' | 'createTime' | 'children' | 'hasChildren'>
+      node: Omit<CategoryNode, 'id' | 'createTime' | 'children' | 'hasChildren'> & { id?: number }
     ) => {
       const newNode: CategoryNode = {
         ...node,
-        id: Date.now(),
+        id: node.id ?? Date.now(),
         createTime: new Date().toLocaleString('zh-CN'),
         children: node.level === 1 ? [] : undefined,
         hasChildren: node.level === 1 ? false : false
       }
       if (node.parentId === 0) {
-        // 新增品牌，默认不可展开（hasChildren=false），但 children 为空数组，ElTable 使用 children/hasChildren 判断
         newNode.hasChildren = false
         newNode.children = []
         tree.value.push(newNode)
