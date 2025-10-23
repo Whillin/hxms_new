@@ -85,9 +85,8 @@ export class UserService implements OnModuleInit {
     }
 
     const passwordHash = bcrypt.hashSync(password, 10)
--    const roles = ['R_USER']
-+    const roles: string[] = []
-     if (resolvedRole) roles.push(resolvedRole)
+    const roles: string[] = ['R_USER']
+    if (resolvedRole) roles.push(resolvedRole)
 
      const record = this.repo.create({
        userName,

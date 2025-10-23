@@ -301,6 +301,7 @@
   import { useProductStore } from '@/store/modules/product'
   import { storeToRefs } from 'pinia'
   import { useOpportunityFollowStore } from '@/store/modules/opportunityFollow'
+  import { fetchChannelOptions } from '@/api/channel'
 
   defineOptions({ name: 'OpportunityList' })
 
@@ -353,16 +354,16 @@
   }
 
   // 选项：一级渠道/商机级别/购车经历/战败分析
-  const channelLevel1Options = [
-    { label: '展厅到店', value: '展厅到店' },
-    { label: 'DCC/ADC到店', value: 'DCC/ADC到店' },
-    { label: '车展外展', value: '车展外展' },
-    { label: '新媒体开发', value: '新媒体开发' },
-    { label: '转化开发', value: '转化开发' },
-    { label: '保客开发', value: '保客开发' },
-    { label: '转介绍开发', value: '转介绍开发' },
-    { label: '大用户开发', value: '大用户开发' }
-  ]
+  const channelLevel1Options = ref<{ label: string; value: string }[]>([])
+  
+  onMounted(async () => {
+    try {
+      const resp = await fetchChannelOptions()
+      channelLevel1Options.value = (resp.level1 || []).map((v: string) => ({ label: v, value: v }))
+    } catch (e: any) {
+      console.error('[fetchChannelOptions] failed:', e)
+    }
+  })
   const opportunityLevelOptions = [
     { label: 'H', value: 'H' },
     { label: 'A', value: 'A' },

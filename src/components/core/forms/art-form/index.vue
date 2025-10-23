@@ -40,27 +40,27 @@
                   v-bind="getProps(item)"
                 >
                   <!-- 下拉选择 -->
-                  <template v-if="item.type === 'select' && getProps(item)?.options">
-                    <ElOption
-                      v-for="option in getProps(item).options"
+                  <template v-if="item.type === 'select' && getOptions(item).length">
+                    <el-option
+                      v-for="option in getOptions(item)"
                       v-bind="option"
                       :key="option.value"
                     />
                   </template>
 
                   <!-- 复选框组 -->
-                  <template v-if="item.type === 'checkboxgroup' && getProps(item)?.options">
+                  <template v-if="item.type === 'checkboxgroup' && getOptions(item).length">
                     <ElCheckbox
-                      v-for="option in getProps(item).options"
+                      v-for="option in getOptions(item)"
                       v-bind="option"
                       :key="option.value"
                     />
                   </template>
 
                   <!-- 单选框组 -->
-                  <template v-if="item.type === 'radiogroup' && getProps(item)?.options">
+                  <template v-if="item.type === 'radiogroup' && getOptions(item).length">
                     <ElRadio
-                      v-for="option in getProps(item).options"
+                      v-for="option in getOptions(item)"
                       v-bind="option"
                       :key="option.value"
                     />
@@ -156,48 +156,27 @@
 
   // 表单项配置
   export interface FormItem {
-    /** 表单项的唯一标识 */
     key: string
-    /** 表单项的标签文本 */
     label: string
-    /** 表单项标签的宽度，会覆盖 Form 的 labelWidth */
     labelWidth?: string | number
-    /** 表单项类型，可以是预定义的字符串类型或自定义组件 */
     type: keyof typeof componentMap | string | (() => VNode)
-    /** 是否隐藏该表单项 */
     hidden?: boolean
-    /** 表单项占据的列宽，基于24格栅格系统 */
     span?: number
-    /** 选项数据，用于 select、checkbox-group、radio-group 等 */
     options?: Record<string, any>
-    /** 传递给表单项组件的属性 */
     props?: Record<string, any>
-    /** 表单项的插槽配置 */
     slots?: Record<string, (() => any) | undefined>
-    /** 表单项的占位符文本 */
     placeholder?: string
-    /** 更多属性配置请参考 ElementPlus 官方文档 */
   }
 
-  // 表单配置
   interface FormProps {
-    /** 表单数据 */
     items: FormItem[]
-    /** 每列的宽度（基于 24 格布局） */
     span?: number
-    /** 表单控件间隙 */
     gutter?: number
-    /** 表单域标签的位置 */
     labelPosition?: 'left' | 'right' | 'top'
-    /** 文字宽度 */
     labelWidth?: string | number
-    /** 按钮靠左对齐限制（表单项小于等于该值时） */
     buttonLeftLimit?: number
-    /** 是否显示重置按钮 */
     showReset?: boolean
-    /** 是否显示提交按钮 */
     showSubmit?: boolean
-    /** 是否禁用提交按钮 */
     disabledSubmit?: boolean
   }
 
@@ -231,6 +210,32 @@
     return props
   }
 
+  // 统一解析 options：支持 Ref/数组/对象映射/原始值
+  const getOptions = (item: FormItem) => {
+    const raw = getProps(item)?.options as any
+    if (!raw) return []
+    // 如果是 Ref 或 ComputedRef，取其 value
+    const val = raw && typeof raw === 'object' && 'value' in raw ? raw.value : raw
+    // 支持对象映射：{ value: label }
+    const source = Array.isArray(val)
+      ? val
+      : val && typeof val === 'object'
+        ? Object.entries(val).map(([value, label]) => ({ label, value }))
+        : []
+    // 归一化为 {label, value}
+    return source.map((opt: any) => {
+      if (typeof opt === 'string' || typeof opt === 'number') {
+        return { label: String(opt), value: opt }
+      }
+      if (opt && ("label" in opt || "value" in opt)) {
+        return opt
+      }
+      const label = opt?.name ?? opt?.text ?? String(opt)
+      const value = opt?.value ?? opt?.name ?? opt?.text ?? String(opt)
+      return { label, value, ...opt }
+    })
+  }
+
   // 获取插槽
   const getSlots = (item: FormItem) => {
     if (!item.slots) return {}
@@ -247,20 +252,13 @@
   const getComponent = (item: FormItem) => {
     const { type } = item
     if (type && typeof item.type !== 'string') return type
-    // type不传递、默认使用 input
     return componentMap[type as keyof typeof componentMap] || componentMap['input']
   }
 
-  /**
-   * 可见的表单项
-   */
   const visibleFormItems = computed(() => {
     return props.items.filter((item) => !item.hidden)
   })
 
-  /**
-   * 操作按钮样式
-   */
   const actionButtonsStyle = computed(() => ({
     'justify-content': isMobile.value
       ? 'flex-end'
@@ -269,26 +267,15 @@
         : 'flex-end'
   }))
 
-  /**
-   * 处理重置事件
-   */
   const handleReset = () => {
-    // 重置表单字段（UI 层）
     formInstance.value?.resetFields()
-
-    // 清空所有表单项值（包含隐藏项）
     Object.assign(
       modelValue.value,
       Object.fromEntries(props.items.map(({ key }) => [key, undefined]))
     )
-
-    // 触发 reset 事件
     emit('reset')
   }
 
-  /**
-   * 处理提交事件
-   */
   const handleSubmit = () => {
     emit('submit')
   }
@@ -299,7 +286,6 @@
     reset: handleReset
   })
 
-  // 解构 props 以便在模板中直接使用
   const { span, gutter, labelPosition, labelWidth } = toRefs(props)
 </script>
 
@@ -356,7 +342,6 @@
     }
   }
 
-  // 响应式优化
   @media (width <= 768px) {
     .art-form {
       padding: 16px 16px 0;

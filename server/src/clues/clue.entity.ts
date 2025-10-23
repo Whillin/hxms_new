@@ -35,11 +35,14 @@ export class Clue {
   @Column('varchar', { length: 50, nullable: true })
   salesConsultant?: string
 
-  /** 客户基础信息 */
+  /** 客户基础信息（冗余，用于列表搜索/展示） */
   @Column('varchar', { length: 50 })
   customerName!: string
   @Column('varchar', { length: 20 })
   customerPhone!: string
+  /** 关联客户ID（规范化） */
+  @Column('int', { nullable: true })
+  customerId?: number
 
   /** 到店事宜、是否留资、到店分类 */
   @Column('varchar', { length: 20, default: '看车' })
@@ -65,7 +68,7 @@ export class Clue {
   @Column('varchar', { length: 100, nullable: true })
   dealModelName?: string
 
-  /** 渠道与来源 */
+  /** 渠道与来源（冗余字段） */
   @Column('varchar', { length: 20, default: '自然到店' })
   businessSource!: string
   @Column('varchar', { length: 10, default: '线下' })
@@ -74,6 +77,9 @@ export class Clue {
   channelLevel1?: string
   @Column('varchar', { length: 50, nullable: true })
   channelLevel2?: string
+  /** 关联渠道ID（规范化） */
+  @Column('int', { nullable: true })
+  channelId?: number
   @Column('varchar', { length: 100, nullable: true })
   convertOrRetentionModel?: string
   @Column('varchar', { length: 50, nullable: true })

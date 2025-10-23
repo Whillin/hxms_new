@@ -31,27 +31,27 @@
                 v-bind="getProps(item)"
               >
                 <!-- 下拉选择 -->
-                <template v-if="item.type === 'select' && getProps(item)?.options">
+                <template v-if="item.type === 'select' && getOptions(item).length">
                   <el-option
-                    v-for="option in getProps(item).options"
+                    v-for="option in getOptions(item)"
                     v-bind="option"
                     :key="option.value"
                   />
                 </template>
 
                 <!-- 复选框组 -->
-                <template v-if="item.type === 'checkboxgroup' && getProps(item)?.options">
+                <template v-if="item.type === 'checkboxgroup' && getOptions(item).length">
                   <el-checkbox
-                    v-for="option in getProps(item).options"
+                    v-for="option in getOptions(item)"
                     v-bind="option"
                     :key="option.value"
                   />
                 </template>
 
                 <!-- 单选框组 -->
-                <template v-if="item.type === 'radiogroup' && getProps(item)?.options">
+                <template v-if="item.type === 'radiogroup' && getOptions(item).length">
                   <el-radio
-                    v-for="option in getProps(item).options"
+                    v-for="option in getOptions(item)"
                     v-bind="option"
                     :key="option.value"
                   />
@@ -107,112 +107,66 @@
   defineOptions({ name: 'ArtSearchBar' })
 
   const componentMap = {
-    input: ElInput, // 输入框
-    number: ElInputNumber, // 数字输入框
-    select: ElSelect, // 选择器
-    switch: ElSwitch, // 开关
-    checkbox: ElCheckbox, // 复选框
-    checkboxgroup: ElCheckboxGroup, // 复选框组
-    radiogroup: ElRadioGroup, // 单选框组
-    date: ElDatePicker, // 日期选择器
-    daterange: ElDatePicker, // 日期范围选择器
-    datetime: ElDatePicker, // 日期时间选择器
-    datetimerange: ElDatePicker, // 日期时间范围选择器
-    rate: ElRate, // 评分
-    slider: ElSlider, // 滑块
-    cascader: ElCascader, // 级联选择器
-    timepicker: ElTimePicker, // 时间选择器
-    timeselect: ElTimeSelect, // 时间选择
-    treeselect: ElTreeSelect // 树选择器
+    input: ElInput,
+    number: ElInputNumber,
+    select: ElSelect,
+    switch: ElSwitch,
+    checkbox: ElCheckbox,
+    checkboxgroup: ElCheckboxGroup,
+    radiogroup: ElRadioGroup,
+    date: ElDatePicker,
+    daterange: ElDatePicker,
+    datetime: ElDatePicker,
+    datetimerange: ElDatePicker
   }
 
   const { width } = useWindowSize()
   const { t } = useI18n()
   const isMobile = computed(() => width.value < 500)
+  const formRef = useTemplateRef<FormInstance>('formRef')
 
-  const formInstance = useTemplateRef<FormInstance>('formRef')
-
-  // 表单项配置
   export interface SearchFormItem {
-    /** 表单项的唯一标识 */
     key: string
-    /** 表单项的标签文本 */
     label: string
-    /** 表单项标签的宽度，会覆盖 Form 的 labelWidth */
     labelWidth?: string | number
-    /** 表单项类型，可以是预定义的字符串类型或自定义组件 */
     type: keyof typeof componentMap | string | (() => VNode)
-    /** 是否隐藏该表单项 */
     hidden?: boolean
-    /** 表单项占据的列宽，基于24格栅格系统 */
     span?: number
-    /** 选项数据，用于 select、checkbox-group、radio-group 等 */
     options?: Record<string, any>
-    /** 传递给表单项组件的属性 */
     props?: Record<string, any>
-    /** 表单项的插槽配置 */
     slots?: Record<string, (() => any) | undefined>
-    /** 表单项的占位符文本 */
     placeholder?: string
-    /** 更多属性配置请参考 ElementPlus 官方文档 */
   }
 
-  // 表单配置
-  interface SearchBarProps {
-    /** 表单数据 */
+  interface SearchFormProps {
     items: SearchFormItem[]
-    /** 每列的宽度（基于 24 格布局） */
     span?: number
-    /** 表单控件间隙 */
     gutter?: number
-    /** 展开/收起 */
-    isExpand?: boolean
-    /** 默认是否展开（仅在 showExpand 为 true 且 isExpand 为 false 时生效） */
-    defaultExpanded?: boolean
-    /** 表单域标签的位置 */
     labelPosition?: 'left' | 'right' | 'top'
-    /** 文字宽度 */
     labelWidth?: string | number
-    /** 是否需要展示，收起 */
+    defaultExpanded?: boolean
+    isExpand?: boolean
     showExpand?: boolean
-    /** 按钮靠左对齐限制（表单项小于等于该值时） */
-    buttonLeftLimit?: number
-    /** 是否显示重置按钮 */
     showReset?: boolean
-    /** 是否显示搜索按钮 */
     showSearch?: boolean
-    /** 是否禁用搜索按钮 */
     disabledSearch?: boolean
   }
 
-  const props = withDefaults(defineProps<SearchBarProps>(), {
+  const props = withDefaults(defineProps<SearchFormProps>(), {
     items: () => [],
     span: 6,
     gutter: 12,
-    isExpand: false,
     labelPosition: 'right',
     labelWidth: '70px',
-    showExpand: true,
     defaultExpanded: false,
-    buttonLeftLimit: 2,
+    isExpand: false,
+    showExpand: false,
     showReset: true,
     showSearch: true,
     disabledSearch: false
   })
 
-  interface SearchBarEmits {
-    reset: []
-    search: []
-  }
-
-  const emit = defineEmits<SearchBarEmits>()
-
   const modelValue = defineModel<Record<string, any>>({ default: {} })
-
-  /**
-   * 是否展开状态
-   */
-  const isExpanded = ref(props.defaultExpanded)
 
   const rootProps = ['label', 'labelWidth', 'key', 'type', 'hidden', 'span', 'slots']
 
@@ -223,7 +177,29 @@
     return props
   }
 
-  // 获取插槽
+  // 统一解析 options：支持 Ref/数组/对象映射/原始值
+  const getOptions = (item: SearchFormItem) => {
+    const raw = getProps(item)?.options as any
+    if (!raw) return []
+    const val = raw && typeof raw === 'object' && 'value' in raw ? raw.value : raw
+    const source = Array.isArray(val)
+      ? val
+      : val && typeof val === 'object'
+        ? Object.entries(val).map(([value, label]) => ({ label, value }))
+        : []
+    return source.map((opt: any) => {
+      if (typeof opt === 'string' || typeof opt === 'number') {
+        return { label: String(opt), value: opt }
+      }
+      if (opt && ("label" in opt || "value" in opt)) {
+        return opt
+      }
+      const label = opt?.name ?? opt?.text ?? String(opt)
+      const value = opt?.value ?? opt?.name ?? opt?.text ?? String(opt)
+      return { label, value, ...opt }
+    })
+  }
+
   const getSlots = (item: SearchFormItem) => {
     if (!item.slots) return {}
     const validSlots: Record<string, () => any> = {}
@@ -235,17 +211,12 @@
     return validSlots
   }
 
-  // 组件
   const getComponent = (item: SearchFormItem) => {
     const { type } = item
     if (type && typeof item.type !== 'string') return type
-    // type不传递、默认使用 input
     return componentMap[type as keyof typeof componentMap] || componentMap['input']
   }
 
-  /**
-   * 可见的表单项
-   */
   const visibleFormItems = computed(() => {
     const filteredItems = props.items.filter((item) => !item.hidden)
     const shouldShowLess = !props.isExpand && !isExpanded.value
@@ -256,90 +227,46 @@
     return filteredItems
   })
 
-  /**
-   * 是否应该显示展开/收起按钮
-   */
-  const shouldShowExpandToggle = computed(() => {
-    const filteredItems = props.items.filter((item) => !item.hidden)
-    return (
-      !props.isExpand && props.showExpand && filteredItems.length > Math.floor(24 / props.span) - 1
-    )
-  })
+  const isExpanded = ref(props.defaultExpanded)
+  const expandToggleText = computed(() => (isExpanded.value ? t('table.searchBar.putAway') : t('table.searchBar.expand')))
+  const shouldShowExpandToggle = computed(() => props.showExpand && props.items.length > 0)
 
-  /**
-   * 展开/收起按钮文本
-   */
-  const expandToggleText = computed(() => {
-    return isExpanded.value ? t('table.searchBar.collapse') : t('table.searchBar.expand')
-  })
-
-  /**
-   * 操作按钮样式
-   */
   const actionButtonsStyle = computed(() => ({
     'justify-content': isMobile.value
       ? 'flex-end'
-      : props.items.filter((item) => !item.hidden).length <= props.buttonLeftLimit
+      : props.items.filter((item) => !item.hidden).length <= 2
         ? 'flex-start'
         : 'flex-end'
   }))
 
-  /**
-   * 切换展开/收起状态
-   */
-  const toggleExpand = () => {
-    isExpanded.value = !isExpanded.value
-  }
-
-  /**
-   * 处理重置事件
-   */
+  const emit = defineEmits<{ reset: []; search: [] }>()
   const handleReset = () => {
-    // 重置表单字段（UI 层）
-    formInstance.value?.resetFields()
-
-    // 清空所有表单项值（包含隐藏项）
+    formRef.value?.resetFields()
     Object.assign(
       modelValue.value,
       Object.fromEntries(props.items.map(({ key }) => [key, undefined]))
     )
-
-    // 触发 reset 事件
     emit('reset')
   }
 
-  /**
-   * 处理搜索事件
-   */
   const handleSearch = () => {
     emit('search')
   }
 
-  defineExpose({
-    ref: formInstance,
-    validate: (...args: any[]) => formInstance.value?.validate(...args),
-    reset: handleReset
-  })
-
-  // 解构 props 以便在模板中直接使用
-  const { span, gutter, labelPosition, labelWidth } = toRefs(props)
+  const toggleExpand = () => {
+    isExpanded.value = !isExpanded.value
+  }
 </script>
 
 <style lang="scss" scoped>
   .art-search-bar {
-    padding: 15px 20px 0;
-    background-color: var(--art-main-bg-color);
-    border-radius: calc(var(--custom-radius) / 2 + 2px);
-
     .search-form-row {
       display: flex;
       flex-wrap: wrap;
     }
-
     .action-column {
       flex: 1;
       max-width: 100%;
-
       .action-buttons-wrapper {
         display: flex;
         flex-wrap: wrap;
@@ -347,12 +274,10 @@
         justify-content: flex-end;
         margin-bottom: 12px;
       }
-
       .form-buttons {
         display: flex;
         gap: 8px;
       }
-
       .filter-toggle {
         display: flex;
         align-items: center;
@@ -361,47 +286,11 @@
         color: var(--main-color);
         cursor: pointer;
         transition: color 0.2s ease;
-
         &:hover {
           color: var(--ElColor-primary);
         }
-
-        span {
-          font-size: 14px;
-          user-select: none;
-        }
-
-        .icon-wrapper {
-          display: flex;
-          align-items: center;
-          margin-left: 4px;
-          font-size: 14px;
-          transition: transform 0.2s ease;
-        }
-      }
-    }
-  }
-
-  // 响应式优化
-  @media (width <= 768px) {
-    .art-search-bar {
-      padding: 16px 16px 0;
-
-      .action-column {
-        .action-buttons-wrapper {
-          flex-direction: column;
-          gap: 8px;
-          align-items: stretch;
-
-          .form-buttons {
-            justify-content: center;
-          }
-
-          .filter-toggle {
-            justify-content: center;
-            margin-left: 0;
-          }
-        }
+        span { font-size: 14px; user-select: none; }
+        .icon-wrapper { display: flex; align-items: center; margin-left: 4px; font-size: 14px; transition: transform 0.2s ease; }
       }
     }
   }

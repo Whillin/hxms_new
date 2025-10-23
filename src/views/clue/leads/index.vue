@@ -223,8 +223,25 @@
   import { storeToRefs } from 'pinia'
   import { useAuth } from '@/composables/useAuth'
   import { fetchGetClueList, fetchSaveClue, fetchDeleteClue } from '@/api/clue'
+  import { fetchChannelOptions } from '@/api/channel'
+  import { fetchGetDepartmentList } from '@/api/system-manage'
 
   defineOptions({ name: 'ClueLeads' })
+
+  const channelLevel1Options = ref<{ label: string; value: string }[]>([])
+  const channelLevel2MapRef = ref<Record<string, { label: string; value: string }[]>>({})
+  const channelMetaByL1Ref = ref<Record<string, { category: string; businessSource: string }>>({})
+
+  onMounted(async () => {
+    try {
+      const resp = await fetchChannelOptions()
+      channelLevel1Options.value = (resp.level1 || []).map((v: string) => ({ label: v, value: v }))
+      channelLevel2MapRef.value = resp.level2Map || {}
+      channelMetaByL1Ref.value = resp.metaByLevel1 || {}
+    } catch (e: any) {
+      console.error('[fetchChannelOptions] failed:', e)
+    }
+  })
 
   const { hasAuth } = useAuth()
 
@@ -970,27 +987,24 @@
     },
     { label: '渠道分析', key: 'grp_channel', type: 'divider', span: 24 },
     {
+      label: '归属门店',
+      key: 'storeId',
+      type: 'select',
+      props: { options: storeOptions.value, placeholder: '请选择归属门店' }
+    },
+    {
       label: '一级渠道',
       key: 'channelLevel1',
       type: 'select',
       props: {
-        options: [
-          { label: '展厅到店', value: '展厅到店' },
-          { label: 'DCC/ADC到店', value: 'DCC/ADC到店' },
-          { label: '车展外展', value: '车展外展' },
-          { label: '新媒体开发', value: '新媒体开发' },
-          { label: '转化开发', value: '转化开发' },
-          { label: '保客开发', value: '保客开发' },
-          { label: '转介绍开发', value: '转介绍开发' },
-          { label: '大用户开发', value: '大用户开发' }
-        ]
+        options: channelLevel1Options.value
       }
     },
     {
       label: '二级渠道',
       key: 'channelLevel2',
       type: 'select',
-      props: { options: getChannelLevel2Options(String(addForm.value.channelLevel1)) }
+      props: { options: (channelLevel2MapRef.value[String(addForm.value.channelLevel1)] || []) }
     },
     { label: '接触次数', key: 'contactTimes', type: 'input', props: { type: 'number', min: 1 } },
     {
@@ -1313,13 +1327,18 @@
   watch(
     () => addForm.value.channelLevel1,
     (l1) => {
-      // 渠道分类：DCC/ADC到店 或 新媒体开发 => 线上；其他 => 线下
-      const onlineL1 = ['DCC/ADC到店', '新媒体开发']
-      addForm.value.channelCategory = onlineL1.includes(String(l1)) ? '线上' : '线下'
-      // 商机来源：展厅到店、ADC到店、车展外展 => 自然到店；其他 => 主动开发
-      const naturalL1 = ['展厅到店', 'ADC到店', '车展外展', 'DCC/ADC到店']
-      addForm.value.businessSource = naturalL1.includes(String(l1)) ? '自然到店' : '主动开发'
-
+      const meta = channelMetaByL1Ref.value[String(l1)]
+      if (meta) {
+        addForm.value.channelCategory = meta.category
+        addForm.value.businessSource = meta.businessSource
+      } else {
+        // 后端未返回时的兜底规则
+        const onlineL1 = ['DCC/ADC到店', '新媒体开发']
+        addForm.value.channelCategory = onlineL1.includes(String(l1)) ? '线上' : '线下'
+        const naturalL1 = ['展厅到店', 'ADC到店', '车展外展', 'DCC/ADC到店']
+        addForm.value.businessSource = naturalL1.includes(String(l1)) ? '自然到店' : '主动开发'
+      }
+  
       // 限制并清空：转化/保客车型 / 一级推荐人 / 推荐人
       const l1str = String(l1)
       if (!ALLOWED_PRIMARY_REFERRER.includes(l1str)) {
@@ -1380,6 +1399,27 @@
 
   // 表格引用
   const tableRef = ref()
+
+  // 加载门店树（用于选择归属门店）
+  const loadDeptTree = async () => {
+    try {
+      const tree = (await fetchGetDepartmentList({})) as any[]
+      deptTree.value = Array.isArray(tree) ? tree : []
+    } catch {
+      deptTree.value = []
+    }
+  }
+  onMounted(loadDeptTree)
+  const deptTree = ref<any[]>([])
+  const storeOptions = computed(() => {
+    const res: { label: string; value: number }[] = []
+    const walk = (n: any) => {
+      if (n.type === 'store') res.push({ label: n.name, value: n.id })
+      if (Array.isArray(n.children)) n.children.forEach(walk)
+    }
+    deptTree.value.forEach(walk)
+    return res
+  })
 </script>
 
 <style scoped>

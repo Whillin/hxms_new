@@ -6,6 +6,9 @@ import { Clue } from '../clues/clue.entity'
 import { DataScopeService } from '../common/data-scope.service'
 import { Department } from '../departments/department.entity'
 import { UserService } from '../users/user.service'
+import { Customer } from '../customers/customer.entity'
+import { Channel } from '../channels/channel.entity'
+import { ProductModel } from '../products/product-model.entity'
 
 // 简化的线索项类型（与前端表格核心字段对齐）
 type ClueListItem = {
@@ -28,6 +31,9 @@ export class ClueController {
   constructor(
     @InjectRepository(Clue) private readonly repo: Repository<Clue>,
     @InjectRepository(Department) private readonly deptRepo: Repository<Department>,
+    @InjectRepository(Customer) private readonly customerRepo: Repository<Customer>,
+    @InjectRepository(Channel) private readonly channelRepo: Repository<Channel>,
+    @InjectRepository(ProductModel) private readonly productModelRepo: Repository<ProductModel>,
     @Inject(DataScopeService) private readonly dataScopeService: DataScopeService,
     @Inject(UserService) private readonly userService: UserService
   ) {}
@@ -183,6 +189,80 @@ export class ClueController {
       ? (body.livingArea as any[]).join('/')
       : body.livingArea || ''
 
+    // 规范化：落库客户与渠道并回填外键
+    let customerId: number | undefined
+    const phone = String(body.customerPhone || '').trim()
+    const name = String(body.customerName || '').trim() || '未命名客户'
+    if (phone) {
+      const living = livingArea
+      const existCustomer = await this.customerRepo.findOne({ where: { phone } })
+      if (existCustomer) {
+        existCustomer.name = name || existCustomer.name
+        existCustomer.gender = (String(body.userGender || existCustomer.gender || '未知') as any)
+        existCustomer.age = Number(body.userAge ?? existCustomer.age ?? 0)
+        existCustomer.buyExperience = (String(body.buyExperience || existCustomer.buyExperience || '首购') as any)
+        existCustomer.phoneModel = body.userPhoneModel ?? existCustomer.phoneModel
+        existCustomer.currentBrand = body.currentBrand ?? existCustomer.currentBrand
+        existCustomer.currentModel = body.currentModel ?? existCustomer.currentModel
+        existCustomer.carAge = Number(body.carAge ?? existCustomer.carAge ?? 0)
+        existCustomer.mileage = Number(body.mileage ?? existCustomer.mileage ?? 0)
+        existCustomer.livingArea = living ?? existCustomer.livingArea
+        const saved = await this.customerRepo.save(existCustomer)
+        customerId = saved.id
+      } else {
+        const created = this.customerRepo.create({
+          name,
+          phone,
+          gender: (String(body.userGender || '未知') as any),
+          age: Number(body.userAge || 0),
+          buyExperience: (String(body.buyExperience || '首购') as any),
+          phoneModel: body.userPhoneModel || undefined,
+          currentBrand: body.currentBrand || undefined,
+          currentModel: body.currentModel || undefined,
+          carAge: Number(body.carAge || 0),
+          mileage: Number(body.mileage || 0),
+          livingArea: living
+        })
+        const saved = await this.customerRepo.save(created)
+        customerId = saved.id
+      }
+    }
+
+    let channelId: number | undefined
+    const category = String(body.channelCategory || '线下')
+    const src = String(body.businessSource || '自然到店')
+    const lvl1 = body.channelLevel1 || ''
+    const lvl2 = body.channelLevel2 || ''
+    const compoundKey = `${category}|${src}|${lvl1}|${lvl2}`
+    {
+      let existChannel = await this.channelRepo.findOne({ where: { compoundKey } })
+      if (!existChannel) {
+        existChannel = this.channelRepo.create({
+          category,
+          businessSource: src,
+          level1: lvl1 || undefined,
+          level2: lvl2 || undefined,
+          compoundKey
+        })
+      }
+      const saved = await this.channelRepo.save(existChannel)
+      channelId = saved.id
+    }
+
+    // 解析车型ID：优先使用传入ID；否则根据名称查找
+    let focusModelIdResolved: number | undefined =
+      typeof body.focusModelId === 'number' ? Number(body.focusModelId) : undefined
+    if (!focusModelIdResolved && body.focusModelName) {
+      const pm = await this.productModelRepo.findOne({ where: { name: String(body.focusModelName) } })
+      focusModelIdResolved = pm?.id
+    }
+    let dealModelIdResolved: number | undefined =
+      typeof body.dealModelId === 'number' ? Number(body.dealModelId) : undefined
+    if (!dealModelIdResolved && body.dealModelName) {
+      const pm2 = await this.productModelRepo.findOne({ where: { name: String(body.dealModelName) } })
+      dealModelIdResolved = pm2?.id
+    }
+
     const incoming: Partial<Clue> = {
       visitDate: String(body.visitDate || ''),
       enterTime: body.enterTime || '',
@@ -196,17 +276,19 @@ export class ClueController {
       isReserved: !!body.isReserved,
       visitCategory: String(body.visitCategory || '首次') as any,
       customerPhone: String(body.customerPhone || ''),
-      focusModelId: typeof body.focusModelId === 'number' ? Number(body.focusModelId) : undefined,
+      customerId,
+      focusModelId: typeof focusModelIdResolved === 'number' ? focusModelIdResolved : undefined,
       focusModelName: body.focusModelName || '',
       testDrive: !!body.testDrive,
       bargaining: !!body.bargaining,
       dealDone: !!body.dealDone,
-      dealModelId: typeof body.dealModelId === 'number' ? Number(body.dealModelId) : undefined,
+      dealModelId: typeof dealModelIdResolved === 'number' ? dealModelIdResolved : undefined,
       dealModelName: body.dealModelName || '',
-      businessSource: String(body.businessSource || '自然到店'),
-      channelCategory: String(body.channelCategory || '线下'),
-      channelLevel1: body.channelLevel1 || '',
-      channelLevel2: body.channelLevel2 || '',
+      businessSource: category === '线下' && !src ? '自然到店' : src,
+      channelCategory: category,
+      channelLevel1: lvl1 || '',
+      channelLevel2: lvl2 || '',
+      channelId,
       convertOrRetentionModel: body.convertOrRetentionModel || '',
       referrer: body.referrer || '',
       contactTimes: Number(body.contactTimes || 1),
