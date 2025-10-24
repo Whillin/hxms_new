@@ -119,7 +119,7 @@
           v-model:current-page="pagination.current"
           v-model:page-size="pagination.size"
           :page-sizes="[10, 20, 50, 100]"
-          :total="filteredTableData.length"
+          :total="pagination.total"
           layout="total, sizes, prev, pager, next, jumper"
           @size-change="handleSizeChange"
           @current-change="handleCurrentChange"
@@ -203,6 +203,19 @@
             </ElFormItem>
           </ElCol>
           <ElCol :span="12">
+            <ElFormItem label="指导价" prop="price">
+              <ElInput
+                v-model.number="addForm.price"
+                placeholder="请输入指导价"
+                type="number"
+                min="0"
+                step="0.01"
+              >
+                <template #prepend>¥</template>
+              </ElInput>
+            </ElFormItem>
+          </ElCol>
+          <ElCol :span="12">
             <ElFormItem label="动力类型" prop="engineType">
               <ElSelect
                 v-model="addForm.engineType"
@@ -213,19 +226,6 @@
                 <ElOption label="新能源(NEV)" value="NEV" />
                 <ElOption label="混合动力(HEV)" value="HEV" />
               </ElSelect>
-            </ElFormItem>
-          </ElCol>
-          <ElCol :span="12">
-            <ElFormItem label="指导价" prop="price">
-              <ElInput
-                v-model="addForm.price"
-                placeholder="请输入指导价"
-                type="number"
-                min="0"
-                step="0.01"
-              >
-                <template #prepend>¥</template>
-              </ElInput>
             </ElFormItem>
           </ElCol>
           <ElCol :span="12">
@@ -319,7 +319,7 @@
           <ElCol :span="12">
             <ElFormItem label="指导价">
               <ElInput
-                v-model="form.price"
+                v-model.number="form.price"
                 placeholder="请输入指导价"
                 type="number"
                 min="0"
@@ -329,22 +329,14 @@
               </ElInput>
             </ElFormItem>
           </ElCol>
+          <!-- 原价与库存字段已移除 -->>
           <ElCol :span="12">
-            <ElFormItem label="原价">
-              <ElInput
-                v-model="form.originalPrice"
-                placeholder="请输入原价"
-                type="number"
-                min="0"
-                step="0.01"
-              >
-                <template #prepend>¥</template>
-              </ElInput>
-            </ElFormItem>
-          </ElCol>
-          <ElCol :span="12">
-            <ElFormItem label="库存">
-              <ElInput v-model="form.stock" placeholder="请输入库存数量" type="number" min="0" />
+            <ElFormItem label="动力类型">
+              <ElSelect v-model="form.engineType" placeholder="请选择动力类型" style="width: 100%">
+                <ElOption label="内燃机(ICE)" value="ICE" />
+                <ElOption label="新能源(NEV)" value="NEV" />
+                <ElOption label="混合动力(HEV)" value="HEV" />
+              </ElSelect>
             </ElFormItem>
           </ElCol>
           <ElCol :span="24">
@@ -389,6 +381,12 @@
   import { storeToRefs } from 'pinia'
   import { ElMessage, ElMessageBox } from 'element-plus'
   import { Plus, Search, Refresh, Download } from '@element-plus/icons-vue'
+  import {
+    fetchGetProductList,
+    fetchSaveProduct,
+    fetchDeleteProduct,
+    fetchGetProductCategories
+  } from '@/api/product'
 
   defineOptions({ name: 'ProductManagement' })
 
@@ -404,16 +402,6 @@
     status: ''
   })
 
-  // 搜索参数（实际用于筛选的参数）
-  const searchParams = reactive({
-    name: '',
-    categoryId: '',
-    status: ''
-  })
-
-  // 搜索触发标志
-  const searchTriggered = ref(false)
-
   // 分页数据
   const pagination = reactive({
     current: 1,
@@ -421,280 +409,56 @@
     total: 0
   })
 
-  // 分类选项改为使用共享Store（使用 storeToRefs 确保响应式）
+  // 分类选项
   const categoryStore = useProductCategoryStore()
   const { flatList } = storeToRefs(categoryStore)
   const flatCategoryOptions = flatList
 
-  // 表格数据
-  const tableData = ref([
-    {
-      id: 1,
-      name: '奥迪A4L 2024款 40 TFSI 时尚动感型',
-      categoryId: 2,
-      categoryName: '奥迪 - CKD(ICE)',
-      brandName: '奥迪',
-      price: 329800,
-      engineType: 'ICE',
-      sales: 1280,
-      status: 1,
-      image: 'https://picsum.photos/200/200?random=1',
-      description: '奥迪A4L，经典豪华轿车，搭载2.0T涡轮增压发动机，动力强劲，操控精准。',
-      createTime: '2024-01-15 10:30:00'
-    },
-    {
-      id: 2,
-      name: '奥迪e-tron GT 2024款 quattro',
-      categoryId: 3,
-      categoryName: '奥迪 - NEV',
-      brandName: '奥迪',
-      price: 1068800,
-      engineType: 'NEV',
-      sales: 156,
-      status: 1,
-      image: 'https://picsum.photos/200/200?random=2',
-      description: '奥迪e-tron GT，纯电动高性能轿跑，续航里程超过400公里，零百加速3.9秒。',
-      createTime: '2024-01-15 11:00:00'
-    },
-    {
-      id: 3,
-      name: '奥迪Q7 2024款 45 TFSI quattro',
-      categoryId: 4,
-      categoryName: '奥迪 - FBU',
-      brandName: '奥迪',
-      price: 699800,
-      engineType: 'ICE',
-      sales: 890,
-      status: 1,
-      image: 'https://picsum.photos/200/200?random=3',
-      description: '奥迪Q7，大型豪华SUV，进口车型，配置丰富，空间宽敞。',
-      createTime: '2024-01-15 12:00:00'
-    },
-    {
-      id: 4,
-      name: '小鹏P7 2024款 706G',
-      categoryId: 6,
-      categoryName: '小鹏 - NEV',
-      brandName: '小鹏',
-      price: 249900,
-      engineType: 'NEV',
-      sales: 2340,
-      status: 1,
-      image: 'https://picsum.photos/200/200?random=4',
-      description: '小鹏P7，智能纯电轿跑，续航里程706公里，搭载XPILOT自动驾驶辅助系统。',
-      createTime: '2024-01-15 13:00:00'
-    },
-    {
-      id: 5,
-      name: '小鹏G9 2024款 702 Max',
-      categoryId: 6,
-      categoryName: '小鹏 - NEV',
-      brandName: '小鹏',
-      price: 359900,
-      status: 0,
-      engineType: 'NEV',
-      sales: 1560,
-      image: 'https://picsum.photos/200/200?random=5',
-      description: '小鹏G9，智能纯电SUV，续航里程702公里，配备800V高压快充技术。',
-      createTime: '2024-01-15 14:00:00'
-    }
-  ])
+  // 表格数据改为后端返回
+  const tableData = ref<any[]>([])
 
-  // 计算属性 - 筛选后的表格数据
-  const filteredTableData = computed(() => {
-    // 如果没有触发搜索，显示原始数据
-    if (!searchTriggered.value) {
-      return tableData.value
-    }
+  // 后端驱动的表格数据（不再做本地筛选）
+  const filteredTableData = computed(() => tableData.value)
 
-    let filtered = [...tableData.value]
-
-    // 按名称筛选
-    if (searchParams.name) {
-      filtered = filtered.filter((item) =>
-        item.name.toLowerCase().includes(searchParams.name.toLowerCase())
-      )
-    }
-
-    // 按分类筛选
-    if (searchParams.categoryId) {
-      filtered = filtered.filter((item) => item.categoryId === searchParams.categoryId)
-    }
-
-    // 按状态筛选
-    if (searchParams.status !== '') {
-      filtered = filtered.filter((item) => item.status === searchParams.status)
-    }
-
-    return filtered
-  })
-
-  // 生命周期
-  onMounted(() => {
-    loadData()
-  })
-
-  // 方法
-  const loadData = async () => {
-    loading.value = true
-    try {
-      // 这里应该调用实际的API
-      // const response = await getProductList({
-      //   ...searchForm,
-      //   current: pagination.current,
-      //   size: pagination.size
-      // })
-      // tableData.value = response.data.records
-      // pagination.total = response.data.total
-
-      // 模拟API调用延迟
-      await new Promise((resolve) => setTimeout(resolve, 500))
-      pagination.total = tableData.value.length
-    } catch {
-      ElMessage.error('加载数据失败')
-    } finally {
-      loading.value = false
-    }
-  }
-
-  const handleSearch = () => {
-    // 将搜索表单的值复制到搜索参数中
-    Object.assign(searchParams, searchForm)
-    // 设置搜索触发标志
-    searchTriggered.value = true
-  }
-
-  const handleReset = () => {
-    // 重置搜索表单
-    searchForm.name = ''
-    searchForm.categoryId = ''
-    searchForm.status = ''
-    // 重置搜索参数
-    searchParams.name = ''
-    searchParams.categoryId = ''
-    searchParams.status = ''
-    // 重置搜索触发标志
-    searchTriggered.value = false
-  }
-
-  const handleAdd = () => {
-    // 创建新增车型对话框
-    addDialogVisible.value = true
-    resetAddForm()
-  }
-
-  // 新增车型相关数据
-  const addDialogVisible = ref(false)
+  // 编辑弹窗与表单（补充缺失的状态与方法）
   const dialogVisible = ref(false)
-  const dialogTitle = ref('新增车型')
-  const isEdit = ref(false)
-  const currentEditId = ref(null)
-  const imageUploadType = ref('url') // 图片上传类型：url 或 upload
-  const addFormRef = ref()
-  interface ProductAddForm {
-    name: string
-    categoryId: number | null
-    brandName: string
-    price: string
-    engineType: 'ICE' | 'NEV'
-    description: string
-    image: string
-    status: number
-  }
-  const addForm = reactive<ProductAddForm>({
+  const dialogTitle = ref('编辑车型')
+  const currentEditId = ref<number | null>(null)
+  const form = reactive({
     name: '',
-    categoryId: null,
-    brandName: '',
-    price: '',
-    engineType: 'ICE',
-    description: '',
-    image: '',
-    status: 1
-  })
-
-  // 编辑表单数据
-  interface ProductEditForm {
-    name: string
-    categoryId: number | null
-    price: string
-    originalPrice: string
-    stock: string
-    status: number
-    description: string
-    images: string[]
-  }
-  const form = reactive<ProductEditForm>({
-    name: '',
-    categoryId: null,
-    price: '',
-    originalPrice: '',
-    stock: '',
+    categoryId: undefined as number | undefined,
+    engineType: '',
+    price: undefined as number | undefined,
     status: 1,
-    description: '',
-    images: []
+    image: '',
+    description: ''
   })
 
-  const addFormRules = {
-    name: [{ required: true, message: '请输入车型名称', trigger: 'blur' }],
-    categoryId: [{ required: true, message: '请选择商品分类', trigger: 'change' }],
-    price: [
-      { required: true, message: '请输入指导价', trigger: 'blur' },
-      { pattern: /^\d+(\.\d{1,2})?$/, message: '请输入正确的价格格式', trigger: 'blur' }
-    ],
-    engineType: [{ required: true, message: '请选择动力类型', trigger: 'change' }]
+  const resetEditForm = () => {
+    currentEditId.value = null
+    dialogTitle.value = '编辑车型'
+    form.name = ''
+    form.categoryId = undefined
+    form.engineType = ''
+    form.price = undefined
+    form.status = 1
+    form.image = ''
+    form.description = ''
   }
 
-  const resetAddForm = () => {
-    addForm.name = ''
-    addForm.categoryId = null
-    addForm.brandName = ''
-    addForm.price = ''
-    addForm.engineType = 'ICE'
-    addForm.description = ''
-    addForm.image = ''
-    addForm.status = 1
-    addFormRef.value?.clearValidate()
-  }
-
-  const handleAddSubmit = async () => {
-    try {
-      await addFormRef.value?.validate()
-
-      // 获取选中分类的品牌信息
-      const selectedCategory = flatCategoryOptions.value.find(
-        (cat) => cat.id === addForm.categoryId
-      )
-      if (selectedCategory) {
-        addForm.brandName = selectedCategory.brandName
-      }
-
-      // 这里应该调用实际的API
-      // await addProduct(addForm)
-
-      // 模拟添加到表格数据
-      const newProduct = {
-        id: Date.now(),
-        name: addForm.name,
-        categoryId: addForm.categoryId ?? 0,
-        categoryName: selectedCategory?.name || '',
-        brandName: addForm.brandName,
-        price: parseFloat(addForm.price),
-        engineType: addForm.engineType,
-        sales: 0,
-        status: addForm.status,
-        image: addForm.image || 'https://picsum.photos/200/200?random=' + Date.now(),
-        description: addForm.description,
-        createTime: new Date().toLocaleString('zh-CN')
-      }
-
-      tableData.value.unshift(newProduct)
-
-      ElMessage.success('新增车型成功')
-      addDialogVisible.value = false
-      resetAddForm()
-    } catch {
-      console.error('新增车型失败')
-    }
+  const handleEdit = (row: any) => {
+    currentEditId.value = Number(row.id)
+    dialogTitle.value = '编辑车型'
+    Object.assign(form, {
+      name: row.name || '',
+      categoryId: typeof row.categoryId === 'number' ? row.categoryId : undefined,
+      engineType: row.engineType || '',
+      price: typeof row.price === 'number' ? row.price : undefined,
+      status: typeof row.status === 'number' ? row.status : 1,
+      image: row.image || '',
+      description: row.description || ''
+    })
+    dialogVisible.value = true
   }
 
   const handleView = (row: any) => {
@@ -702,108 +466,216 @@
     detailVisible.value = true
   }
 
-  // 图片上传类型切换
-  const handleImageTypeChange = (type: string) => {
-    if (type === 'upload') {
-      addForm.image = ''
+  // 生命周期与数据加载（恢复丢失的方法）
+  onMounted(async () => {
+    await categoryStore.loadFromApi()
+    await loadData()
+  })
+
+  // 将后端 ProductModel 映射到表格行（填充演示字段）
+  const mapToRow = (m: any) => ({
+    id: m.id,
+    name: m.name,
+    // 优先使用后端的 engineType；无则从 series 推断
+    engineType: m.engineType
+      ? String(m.engineType).toUpperCase()
+      : String(m.series || '')
+            .toUpperCase()
+            .includes('NEV')
+        ? 'NEV'
+        : 'ICE',
+    brandName: m.brand || '',
+    categoryId: undefined,
+    // 分类名等待后续补充（通过查询关联分类IDs然后映射名称）
+    categoryName: '',
+    price: Number(m.price ?? 0),
+    sales: Number(m.sales ?? 0),
+    status: Number(m.status ?? 1),
+    image: `https://picsum.photos/200/200?random=${m.id}`,
+    description: '',
+    createTime: m.createdAt ? new Date(m.createdAt).toLocaleString('zh-CN') : ''
+  })
+
+  // 批量补充分类名称（逐个请求已关联分类IDs，然后映射到名称）
+  const enrichCategoryNames = async (rows: any[]) => {
+    const flat = flatCategoryOptions.value || []
+    const idToName = (id?: number) => flat.find((c: any) => c.id === id)?.name || ''
+    await Promise.all(
+      rows.map(async (row) => {
+        try {
+          const ids = await fetchGetProductCategories(Number(row.id))
+          const arr = Array.isArray(ids) ? ids : []
+          row.categoryId = arr[0]
+          row.categoryName = arr
+            .map((cid: number) => idToName(cid))
+            .filter(Boolean)
+            .join(' / ')
+        } catch {
+          // 忽略分类获取失败，保持为空
+        }
+      })
+    )
+  }
+
+  // 方法
+  const loadData = async () => {
+    loading.value = true
+    try {
+      const result = await fetchGetProductList({
+        current: pagination.current,
+        size: pagination.size,
+        name: searchForm.name || undefined,
+        categoryId: typeof searchForm.categoryId === 'number' ? searchForm.categoryId : undefined,
+        status: typeof searchForm.status === 'number' ? searchForm.status : undefined,
+        includeChildren: false
+      })
+      tableData.value = (result.records || []).map(mapToRow)
+      // 补充分类名称显示
+      await enrichCategoryNames(tableData.value)
+      pagination.total = result.total || 0
+    } catch {
+      ElMessage.error('加载数据失败')
+    } finally {
+      loading.value = false
     }
   }
 
-  // 图片上传前的验证
+  // 图片类型切换（避免未定义事件处理）
+  const handleImageTypeChange = (val: 'url' | 'upload') => {
+    imageUploadType.value = val
+  }
+
+  const addDialogVisible = ref(false)
+  const addFormRef = ref<any>(null)
+  const imageUploadType = ref<'url' | 'upload'>('url')
+  const addForm = reactive({
+    name: '',
+    categoryId: undefined as number | undefined,
+    engineType: '',
+    price: undefined as number | undefined,
+    status: 1,
+    image: '',
+    description: ''
+  })
+  const addFormRules = {
+    name: [{ required: true, message: '请输入车型名称', trigger: 'blur' }],
+    categoryId: [{ required: true, message: '请选择商品分类', trigger: 'change' }],
+    engineType: [{ required: true, message: '请选择动力类型', trigger: 'change' }]
+  }
+
+  const resetAddForm = () => {
+    addFormRef.value?.clearValidate?.()
+    addForm.name = ''
+    addForm.categoryId = undefined
+    addForm.engineType = ''
+    addForm.price = undefined
+    addForm.status = 1
+    addForm.image = ''
+    addForm.description = ''
+    imageUploadType.value = 'url'
+  }
+
+  const handleAdd = async () => {
+    // 懒加载分类：若首次打开且无选项，则尝试加载
+    if (!flatCategoryOptions.value || flatCategoryOptions.value.length === 0) {
+      try {
+        await categoryStore.loadFromApi()
+      } catch {
+        ElMessage.error('分类加载失败')
+      }
+    }
+    addDialogVisible.value = true
+  }
+
   const beforeImageUpload = (file: File) => {
-    const isJPG = file.type === 'image/jpeg' || file.type === 'image/png'
+    const isAllowedType = ['image/jpeg', 'image/png'].includes(file.type)
     const isLt2M = file.size / 1024 / 1024 < 2
-
-    if (!isJPG) {
-      ElMessage.error('上传图片只能是 JPG/PNG 格式!')
-      return false
-    }
-    if (!isLt2M) {
-      ElMessage.error('上传图片大小不能超过 2MB!')
-      return false
-    }
-    return true
+    if (!isAllowedType) ElMessage.error('仅支持 JPG/PNG 格式图片')
+    if (!isLt2M) ElMessage.error('图片大小不能超过 2MB')
+    return isAllowedType && isLt2M
   }
 
-  // 处理图片上传
-  const handleImageUpload = (options: any) => {
-    const file = options.file
+  const handleImageUpload = async (opts: { file: File }) => {
+    // 演示：直接使用本地预览地址。实际项目可上传到服务器并使用返回的 URL。
+    addForm.image = URL.createObjectURL(opts.file)
+  }
 
-    // 创建 FileReader 来读取文件
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      addForm.image = e.target?.result as string
-      ElMessage.success('图片上传成功')
+  const handleSearch = () => {
+    pagination.current = 1
+    loadData()
+  }
+
+  const handleReset = () => {
+    searchForm.name = ''
+    searchForm.categoryId = ''
+    searchForm.status = ''
+    pagination.current = 1
+    loadData()
+  }
+
+  const handleAddSubmit = async () => {
+    try {
+      await addFormRef.value?.validate()
+      const selectedCategory = flatCategoryOptions.value.find(
+        (cat) => cat.id === addForm.categoryId
+      )
+      const brandName = selectedCategory?.brandName || ''
+      const seriesName = selectedCategory?.categoryName || ''
+
+      await fetchSaveProduct(
+        {
+          name: addForm.name,
+          brand: brandName,
+          series: seriesName,
+          engineType: addForm.engineType,
+          price: typeof addForm.price === 'number' ? addForm.price : 0,
+          status: typeof addForm.status === 'number' ? addForm.status : 1,
+          categories: addForm.categoryId ? [addForm.categoryId] : []
+        },
+        { showSuccessMessage: true }
+      )
+
+      ElMessage.success('新增车型成功')
+      addDialogVisible.value = false
+      resetAddForm()
+      // 保存后刷新列表
+      await loadData()
+    } catch (e) {
+      console.error('新增车型失败', e)
     }
-    reader.readAsDataURL(file)
-
-    return Promise.resolve()
   }
 
-  // 重置编辑表单
-  const resetEditForm = () => {
-    form.name = ''
-    form.categoryId = null
-    form.price = ''
-    form.originalPrice = ''
-    form.stock = ''
-    form.status = 1
-    form.description = ''
-    form.images = []
-    isEdit.value = false
-    currentEditId.value = null
-  }
-
-  // 处理编辑提交
-  const handleEditSubmit = () => {
+  const handleEditSubmit = async () => {
     if (!form.name) {
       ElMessage.warning('请输入车型名称')
       return
     }
 
-    // 找到要编辑的数据
-    const index = tableData.value.findIndex((item) => item.id === currentEditId.value)
-    if (index > -1) {
-      // 更新数据
-      const selectedCategory = flatCategoryOptions.value.find((cat) => cat.id === form.categoryId)
-      tableData.value[index] = {
-        ...tableData.value[index],
-        name: form.name,
-        categoryId: form.categoryId,
-        categoryName: selectedCategory?.name || '',
-        price: parseFloat(form.price) || 0,
-        originalPrice: parseFloat(form.originalPrice) || 0,
-        stock: parseInt(form.stock) || 0,
-        status: form.status,
-        description: form.description
-      }
+    const selectedCategory = flatCategoryOptions.value.find((cat) => cat.id === form.categoryId)
+    const brandName = selectedCategory?.brandName || ''
+    const seriesName = selectedCategory?.categoryName || ''
 
+    try {
+      await fetchSaveProduct(
+        {
+          id: currentEditId.value as number,
+          name: form.name,
+          brand: brandName,
+          series: seriesName,
+          engineType: form.engineType,
+          price: typeof form.price === 'number' ? form.price : 0,
+          status: typeof form.status === 'number' ? form.status : 1,
+          categories: form.categoryId ? [form.categoryId] : []
+        },
+        { showSuccessMessage: true }
+      )
       ElMessage.success('编辑车型成功')
       dialogVisible.value = false
       resetEditForm()
+      await loadData()
+    } catch {
+      ElMessage.error('编辑车型失败')
     }
-  }
-
-  const handleEdit = (row: any) => {
-    // 设置编辑模式
-    isEdit.value = true
-    dialogTitle.value = '编辑车型'
-
-    // 填充表单数据
-    form.name = row.name
-    form.categoryId = row.categoryId
-    form.price = row.price
-    form.originalPrice = row.originalPrice
-    form.stock = row.stock
-    form.status = row.status
-    form.description = row.description
-    form.images = row.images || []
-
-    // 保存当前编辑的行ID
-    currentEditId.value = row.id
-
-    // 显示对话框
-    dialogVisible.value = true
   }
 
   const handleDelete = async (row: any) => {
@@ -814,36 +686,24 @@
         type: 'warning'
       })
 
-      // 从表格数据中删除该项
-      const index = tableData.value.findIndex((item) => item.id === row.id)
-      if (index > -1) {
-        tableData.value.splice(index, 1)
-        ElMessage.success('删除成功')
-      }
+      await fetchDeleteProduct(row.id, { showSuccessMessage: true })
+      await loadData()
     } catch {
-      // 用户取消删除
+      // 用户取消或删除失败
     }
   }
 
   const handleStatusChange = async (row: any) => {
     try {
-      // 这里应该调用更新状态API
-      // await updateProductStatus(row.id, row.status)
-
-      ElMessage.success(`车型已${row.status === 1 ? '上架' : '下架'}`)
+      await fetchSaveProduct(
+        { id: row.id, name: row.name, status: row.status },
+        { showSuccessMessage: true }
+      )
+      ElMessage.success('状态已更新')
     } catch {
-      // 恢复原状态
+      ElMessage.error('状态更新失败，已还原')
       row.status = row.status === 1 ? 0 : 1
-      ElMessage.error('状态更新失败')
     }
-  }
-
-  const handleBatchExport = () => {
-    if (filteredTableData.value.length === 0) {
-      ElMessage.warning('当前无可导出的数据')
-      return
-    }
-    ElMessage.info('导出当前筛选结果功能开发中...')
   }
 
   const handleSizeChange = (size: number) => {
