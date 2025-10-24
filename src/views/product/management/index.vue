@@ -386,7 +386,7 @@
     fetchSaveProduct,
     fetchDeleteProduct,
     fetchGetProductCategories
-  } from '@/api/product'
+  } from '@/api/product.ts'
 
   defineOptions({ name: 'ProductManagement' })
 
