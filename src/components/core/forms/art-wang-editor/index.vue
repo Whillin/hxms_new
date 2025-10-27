@@ -24,6 +24,7 @@
   import { useUserStore } from '@/store/modules/user'
   import EmojiText from '@/utils/ui/emojo'
   import { IDomEditor, IToolbarConfig, IEditorConfig } from '@wangeditor/editor'
+  import { ElMessage } from 'element-plus'
 
   defineOptions({ name: 'ArtWangEditor' })
 
@@ -97,10 +98,7 @@
   } as const
 
   // 计算属性：上传服务器地址
-  const uploadServer = computed(
-    () =>
-      props.uploadConfig?.server || `${import.meta.env.VITE_API_URL}/api/common/upload/wangeditor`
-  )
+  const uploadServer = computed(() => props.uploadConfig?.server || `/api/common/upload/wangeditor`)
 
   // 合并上传配置
   const mergedUploadConfig = computed(() => ({
@@ -141,7 +139,7 @@
         allowedFileTypes: mergedUploadConfig.value.allowedFileTypes,
         server: uploadServer.value,
         headers: {
-          Authorization: userStore.accessToken
+          Authorization: `Bearer ${userStore.accessToken}`
         },
         onSuccess() {
           ElMessage.success(`图片上传成功 ${EmojiText[200]}`)
