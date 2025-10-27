@@ -10,10 +10,17 @@ export interface SaveCategoryPayload {
 }
 
 export function fetchGetAllCategories() {
-  return request.get<{ code: number; msg: string; data: any[] }>({ url: '/api/category/all' })
+  return request.get<any[]>({ url: '/api/category/all' })
 }
 
-export function fetchSaveCategory(data: SaveCategoryPayload, options?: { showSuccessMessage?: boolean }) {
+export function fetchGetCategoryTree(rootId?: number) {
+  return request.get<any[]>({ url: '/api/category/tree', params: rootId ? { rootId } : undefined })
+}
+
+export function fetchSaveCategory(
+  data: SaveCategoryPayload,
+  options?: { showSuccessMessage?: boolean }
+) {
   return request.post<{ code: number; msg: string; data: any }>({
     url: '/api/category/save',
     data,

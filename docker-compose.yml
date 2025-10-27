@@ -1,0 +1,31 @@
+version: '3.9'
+
+services:
+  api:
+    build: ./server
+    container_name: hxms_api
+    env_file:
+      - ./server/.env.production
+    ports:
+      - '3001:3001' # 可按需去掉对外映射，仅被 web 反代
+    restart: always
+    networks:
+      - hxms_net
+
+  web:
+    image: nginx:stable
+    container_name: hxms_web
+    volumes:
+      - ./dist:/usr/share/nginx/html:ro
+      - ./deploy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - '80:80'
+    depends_on:
+      - api
+    restart: always
+    networks:
+      - hxms_net
+
+networks:
+  hxms_net:
+    driver: bridge

@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import { fetchGetCategoryTree, fetchGetAllCategories } from '@/api/category'
 
 export interface CategoryNode {
   id: number
@@ -106,6 +107,7 @@ export const useProductCategoryStore = defineStore(
         categoryName: string
         status?: number
       }[] = []
+      // 将树结构拍平为“品牌 - 子分类”选项
       tree.value.forEach((brand) => {
         const children = brand.children || []
         if (children.length > 0) {
@@ -119,7 +121,6 @@ export const useProductCategoryStore = defineStore(
             })
           })
         } else {
-          // 品牌无子分类时，直接提供品牌供选择
           res.push({
             id: brand.id,
             name: brand.name,
@@ -131,6 +132,57 @@ export const useProductCategoryStore = defineStore(
       })
       return res
     })
+
+    // 根据后端分类树填充 store（带兜底与容错）
+    const loadFromApi = async (rootId?: number) => {
+      const mapNode = (n: any): CategoryNode => ({
+        id: n.id,
+        name: n.name,
+        code: n.slug,
+        parentId: n.parentId ?? 0,
+        level: typeof n.level === 'number' ? n.level : 0,
+        sort: n.sortOrder,
+        status: n.status === 'active' ? 1 : 0,
+        description: n.description,
+        createTime: n.createdAt,
+        hasChildren: Array.isArray(n.children) && n.children.length > 0,
+        children: Array.isArray(n.children) ? n.children.map(mapNode) : []
+      })
+
+      try {
+        const data = await fetchGetCategoryTree(rootId)
+        const next = Array.isArray(data) ? data.map(mapNode) : []
+        if (next.length > 0) {
+          tree.value = next
+          return
+        }
+      } catch {
+        // 忽略错误，尝试兜底
+      }
+
+      // 兜底：调用 /all 并自行组装树
+      try {
+        const all = await fetchGetAllCategories()
+        if (Array.isArray(all) && all.length) {
+          const byParent = new Map<number, any[]>()
+          all.forEach((c: any) => {
+            const p = c.parentId ?? 0
+            const arr = byParent.get(p) || []
+            arr.push(c)
+            byParent.set(p, arr)
+          })
+          const build = (pid: number): any[] => {
+            const children = byParent.get(pid) || []
+            return children.map((c) => ({ ...c, children: build(c.id) }))
+          }
+          const roots = byParent.get(0) || byParent.get(null as any) || []
+          const treeBuilt = roots.map((r) => ({ ...r, children: build(r.id) }))
+          tree.value = treeBuilt.map(mapNode)
+        }
+      } catch {
+        // 仍失败则维持现有 tree（可能是示例数据或上次持久化的数据）
+      }
+    }
 
     // 添加/更新/删除，供分类管理页调用以同步管理页选项
     const addCategory = (
@@ -227,6 +279,7 @@ export const useProductCategoryStore = defineStore(
     return {
       tree,
       flatList,
+      loadFromApi,
       addCategory,
       updateCategory,
       removeCategory,

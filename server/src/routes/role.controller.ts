@@ -55,18 +55,29 @@ export class RoleController {
         description: '系统基础管理角色，可访问大部分功能',
         enabled: true
       },
-      { roleCode: 'R_STAFF', roleName: '员工', description: '普通员工角色，可访问与其岗位相关功能', enabled: true },
+      {
+        roleCode: 'R_STAFF',
+        roleName: '员工',
+        description: '普通员工角色，可访问与其岗位相关功能',
+        enabled: true
+      },
       { roleCode: 'R_FINANCE', roleName: '财务', description: '财务相关操作与对账', enabled: true },
       { roleCode: 'R_SALE', roleName: '销售', description: '销售相关功能与报表', enabled: true }
     ]
 
     // 仅当表为空时进行种子插入，避免用户删除后被再次重建
     if (existing.length === 0) {
-      console.log('[RoleController.seedIfEmpty] roles table empty, seeding:', seeds.map((s) => s.roleCode))
-      const toCreate = seeds.map((s) => this.repo.create(s as any))
+      console.log(
+        '[RoleController.seedIfEmpty] roles table empty, seeding:',
+        seeds.map((s) => s.roleCode)
+      )
+      const toCreate = seeds.map((s) => this.repo.create({ ...s }))
       if (toCreate.length) {
         await this.repo.save(toCreate)
-        console.log('[RoleController.seedIfEmpty] seeded roles:', toCreate.map((r) => r.roleCode))
+        console.log(
+          '[RoleController.seedIfEmpty] seeded roles:',
+          toCreate.map((r) => r.roleCode)
+        )
       }
       return
     }
@@ -87,7 +98,10 @@ export class RoleController {
     }
     if (toUpdate.length) {
       await this.repo.save(toUpdate)
-      console.log('[RoleController.seedIfEmpty] corrected roles:', toUpdate.map((r) => r.roleCode))
+      console.log(
+        '[RoleController.seedIfEmpty] corrected roles:',
+        toUpdate.map((r) => r.roleCode)
+      )
     }
   }
 
@@ -188,7 +202,10 @@ export class RoleController {
         enabled
       })
       await this.repo.save(record)
-      console.log('[RoleController.save] created role:', { id: record.id, roleCode: record.roleCode })
+      console.log('[RoleController.save] created role:', {
+        id: record.id,
+        roleCode: record.roleCode
+      })
     }
 
     return { code: 200, msg: '保存成功', data: true }
@@ -241,9 +258,7 @@ export class RoleController {
         .replace(/[.\\-]/g, '_')
         .replace(/_+/g, '_')
         .replace(/^_+|_+$/g, '')
-    const normalizedKeys = Array.from(
-      new Set(keys.map(normalize).filter((k) => !!k))
-    )
+    const normalizedKeys = Array.from(new Set(keys.map(normalize).filter((k) => !!k)))
 
     // 覆盖保存
     await this.permRepo.delete({ roleId })

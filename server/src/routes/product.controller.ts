@@ -1,6 +1,6 @@
 import { Body, Controller, Delete, Get, Param, Post, Query } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
-import { Repository, Like, In } from 'typeorm'
+import { Repository, Like, In, DeepPartial } from 'typeorm'
 import { ProductModel } from '../products/product-model.entity'
 import { ProductCategoryLink } from '../products/product-category-link.entity'
 import { ProductCategory } from '../products/product-category.entity'
@@ -75,19 +75,7 @@ export class ProductController {
       where,
       order: { id: 'ASC' },
       skip: (current - 1) * size,
-      take: size,
-      select: {
-        id: true,
-        name: true,
-        brand: true,
-        series: true,
-        engineType: true,
-        price: true,
-        status: true,
-        sales: true,
-        createdAt: true,
-        updatedAt: true
-      }
+      take: size
     })
 
     return {
@@ -99,7 +87,7 @@ export class ProductController {
 
   /** 保存商品（新增/编辑），可同时更新分类关联：categories: number[] */
   @Post('save')
-  async save(@Body() body: Partial<ProductModel> & { categories?: number[] }) {
+  async save(@Body() body: ProductInput) {
     console.log('[ProductController.save] incoming body:', body)
     const name = String(body.name || '').trim()
     if (!name) return { code: 400, msg: '商品名称必填', data: false }
@@ -132,20 +120,22 @@ export class ProductController {
       if (body.price !== undefined) {
         const normalizedPrice =
           typeof price === 'number' && !Number.isNaN(price) ? Number(Number(price).toFixed(2)) : 0
-        exist.price = normalizedPrice
+        ;(exist as any).price = normalizedPrice
       }
       if (body.status !== undefined) {
         const normalizedStatus =
-          typeof status === 'number' && !Number.isNaN(status) ? Number(status) : exist.status
-        exist.status = normalizedStatus
+          typeof status === 'number' && !Number.isNaN(status)
+            ? Number(status)
+            : (exist as any).status
+        ;(exist as any).status = normalizedStatus
       }
       if (body.sales !== undefined) {
         const normalizedSales =
-          typeof sales === 'number' && !Number.isNaN(sales) ? Number(sales) : exist.sales
-        exist.sales = normalizedSales
+          typeof sales === 'number' && !Number.isNaN(sales) ? Number(sales) : (exist as any).sales
+        ;(exist as any).sales = normalizedSales
       }
       if (body.engineType !== undefined) {
-        exist.engineType = validEngine || exist.engineType
+        ;(exist as any).engineType = validEngine || (exist as any).engineType
       }
       model = await this.modelRepo.save(exist)
       console.log('[ProductController.save] updated model:', model)
@@ -153,15 +143,16 @@ export class ProductController {
       // 唯一名校验
       const dup = await this.modelRepo.findOne({ where: { name } })
       if (dup) return { code: 409, msg: '商品名称已存在', data: false }
-      const created = this.modelRepo.create({
+      const payload: DeepPartial<ProductModel> = {
         name,
         brand: body.brand || undefined,
-        series: body.series || undefined,
-        engineType: validEngine || 'ICE',
-        price: typeof price === 'number' && !Number.isNaN(price) ? price : 0,
-        status: typeof status === 'number' && !Number.isNaN(status) ? status : 1,
-        sales: typeof sales === 'number' && !Number.isNaN(sales) ? sales : 0
-      })
+        series: body.series || undefined
+      }
+      const created = this.modelRepo.create(payload)
+      ;(created as any).engineType = validEngine || 'ICE'
+      ;(created as any).price = typeof price === 'number' && !Number.isNaN(price) ? price : 0
+      ;(created as any).status = typeof status === 'number' && !Number.isNaN(status) ? status : 1
+      ;(created as any).sales = typeof sales === 'number' && !Number.isNaN(sales) ? sales : 0
       model = await this.modelRepo.save(created)
       console.log('[ProductController.save] created model:', model)
     }
@@ -231,4 +222,16 @@ export class ProductController {
     const ids = links.map((l) => l.categoryId)
     return { code: 0, msg: 'ok', data: ids }
   }
+}
+
+type ProductInput = {
+  id?: number
+  name?: string
+  brand?: string
+  series?: string
+  engineType?: string
+  price?: number | string
+  status?: number | string
+  sales?: number | string
+  categories?: number[]
 }
