@@ -19,18 +19,19 @@ export class UserController {
   @Get('info')
   async info(@Req() req: any) {
     const userName = req.user?.userName || 'Admin'
-    // 默认不赋任何角色，交由 sanitizeRoles 兜底前台
     const roles = Array.isArray(req.user?.roles) ? req.user.roles : []
     const userId = req.user?.sub || 1
 
-    // 清洗并兜底角色（过滤已删除角色，必要时追加 R_FRONT_DESK）
     const sanitizedRoles = await this.userService.sanitizeRoles(roles)
+    const effectiveRoles =
+      sanitizedRoles.includes('R_ADMIN') && !sanitizedRoles.includes('R_SUPER')
+        ? [...sanitizedRoles, 'R_SUPER']
+        : sanitizedRoles
 
-    // 根据角色编码映射到角色ID，再聚合角色权限键
     let buttons: string[] = []
     try {
-      if (sanitizedRoles.length) {
-        const roleRecords = await this.roleRepo.find({ where: { roleCode: In(sanitizedRoles) } })
+      if (effectiveRoles.length) {
+        const roleRecords = await this.roleRepo.find({ where: { roleCode: In(effectiveRoles) } })
         const roleIds = roleRecords.map((r) => r.id)
         if (roleIds.length) {
           const perms = await this.permRepo.find({ where: { roleId: In(roleIds) } })
@@ -38,18 +39,14 @@ export class UserController {
         }
       }
     } catch {
-      // 兜底：出错时返回空按钮列表，避免接口异常
       buttons = []
     }
 
-    // 默认按钮权限兜底：前台与信息部门
     const ensure = (list: string[]) => Array.from(new Set([...(buttons || []), ...list]))
-    if (sanitizedRoles.includes('R_FRONT_DESK')) {
-      // 前台：仅新增与查看
+    if (effectiveRoles.includes('R_FRONT_DESK')) {
       buttons = ensure(['add', 'view'])
     }
-    if (sanitizedRoles.includes('R_INFO')) {
-      // 信息部门：拥有所有常用按钮权限
+    if (effectiveRoles.includes('R_INFO')) {
       buttons = ensure(['add', 'edit', 'delete', 'import', 'export', 'view'])
     }
 
@@ -58,7 +55,7 @@ export class UserController {
       msg: 'ok',
       data: {
         buttons,
-        roles: sanitizedRoles,
+        roles: effectiveRoles,
         userId,
         userName
       }

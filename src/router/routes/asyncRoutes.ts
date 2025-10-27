@@ -534,7 +534,7 @@ export const asyncRoutes: AppRouteRecord[] = [
             meta: {
               title: 'menus.examples.permission.pageVisibility',
               keepAlive: true,
-              roles: ['R_SUPER'] // 仅超级管理员可访问
+              roles: ['R_SUPER', 'R_ADMIN'] // 超级管理员与管理员可访问
             }
           }
         ]
@@ -622,7 +622,7 @@ export const asyncRoutes: AppRouteRecord[] = [
         meta: {
           title: 'menus.system.role',
           keepAlive: true,
-          roles: ['R_SUPER']
+          roles: ['R_SUPER', 'R_ADMIN']
         }
       },
       {
@@ -643,7 +643,7 @@ export const asyncRoutes: AppRouteRecord[] = [
         meta: {
           title: 'menus.system.menu',
           keepAlive: true,
-          roles: ['R_SUPER'],
+          roles: ['R_SUPER', 'R_ADMIN'],
           authList: [
             {
               title: '新增',
