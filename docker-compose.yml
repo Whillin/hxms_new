@@ -26,8 +26,10 @@ services:
     ports:
       - '3001:3001'
     depends_on:
-      - mysql
+      mysql:
+        condition: service_healthy
     restart: always
+    command: sh -lc "until getent hosts mysql; do echo 'waiting mysql dns'; sleep 2; done; node dist/main.js"
     networks:
       - hxms_net
 
