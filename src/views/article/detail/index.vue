@@ -31,7 +31,7 @@
 
   const getArticleDetail = async () => {
     if (articleId.value) {
-      const res = await axios.get('https://www.qiniu.lingchen.kim/blog_detail.json')
+      const res = await axios.get('/mock/article/blog_detail.json')
       if (res.data.code === 200) {
         articleTitle.value = res.data.data.title
         articleHtml.value = res.data.data.html_content

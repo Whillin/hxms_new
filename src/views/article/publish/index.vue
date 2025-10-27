@@ -80,6 +80,7 @@
   import { PageModeEnum } from '@/enums/formEnum'
   import axios from 'axios'
   import { useCommon } from '@/composables/useCommon'
+  import { ElMessage } from 'element-plus'
 
   defineOptions({ name: 'ArticlePublish' })
 
@@ -89,9 +90,9 @@
   let { accessToken } = userStore
 
   // 上传路径
-  const uploadImageUrl = `${import.meta.env.VITE_API_URL}/api/common/upload`
+  const uploadImageUrl = '/api/common/upload'
   // 传递 token
-  const uploadHeaders = { Authorization: accessToken }
+  const uploadHeaders = { Authorization: `Bearer ${accessToken}` }
 
   let pageMode: PageModeEnum = PageModeEnum.Add // 页面类型 新增 ｜ 编辑
   const articleName = ref('') // 文章标题
@@ -133,7 +134,7 @@
   // 获取文章类型
   const getArticleTypes = async () => {
     try {
-      const response = await axios.get('https://www.qiniu.lingchen.kim/classify.json')
+      const response = await axios.get('/mock/article/classify.json')
       if (response.data.code === 200) {
         articleTypes.value = response.data.data
       }
@@ -149,7 +150,7 @@
   }
 
   const getArticleDetail = async () => {
-    const res = await axios.get('https://www.qiniu.lingchen.kim/blog_list.json')
+    const res = await axios.get('/mock/article/blog_list.json')
 
     if (res.data.code === ApiStatus.success) {
       let { title, blog_class, html_content } = res.data.data
