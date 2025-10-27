@@ -1,7 +1,11 @@
+# Prevent secrets from entering build context
 .env
 .env.*
+
+# Exclude local installs and build artifacts (reinstalled/built in image)
 node_modules
-pnpm-lock.yaml
-Dockerfile
-**/*.ts
-!dist/**
+.dist
+
+# Optional VCS noise
+.git
+.gitignore
