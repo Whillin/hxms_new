@@ -30,12 +30,10 @@ interface ExtendedAxiosRequestConfig extends AxiosRequestConfig {
   showSuccessMessage?: boolean
 }
 
-const { VITE_API_URL, VITE_WITH_CREDENTIALS, DEV } = import.meta.env
+const { VITE_WITH_CREDENTIALS } = import.meta.env
 
-// 修正：开发环境不设置 baseURL，避免与接口路径的 `/api` 重复导致 404
-// 开发时接口都写成 `/api/...`，留空 baseURL 即可命中本地 mock 中间件
-// 生产环境按环境变量配置真实地址
-const BASE_URL = DEV ? '' : VITE_API_URL
+// 统一使用相对路径，生产与开发都走 '/api'，由Nginx或Vite代理处理
+const BASE_URL = ''
 
 /** Axios实例 */
 const axiosInstance = axios.create({
