@@ -76,18 +76,18 @@ export class ProductController {
       order: { id: 'ASC' },
       skip: (current - 1) * size,
       take: size,
-      select: [
-        'id',
-        'name',
-        'brand',
-        'series',
-        'engineType',
-        'price',
-        'status',
-        'sales',
-        'createdAt',
-        'updatedAt'
-      ]
+      select: {
+        id: true,
+        name: true,
+        brand: true,
+        series: true,
+        engineType: true,
+        price: true,
+        status: true,
+        sales: true,
+        createdAt: true,
+        updatedAt: true
+      }
     })
 
     return {

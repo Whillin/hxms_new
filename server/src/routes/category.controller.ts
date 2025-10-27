@@ -1,6 +1,6 @@
 import { Body, Controller, Delete, Get, Param, Post, Query, OnModuleInit } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
-import { Repository } from 'typeorm'
+import { Repository, In } from 'typeorm'
 import { ProductCategory } from '../products/product-category.entity'
 import { ProductCategoryLink } from '../products/product-category-link.entity'
 import { ProductModel } from '../products/product-model.entity'
@@ -9,7 +9,8 @@ import { ProductModel } from '../products/product-model.entity'
 export class CategoryController implements OnModuleInit {
   constructor(
     @InjectRepository(ProductCategory) private readonly catRepo: Repository<ProductCategory>,
-    @InjectRepository(ProductCategoryLink) private readonly linkRepo: Repository<ProductCategoryLink>,
+    @InjectRepository(ProductCategoryLink)
+    private readonly linkRepo: Repository<ProductCategoryLink>,
     @InjectRepository(ProductModel) private readonly modelRepo: Repository<ProductModel>
   ) {}
 
@@ -84,7 +85,7 @@ export class CategoryController implements OnModuleInit {
     if (!name) return { code: 400, msg: '分类名称必填', data: false }
     const parentId = typeof body.parentId === 'number' ? Number(body.parentId) : null
     const sortOrder = typeof body.sortOrder === 'number' ? Number(body.sortOrder) : 0
-    const status = (String(body.status || 'active') as any)
+    const status = String(body.status || 'active') as any
 
     // 计算 level 与 path
     let level = 0
@@ -114,7 +115,15 @@ export class CategoryController implements OnModuleInit {
       return { code: 0, msg: 'updated', data: exist }
     }
 
-    const created = this.catRepo.create({ name, slug: body.slug || undefined, parentId, level, path, sortOrder, status })
+    const created = this.catRepo.create({
+      name,
+      slug: body.slug || undefined,
+      parentId,
+      level,
+      path,
+      sortOrder,
+      status
+    })
     const saved = await this.catRepo.save(created)
     return { code: 0, msg: 'created', data: saved }
   }
@@ -165,7 +174,7 @@ export class CategoryController implements OnModuleInit {
     links.forEach((l) => {
       if (categoryIds.includes(l.categoryId)) ids.add(l.productId)
     })
-    const products = await this.modelRepo.findByIds(Array.from(ids))
+    const products = await this.modelRepo.find({ where: { id: In(Array.from(ids)) } })
     return { code: 0, msg: 'ok', data: products }
   }
   async onModuleInit(): Promise<void> {
