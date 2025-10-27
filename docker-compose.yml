@@ -1,13 +1,32 @@
-version: '3.9'
-
 services:
+  mysql:
+    image: mysql:8.0
+    container_name: hxms_new-mysql-1
+    environment:
+      MYSQL_ROOT_PASSWORD: '123456'
+      MYSQL_DATABASE: 'hxms_dev'
+      MYSQL_USER: 'root'
+      MYSQL_PASSWORD: '123456'
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ['CMD', 'mysqladmin', 'ping', '-h', '127.0.0.1', '-uroot', '-p123456']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: always
+    networks:
+      - hxms_net
+
   api:
     build: ./server
     container_name: hxms_api
     env_file:
       - ./server/.env.production
     ports:
-      - '3001:3001' # 可按需去掉对外映射，仅被 web 反代
+      - '3001:3001'
+    depends_on:
+      - mysql
     restart: always
     networks:
       - hxms_net
@@ -29,3 +48,6 @@ services:
 networks:
   hxms_net:
     driver: bridge
+
+volumes:
+  mysql-data:
