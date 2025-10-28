@@ -23,8 +23,16 @@ read -s DB_PASSWORD
 
 echo "正在创建干净的备份文件..."
 
-# 创建新的干净备份文件
-cat > "$CLEAN_BACKUP" << 'EOF'
+# 创建新的干净备份文件，使用真实的本地数据
+echo "正在从本地数据库导出真实数据..."
+mysqldump -u "$DB_USER" -p"$DB_PASSWORD" --default-character-set=utf8mb4 --single-transaction --routines --triggers hxms_dev > "$CLEAN_BACKUP"
+
+if [ $? -eq 0 ]; then
+    echo -e "${GREEN}✓ 真实数据导出成功${NC}"
+else
+    echo -e "${RED}✗ 数据导出失败，使用备用方案${NC}"
+    # 备用方案：创建基础结构
+    cat > "$CLEAN_BACKUP" << 'EOF'
 -- MySQL dump 10.13  Distrib 8.0.43, for Win64 (x86_64)
 --
 -- Host: localhost    Database: hxms_dev
@@ -356,8 +364,8 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2024-10-28 10:16:38
 EOF
+fi
 
 echo -e "${GREEN}✓ 干净的备份文件已创建: $CLEAN_BACKUP${NC}"
 
