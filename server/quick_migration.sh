@@ -83,21 +83,21 @@ echo -e "${GREEN}✓ 数据清理完成${NC}"
 
 # 导入本地数据
 echo -e "${YELLOW}正在导入本地数据...${NC}"
-# 首先尝试清理备份文件
+
+# 检查是否存在干净的备份文件
 CLEAN_BACKUP="hxms_dev_clean_backup.sql"
-if [ -f "$BACKUP_FILE" ]; then
-    echo "正在清理备份文件..."
-    # 移除空字符和控制字符
-    sed 's/\x0//g' "$BACKUP_FILE" | tr -d '\000-\010\013\014\016-\037' > "$CLEAN_BACKUP"
-    if [ -s "$CLEAN_BACKUP" ]; then
-        echo "使用清理后的备份文件导入..."
-        mysql -u "$DB_USER" -p"$DB_PASSWORD" --default-character-set=utf8mb4 --comments --force "$DB_NAME" < "$CLEAN_BACKUP"
+if [ -f "$CLEAN_BACKUP" ]; then
+    echo "使用干净的备份文件导入..."
+    mysql -u "$DB_USER" -p"$DB_PASSWORD" --default-character-set=utf8mb4 "$DB_NAME" < "$CLEAN_BACKUP"
+    if [ $? -eq 0 ]; then
+        echo "✓ 数据导入成功"
     else
-        echo "清理失败，使用原始文件..."
-        mysql -u "$DB_USER" -p"$DB_PASSWORD" --default-character-set=utf8mb4 --comments --force "$DB_NAME" < "$BACKUP_FILE"
+        echo "✗ 数据导入失败"
+        exit 1
     fi
 else
-    echo "错误: 找不到备份文件 $BACKUP_FILE"
+    echo "未找到干净的备份文件，请先运行 create_clean_backup.sh"
+    echo "或者手动创建 $CLEAN_BACKUP 文件"
     exit 1
 fi
 if [ $? -ne 0 ]; then
