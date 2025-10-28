@@ -83,8 +83,23 @@ echo -e "${GREEN}✓ 数据清理完成${NC}"
 
 # 导入本地数据
 echo -e "${YELLOW}正在导入本地数据...${NC}"
-# 使用更安全的导入方式，跳过空行和注释
-mysql -u "$DB_USER" -p"$DB_PASSWORD" --default-character-set=utf8mb4 --comments --force "$DB_NAME" < "$BACKUP_FILE"
+# 首先尝试清理备份文件
+CLEAN_BACKUP="hxms_dev_clean_backup.sql"
+if [ -f "$BACKUP_FILE" ]; then
+    echo "正在清理备份文件..."
+    # 移除空字符和控制字符
+    sed 's/\x0//g' "$BACKUP_FILE" | tr -d '\000-\010\013\014\016-\037' > "$CLEAN_BACKUP"
+    if [ -s "$CLEAN_BACKUP" ]; then
+        echo "使用清理后的备份文件导入..."
+        mysql -u "$DB_USER" -p"$DB_PASSWORD" --default-character-set=utf8mb4 --comments --force "$DB_NAME" < "$CLEAN_BACKUP"
+    else
+        echo "清理失败，使用原始文件..."
+        mysql -u "$DB_USER" -p"$DB_PASSWORD" --default-character-set=utf8mb4 --comments --force "$DB_NAME" < "$BACKUP_FILE"
+    fi
+else
+    echo "错误: 找不到备份文件 $BACKUP_FILE"
+    exit 1
+fi
 if [ $? -ne 0 ]; then
     echo -e "${RED}错误: 数据导入失败${NC}"
     exit 1
