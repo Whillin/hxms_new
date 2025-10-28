@@ -12,36 +12,146 @@ SET FOREIGN_KEY_CHECKS = 0;
 -- 第一步：清空所有表的数据（保留表结构）
 -- ========================================
 
--- 清空所有表的数据，按依赖关系顺序
-TRUNCATE TABLE `role_permissions`;
-TRUNCATE TABLE `employee_store_links`;
-TRUNCATE TABLE `product_category_links`;
-TRUNCATE TABLE `clues`;
-TRUNCATE TABLE `customers`;
-TRUNCATE TABLE `users`;
-TRUNCATE TABLE `employees`;
-TRUNCATE TABLE `roles`;
-TRUNCATE TABLE `departments`;
-TRUNCATE TABLE `channels`;
-TRUNCATE TABLE `product_models`;
-TRUNCATE TABLE `product_categories`;
+-- 清空所有表的数据，按依赖关系顺序（安全模式：只清空存在的表）
+SET @sql = NULL;
+
+-- 安全清空 role_permissions 表（如果存在）
+SELECT COUNT(*) INTO @table_exists FROM information_schema.tables 
+WHERE table_schema = DATABASE() AND table_name = 'role_permissions';
+SET @sql = IF(@table_exists > 0, 'TRUNCATE TABLE `role_permissions`', 'SELECT "Table role_permissions does not exist, skipping..." as Info');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- 安全清空其他表
+SELECT COUNT(*) INTO @table_exists FROM information_schema.tables 
+WHERE table_schema = DATABASE() AND table_name = 'employee_store_links';
+SET @sql = IF(@table_exists > 0, 'TRUNCATE TABLE `employee_store_links`', 'SELECT "Table employee_store_links does not exist, skipping..." as Info');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SELECT COUNT(*) INTO @table_exists FROM information_schema.tables 
+WHERE table_schema = DATABASE() AND table_name = 'product_category_links';
+SET @sql = IF(@table_exists > 0, 'TRUNCATE TABLE `product_category_links`', 'SELECT "Table product_category_links does not exist, skipping..." as Info');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SELECT COUNT(*) INTO @table_exists FROM information_schema.tables 
+WHERE table_schema = DATABASE() AND table_name = 'clues';
+SET @sql = IF(@table_exists > 0, 'TRUNCATE TABLE `clues`', 'SELECT "Table clues does not exist, skipping..." as Info');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SELECT COUNT(*) INTO @table_exists FROM information_schema.tables 
+WHERE table_schema = DATABASE() AND table_name = 'customers';
+SET @sql = IF(@table_exists > 0, 'TRUNCATE TABLE `customers`', 'SELECT "Table customers does not exist, skipping..." as Info');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SELECT COUNT(*) INTO @table_exists FROM information_schema.tables 
+WHERE table_schema = DATABASE() AND table_name = 'users';
+SET @sql = IF(@table_exists > 0, 'TRUNCATE TABLE `users`', 'SELECT "Table users does not exist, skipping..." as Info');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SELECT COUNT(*) INTO @table_exists FROM information_schema.tables 
+WHERE table_schema = DATABASE() AND table_name = 'employees';
+SET @sql = IF(@table_exists > 0, 'TRUNCATE TABLE `employees`', 'SELECT "Table employees does not exist, skipping..." as Info');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SELECT COUNT(*) INTO @table_exists FROM information_schema.tables 
+WHERE table_schema = DATABASE() AND table_name = 'roles';
+SET @sql = IF(@table_exists > 0, 'TRUNCATE TABLE `roles`', 'SELECT "Table roles does not exist, skipping..." as Info');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SELECT COUNT(*) INTO @table_exists FROM information_schema.tables 
+WHERE table_schema = DATABASE() AND table_name = 'departments';
+SET @sql = IF(@table_exists > 0, 'TRUNCATE TABLE `departments`', 'SELECT "Table departments does not exist, skipping..." as Info');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SELECT COUNT(*) INTO @table_exists FROM information_schema.tables 
+WHERE table_schema = DATABASE() AND table_name = 'channels';
+SET @sql = IF(@table_exists > 0, 'TRUNCATE TABLE `channels`', 'SELECT "Table channels does not exist, skipping..." as Info');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SELECT COUNT(*) INTO @table_exists FROM information_schema.tables 
+WHERE table_schema = DATABASE() AND table_name = 'product_models';
+SET @sql = IF(@table_exists > 0, 'TRUNCATE TABLE `product_models`', 'SELECT "Table product_models does not exist, skipping..." as Info');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SELECT COUNT(*) INTO @table_exists FROM information_schema.tables 
+WHERE table_schema = DATABASE() AND table_name = 'product_categories';
+SET @sql = IF(@table_exists > 0, 'TRUNCATE TABLE `product_categories`', 'SELECT "Table product_categories does not exist, skipping..." as Info');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 -- ========================================
--- 第二步：重置自增ID
+-- 第二步：重置自增ID（安全模式：只重置存在的表）
 -- ========================================
 
-ALTER TABLE `channels` AUTO_INCREMENT = 1;
-ALTER TABLE `clues` AUTO_INCREMENT = 1;
-ALTER TABLE `customers` AUTO_INCREMENT = 1;
-ALTER TABLE `departments` AUTO_INCREMENT = 1;
-ALTER TABLE `employee_store_links` AUTO_INCREMENT = 1;
-ALTER TABLE `employees` AUTO_INCREMENT = 1;
-ALTER TABLE `product_categories` AUTO_INCREMENT = 1;
-ALTER TABLE `product_category_links` AUTO_INCREMENT = 1;
-ALTER TABLE `product_models` AUTO_INCREMENT = 1;
-ALTER TABLE `role_permissions` AUTO_INCREMENT = 1;
-ALTER TABLE `roles` AUTO_INCREMENT = 1;
-ALTER TABLE `users` AUTO_INCREMENT = 1;
+-- 重置 channels 表自增ID
+SELECT COUNT(*) INTO @table_exists FROM information_schema.tables 
+WHERE table_schema = DATABASE() AND table_name = 'channels';
+SET @sql = IF(@table_exists > 0, 'ALTER TABLE `channels` AUTO_INCREMENT = 1', 'SELECT "Table channels does not exist, skipping AUTO_INCREMENT reset..." as Info');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- 重置 clues 表自增ID
+SELECT COUNT(*) INTO @table_exists FROM information_schema.tables 
+WHERE table_schema = DATABASE() AND table_name = 'clues';
+SET @sql = IF(@table_exists > 0, 'ALTER TABLE `clues` AUTO_INCREMENT = 1', 'SELECT "Table clues does not exist, skipping AUTO_INCREMENT reset..." as Info');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- 重置 customers 表自增ID
+SELECT COUNT(*) INTO @table_exists FROM information_schema.tables 
+WHERE table_schema = DATABASE() AND table_name = 'customers';
+SET @sql = IF(@table_exists > 0, 'ALTER TABLE `customers` AUTO_INCREMENT = 1', 'SELECT "Table customers does not exist, skipping AUTO_INCREMENT reset..." as Info');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- 重置 departments 表自增ID
+SELECT COUNT(*) INTO @table_exists FROM information_schema.tables 
+WHERE table_schema = DATABASE() AND table_name = 'departments';
+SET @sql = IF(@table_exists > 0, 'ALTER TABLE `departments` AUTO_INCREMENT = 1', 'SELECT "Table departments does not exist, skipping AUTO_INCREMENT reset..." as Info');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- 重置 employee_store_links 表自增ID
+SELECT COUNT(*) INTO @table_exists FROM information_schema.tables 
+WHERE table_schema = DATABASE() AND table_name = 'employee_store_links';
+SET @sql = IF(@table_exists > 0, 'ALTER TABLE `employee_store_links` AUTO_INCREMENT = 1', 'SELECT "Table employee_store_links does not exist, skipping AUTO_INCREMENT reset..." as Info');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- 重置 employees 表自增ID
+SELECT COUNT(*) INTO @table_exists FROM information_schema.tables 
+WHERE table_schema = DATABASE() AND table_name = 'employees';
+SET @sql = IF(@table_exists > 0, 'ALTER TABLE `employees` AUTO_INCREMENT = 1', 'SELECT "Table employees does not exist, skipping AUTO_INCREMENT reset..." as Info');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- 重置 product_categories 表自增ID
+SELECT COUNT(*) INTO @table_exists FROM information_schema.tables 
+WHERE table_schema = DATABASE() AND table_name = 'product_categories';
+SET @sql = IF(@table_exists > 0, 'ALTER TABLE `product_categories` AUTO_INCREMENT = 1', 'SELECT "Table product_categories does not exist, skipping AUTO_INCREMENT reset..." as Info');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- 重置 product_category_links 表自增ID
+SELECT COUNT(*) INTO @table_exists FROM information_schema.tables 
+WHERE table_schema = DATABASE() AND table_name = 'product_category_links';
+SET @sql = IF(@table_exists > 0, 'ALTER TABLE `product_category_links` AUTO_INCREMENT = 1', 'SELECT "Table product_category_links does not exist, skipping AUTO_INCREMENT reset..." as Info');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- 重置 product_models 表自增ID
+SELECT COUNT(*) INTO @table_exists FROM information_schema.tables 
+WHERE table_schema = DATABASE() AND table_name = 'product_models';
+SET @sql = IF(@table_exists > 0, 'ALTER TABLE `product_models` AUTO_INCREMENT = 1', 'SELECT "Table product_models does not exist, skipping AUTO_INCREMENT reset..." as Info');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- 重置 role_permissions 表自增ID
+SELECT COUNT(*) INTO @table_exists FROM information_schema.tables 
+WHERE table_schema = DATABASE() AND table_name = 'role_permissions';
+SET @sql = IF(@table_exists > 0, 'ALTER TABLE `role_permissions` AUTO_INCREMENT = 1', 'SELECT "Table role_permissions does not exist, skipping AUTO_INCREMENT reset..." as Info');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- 重置 roles 表自增ID
+SELECT COUNT(*) INTO @table_exists FROM information_schema.tables 
+WHERE table_schema = DATABASE() AND table_name = 'roles';
+SET @sql = IF(@table_exists > 0, 'ALTER TABLE `roles` AUTO_INCREMENT = 1', 'SELECT "Table roles does not exist, skipping AUTO_INCREMENT reset..." as Info');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- 重置 users 表自增ID
+SELECT COUNT(*) INTO @table_exists FROM information_schema.tables 
+WHERE table_schema = DATABASE() AND table_name = 'users';
+SET @sql = IF(@table_exists > 0, 'ALTER TABLE `users` AUTO_INCREMENT = 1', 'SELECT "Table users does not exist, skipping AUTO_INCREMENT reset..." as Info');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 -- ========================================
 -- 第三步：导入本地数据
