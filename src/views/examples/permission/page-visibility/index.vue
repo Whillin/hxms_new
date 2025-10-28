@@ -4,7 +4,7 @@
     <div class="page-header">
       <h2>{{ $t('menus.examples.permission.pageVisibility') }}</h2>
       <p class="description">
-        此页面仅对<strong>超级管理员</strong>用户可见，演示页面级别的权限控制。
+        此页面对<strong>超级管理员与管理员</strong>用户可见，演示页面级别的权限控制。
         如果您能看到此页面，说明您拥有相应的访问权限。
       </p>
     </div>
@@ -56,7 +56,7 @@
   component: RoutesAlias.PermissionPageVisibility,
   meta: {
     title: 'menus.permission.pageVisibility',
-    roles: ['R_SUPER'], // 仅超级管理员可访问
+    roles: ['R_SUPER', 'R_ADMIN'], // 超级管理员与管理员可访问
     keepAlive: true
   }
 }</code></pre>
@@ -252,166 +252,30 @@
       }
     }
 
-    .success-card {
-      margin-bottom: 24px;
-
-      .card-header {
-        display: flex;
-        gap: 8px;
-        align-items: center;
-        font-weight: 600;
-
-        &.success {
-          color: var(--el-color-success);
-        }
-      }
-
-      .success-content {
-        .success-info {
-          display: flex;
-          gap: 20px;
-          align-items: center;
-
-          .success-text {
-            h3 {
-              margin: 0 0 8px;
-              font-size: 18px;
-              font-weight: 600;
-              color: var(--el-text-color-primary);
-            }
-
-            p {
-              margin: 4px 0;
-              font-size: 14px;
-              color: var(--el-text-color-regular);
-
-              strong {
-                font-weight: 600;
-                color: var(--el-text-color-primary);
-              }
-            }
-          }
-        }
-      }
-    }
-
+    .success-card,
     .permission-explanation,
     .best-practices {
       margin-bottom: 24px;
-
-      &:last-child {
-        margin-bottom: 0;
-      }
     }
 
     .card-header {
-      display: flex;
-      align-items: center;
       font-weight: 600;
-      color: var(--el-text-color-primary);
+    }
+
+    .success-info {
+      .success-text {
+        h3 {
+          margin: 0 0 8px;
+        }
+      }
     }
 
     .explanation-content {
       pre {
-        padding: 16px;
-        margin: 12px 0 0;
-        overflow-x: auto;
-        font-family: Monaco, Menlo, 'Ubuntu Mono', monospace;
-        font-size: 13px;
-        line-height: 1.5;
-        background: var(--el-fill-color-light);
-        border: 1px solid var(--el-border-color-lighter);
-        border-radius: 6px;
-
-        code {
-          color: var(--el-text-color-primary);
-        }
-      }
-
-      h4 {
-        margin: 0 0 8px;
-        font-size: 16px;
-        font-weight: 600;
-        color: var(--el-text-color-primary);
-      }
-
-      p {
-        margin: 0 0 8px;
-        line-height: 1.6;
-        color: var(--el-text-color-regular);
-
-        code {
-          padding: 2px 6px;
-          font-family: Monaco, Menlo, 'Ubuntu Mono', monospace;
-          font-size: 13px;
-          color: var(--el-color-primary);
-          background: var(--el-color-primary-light-9);
-          border-radius: 4px;
-        }
-      }
-
-      ul {
-        padding-left: 20px;
-        margin: 8px 0;
-
-        li {
-          margin: 4px 0;
-          line-height: 1.5;
-          color: var(--el-text-color-regular);
-        }
-      }
-    }
-
-    .practices-content {
-      .practice-item {
-        display: flex;
-        gap: 16px;
-        align-items: flex-start;
-        margin-bottom: 15px !important;
-
-        &:last-child {
-          margin-bottom: 0;
-        }
-
-        .practice-icon {
-          display: flex;
-          flex-shrink: 0;
-          align-items: center;
-          justify-content: center;
-          width: 44px;
-          height: 44px;
-          background: var(--el-fill-color-light);
-          border-radius: 8px;
-        }
-
-        .practice-content {
-          flex: 1;
-
-          h4 {
-            font-size: 16px;
-            font-weight: 600;
-            color: var(--el-text-color-primary);
-          }
-
-          p {
-            margin: 0;
-            font-size: 14px;
-            line-height: 1.6;
-            color: var(--el-text-color-regular);
-          }
-        }
-      }
-    }
-  }
-
-  @media (width <= 768px) {
-    .page-visibility-page {
-      padding: 16px 0;
-
-      .success-info {
-        flex-direction: column;
-        gap: 16px !important;
-        text-align: center;
+        padding: 12px;
+        overflow: auto;
+        background: var(--art-overlay-bg-color);
+        border-radius: 8px;
       }
     }
   }
