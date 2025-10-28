@@ -58,19 +58,19 @@ echo "正在清理现有数据..."
 mysql -u "$DB_USER" -p"$DB_PASSWORD" "$DB_NAME" << 'EOF'
 SET FOREIGN_KEY_CHECKS = 0;
 
--- 清理所有表数据
-TRUNCATE TABLE IF EXISTS role_permissions;
-TRUNCATE TABLE IF EXISTS employee_store_links;
-TRUNCATE TABLE IF EXISTS product_category_links;
-TRUNCATE TABLE IF EXISTS clues;
-TRUNCATE TABLE IF EXISTS customers;
-TRUNCATE TABLE IF EXISTS employees;
-TRUNCATE TABLE IF EXISTS roles;
-TRUNCATE TABLE IF EXISTS departments;
-TRUNCATE TABLE IF EXISTS product_models;
-TRUNCATE TABLE IF EXISTS product_categories;
-TRUNCATE TABLE IF EXISTS channels;
-TRUNCATE TABLE IF EXISTS users;
+-- 清理所有表数据（使用DELETE而不是TRUNCATE以避免语法问题）
+DELETE FROM role_permissions WHERE 1=1;
+DELETE FROM employee_store_links WHERE 1=1;
+DELETE FROM product_category_links WHERE 1=1;
+DELETE FROM clues WHERE 1=1;
+DELETE FROM customers WHERE 1=1;
+DELETE FROM employees WHERE 1=1;
+DELETE FROM roles WHERE 1=1;
+DELETE FROM departments WHERE 1=1;
+DELETE FROM product_models WHERE 1=1;
+DELETE FROM product_categories WHERE 1=1;
+DELETE FROM channels WHERE 1=1;
+DELETE FROM users WHERE 1=1;
 
 SET FOREIGN_KEY_CHECKS = 1;
 EOF
