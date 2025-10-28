@@ -83,7 +83,8 @@ echo -e "${GREEN}✓ 数据清理完成${NC}"
 
 # 导入本地数据
 echo -e "${YELLOW}正在导入本地数据...${NC}"
-mysql -u "$DB_USER" -p"$DB_PASSWORD" --binary-mode --default-character-set=utf8mb4 "$DB_NAME" < "$BACKUP_FILE"
+# 使用更安全的导入方式，跳过空行和注释
+mysql -u "$DB_USER" -p"$DB_PASSWORD" --default-character-set=utf8mb4 --comments --force "$DB_NAME" < "$BACKUP_FILE"
 if [ $? -ne 0 ]; then
     echo -e "${RED}错误: 数据导入失败${NC}"
     exit 1
