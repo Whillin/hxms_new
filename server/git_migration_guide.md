@@ -6,9 +6,10 @@
 ✅ `complete_migration_guide.md` - 完整迁移指南  
 ✅ `quick_migration.sh` - 一键迁移脚本  
 ✅ `upload_guide.md` - 文件上传指南  
-✅ `upload_to_server.sh` - 自动上传脚本
+✅ `upload_to_server.sh` - 自动上传脚本  
+✅ `hxms_dev_full_backup.sql` - 数据库备份文件 (约134KB)
 
-⚠️ **注意**: `hxms_dev_full_backup.sql` 文件太大，未上传到Git，需要单独传输
+🎉 **所有文件都已上传到Git，可以直接通过Git拉取获得完整的迁移工具包！**
 
 ## 🚀 在云服务器上拉取文件
 
@@ -52,34 +53,23 @@ chmod +x quick_migration.sh
 chmod +x upload_to_server.sh
 ```
 
-## 📦 获取数据库备份文件
+## 📦 完整的一键迁移流程
 
-由于 `hxms_dev_full_backup.sql` 文件较大，你仍需要单独上传这个文件：
-
-### 方法一：使用SCP上传
+现在所有文件都在Git中，你只需要在云服务器上执行以下命令即可完成整个迁移：
 
 ```bash
-# 在本地执行 (Windows PowerShell 或 Git Bash)
-scp E:\hxms_new\hxms_new\server\hxms_dev_full_backup.sql username@your-server-ip:/path/to/hxms_new/server/
+# 1. 克隆或拉取最新代码
+git clone https://github.com/Whillin/hxms_new.git
+cd hxms_new/server
+
+# 2. 设置执行权限
+chmod +x *.sh
+
+# 3. 执行一键迁移
+./quick_migration.sh
 ```
 
-### 方法二：使用SFTP
-
-```bash
-sftp username@your-server-ip
-cd /path/to/hxms_new/server/
-put E:\hxms_new\hxms_new\server\hxms_dev_full_backup.sql
-quit
-```
-
-### 方法三：重新生成备份文件
-
-如果你在云服务器上有本地数据库的访问权限，也可以直接在云服务器上重新生成：
-
-```bash
-# 连接到本地数据库并导出 (需要网络访问)
-mysqldump -h your-local-ip -u root -p123456 --single-transaction --routines --triggers hxms_dev > hxms_dev_full_backup.sql
-```
+就这么简单！所有迁移文件都会自动从Git获取。
 
 ## ✅ 验证文件完整性
 
