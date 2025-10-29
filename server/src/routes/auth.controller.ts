@@ -68,8 +68,24 @@ export class AuthController {
         return { code: 401, msg: '刷新令牌无效', data: null }
       }
 
-      const { sub, userName, roles } = payload as any
-      const cleanPayload = { sub, userName, roles }
+      // 从数据库读取最新用户信息与角色，确保角色变更无需清理缓存即可生效
+      const sub = Number((payload as any)?.sub)
+      const byId = sub && !Number.isNaN(sub) ? await this.userService.findById(sub) : null
+      const byName = !byId
+        ? await this.userService.findByUserName((payload as any)?.userName || '')
+        : null
+      const record = byId || byName
+
+      const roles = Array.isArray(record?.roles)
+        ? record!.roles
+        : Array.isArray((payload as any)?.roles)
+          ? (payload as any).roles
+          : []
+      const cleanPayload = {
+        sub: record?.id ?? (payload as any)?.sub,
+        userName: record?.userName ?? (payload as any)?.userName,
+        roles
+      }
       const token = this.authService.signToken(cleanPayload)
       const newRefreshToken = this.authService.signRefreshToken(cleanPayload)
       return { code: 200, msg: '刷新成功', data: { token, refreshToken: newRefreshToken } }

@@ -88,21 +88,22 @@ export class UserService implements OnModuleInit {
     const roles: string[] = ['R_USER']
     if (resolvedRole) roles.push(resolvedRole)
 
-     const record = this.repo.create({
-       userName,
-       passwordHash,
-       roles,
-       enabled: true,
-       employeeId: employee.id
-     })
-     return await this.repo.save(record)
+    const record = this.repo.create({
+      userName,
+      passwordHash,
+      roles,
+      enabled: true,
+      employeeId: employee.id
+    })
+    return await this.repo.save(record)
   }
 
   /**
    * 归一化并兜底用户角色：
-   * - 过滤掉已被删除的角色编码
--   * - 始终包含基础角色 `R_USER`
-   * - 如果有角色被删除或过滤后为空，则自动赋予 `R_FRONT_DESK`
+   * - 过滤掉已被删除的角色编码（当字典存在时）
+   * - 当角色字典为空时，信任传入角色不做过滤
+   * - 仅当最终集合为空时才兜底为 `R_FRONT_DESK`
+   * - 始终保留高权限角色：`R_ADMIN`、`R_SUPER`
    */
   async sanitizeRoles(roles: string[] | undefined): Promise<string[]> {
     const incoming = Array.isArray(roles)
@@ -113,12 +114,22 @@ export class UserService implements OnModuleInit {
     const rows = await this.roleRepo.find({ select: { roleCode: true } })
     const validSet = new Set(rows.map((r) => r.roleCode))
 
-    const filtered = incoming.filter((code) => validSet.has(code))
-    const removed = incoming.length !== filtered.length
+    let filtered: string[]
+    if (validSet.size === 0) {
+      // 角色字典为空：不做过滤，直接使用传入集合
+      filtered = incoming
+    } else {
+      // 字典存在：仅保留有效编码
+      filtered = incoming.filter((code) => validSet.has(code))
+      // 保留高权限角色，避免因字典缺失导致误降级
+      const preserve = ['R_ADMIN', 'R_SUPER']
+      preserve.forEach((k) => {
+        if (incoming.includes(k) && !filtered.includes(k)) filtered.push(k)
+      })
+    }
 
     const out = new Set<string>(filtered)
-    // 移除对 R_USER 的强制兜底
-    if (removed || filtered.length === 0) {
+    if (out.size === 0) {
       out.add('R_FRONT_DESK')
     }
 
@@ -152,7 +163,9 @@ export class UserService implements OnModuleInit {
     // 当存在角色筛选时，先取全部再过滤并分页；否则走数据库分页
     if (roleCode) {
       const allUsers = await this.repo.find({ where, order: { id: 'ASC' } })
-      const filteredUsers = allUsers.filter((u) => Array.isArray(u.roles) && u.roles.includes(roleCode))
+      const filteredUsers = allUsers.filter(
+        (u) => Array.isArray(u.roles) && u.roles.includes(roleCode)
+      )
       const total = filteredUsers.length
       const start = (current - 1) * size
       const paged = filteredUsers.slice(start, start + size)
@@ -171,7 +184,8 @@ export class UserService implements OnModuleInit {
       const records = await Promise.all(
         paged.map(async (u) => {
           const emp = typeof u.employeeId === 'number' ? empMap.get(u.employeeId) || null : null
-          const genderText = emp?.gender === 'male' ? '男' : emp?.gender === 'female' ? '女' : '未知'
+          const genderText =
+            emp?.gender === 'male' ? '男' : emp?.gender === 'female' ? '女' : '未知'
           const status = u.enabled ? '1' : '4'
           const nowToStr = (d: Date | undefined) =>
             d ? new Date(d).toISOString().slice(0, 19).replace('T', ' ') : ''
