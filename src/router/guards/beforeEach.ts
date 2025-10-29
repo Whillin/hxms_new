@@ -17,6 +17,7 @@ import { loadingService } from '@/utils/ui'
 import { useCommon } from '@/composables/useCommon'
 import { useWorktabStore } from '@/store/modules/worktab'
 import { fetchGetUserInfo } from '@/api/auth'
+import { fetchRefresh } from '@/api/auth'
 
 // 是否已注册动态路由
 const isRouteRegistered = ref(false)
@@ -173,6 +174,29 @@ async function handleDynamicRoutes(
 
     // 获取用户信息
     const userStore = useUserStore()
+    // 初始化阶段：若存在刷新令牌且本会话尚未刷新，先刷新一次以获取最新角色
+    try {
+      const onceKey = 'once_refreshed_token'
+      const hasOnce = sessionStorage.getItem(onceKey) === '1'
+      if (userStore.isLogin && userStore.refreshToken && !hasOnce) {
+        const refreshed = await fetchRefresh(userStore.refreshToken)
+        if (refreshed?.token) {
+          userStore.setToken(refreshed.token, refreshed.refreshToken)
+          sessionStorage.setItem(onceKey, '1')
+        }
+      }
+    } catch (err: any) {
+      const status = err?.response?.status ?? err?.statusCode ?? err?.response?.data?.statusCode
+      if (status === 401) {
+        userStore.logOut()
+        loadingService.hideLoading()
+        next(RoutesAlias.Login)
+        return
+      }
+      // 其他错误不阻断后续流程，继续获取用户信息与菜单
+      console.warn('初始化刷新失败，继续后续流程', err)
+    }
+
     const isRefresh = from.path === '/'
     if (isRefresh || !userStore.info || Object.keys(userStore.info).length === 0) {
       try {
@@ -180,7 +204,8 @@ async function handleDynamicRoutes(
         userStore.setUserInfo(data)
       } catch (error: any) {
         console.error('获取用户信息失败', error)
-        const status = error?.response?.status ?? error?.statusCode ?? error?.response?.data?.statusCode
+        const status =
+          error?.response?.status ?? error?.statusCode ?? error?.response?.data?.statusCode
         if (status === 401) {
           // 鉴权失败：登出并跳转登录页，而不是 500
           userStore.logOut()

@@ -39,3 +39,13 @@ export function fetchRegister(params: Api.Auth.RegisterParams) {
     data: params
   })
 }
+
+/**
+ * 刷新令牌，获取新的 token 与 refreshToken
+ */
+export function fetchRefresh(refreshToken: string) {
+  return request.post<Api.Auth.LoginResponse>({
+    url: '/api/auth/refresh',
+    data: { refreshToken }
+  })
+}
