@@ -13,6 +13,9 @@ services:
       timeout: 5s
       retries: 30
       start_period: 20s
+    # 仅对宿主机环回开放MySQL端口，避免公网暴露
+    ports:
+      - '127.0.0.1:13306:3306'
     restart: always
     networks:
       - hxms_net

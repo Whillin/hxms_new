@@ -134,3 +134,15 @@ docker ps
 - `server/.env.production.example`：后端生产环境示例，复制为 `.env.production`
 
 若需要，我可以为你再补一个 GitHub Actions 工作流，将 `main` 分支的变更自动构建并通过 SSH 发布到服务器，并执行 `docker compose up -d --build` 完成自动更新。
+
+## 十一、无需在服务器维护 Git 仓库的替代流程（推荐给仅产物部署场景）
+
+- 场景：不希望在云主机保留完整源码仓库，仅部署产物与配置。
+- 做法：
+  - 在本地或 CI 构建前端，生成 `dist/`。
+  - 将 `docker-compose.yml`、`deploy/nginx.conf`、`server/.env.production`、`dist/` 通过 `rsync/scp` 上传到服务器（例如 `/home/ubuntu/hxms_new/`）。
+  - 在服务器执行 `docker compose up -d --build` 构建并启动容器。
+- 更新上线：本地改动统一提交并推送到远程；在服务器只同步产物与配置（无需 `git pull`）。
+- 优点：
+  - 运行环境更干净，避免误改源码影响线上。
+  - CI/CD 可只产出制品（镜像/静态资源），部署更可控。
