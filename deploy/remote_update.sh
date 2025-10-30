@@ -44,8 +44,24 @@ else
     echo "[!] hxms_api container not found"
 fi
 
-# Test API endpoint
-echo "[+] Testing API endpoint..."
-curl -i -m 5 http://localhost:3001/api/auth/login || echo "API test failed"
+# Test API endpoints
+echo "[+] Testing API endpoints..."
+
+# Simple health check via debug route (GET)
+echo "[*] Checking GET /api/auth/debug-di..."
+curl -i -m 5 http://localhost:3001/api/auth/debug-di || echo "Debug-di test failed"
+
+# Login route requires POST; empty body should return 400/401, proving route exists
+echo "[*] Checking POST /api/auth/login..."
+status=$(curl -s -m 5 -o /tmp/login_test.out -w "%{http_code}" \
+  -X POST http://localhost:3001/api/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{}')
+if [[ "$status" == "200" || "$status" == "400" || "$status" == "401" ]]; then
+  echo "Login endpoint reachable, HTTP $status"
+else
+  echo "Login endpoint unexpected status: $status"
+  cat /tmp/login_test.out || true
+fi
 
 echo "[OK] Update completed"
