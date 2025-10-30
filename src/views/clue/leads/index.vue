@@ -214,19 +214,24 @@
 
 <script setup lang="ts">
   import { Plus } from '@element-plus/icons-vue'
+  import { ElMessage } from 'element-plus'
   import { useTable } from '@/composables/useTable'
   import type { ColumnOption } from '@/types/component'
-  import { ref, computed, watch } from 'vue'
+  import { ref, computed, watch, onMounted } from 'vue'
   import { regionData } from 'element-china-area-data'
   import { useProductCategoryStore } from '@/store/modules/productCategory'
   import { useProductStore } from '@/store/modules/product'
   import { storeToRefs } from 'pinia'
+  import { useUserStore } from '@/store/modules/user'
   import { useAuth } from '@/composables/useAuth'
   import { fetchGetClueList, fetchSaveClue, fetchDeleteClue } from '@/api/clue'
   import { fetchChannelOptions } from '@/api/channel'
   import { fetchGetDepartmentList } from '@/api/system-manage'
 
   defineOptions({ name: 'ClueLeads' })
+
+  const userStore = useUserStore()
+  const { info } = storeToRefs(userStore)
 
   const channelLevel1Options = ref<{ label: string; value: string }[]>([])
   const channelLevel2MapRef = ref<Record<string, { label: string; value: string }[]>>({})
@@ -373,6 +378,8 @@
     carAge: number
     mileage: number
     livingArea: string | string[]
+    /** 归属门店 */
+    storeId?: number
   }
 
   // 本地新增缓存，避免重置/刷新后丢失
@@ -389,93 +396,11 @@
       console.warn('读取本地新增线索失败', e)
     }
   }
-  const saveLocalCreates = () => {
-    try {
-      localStorage.setItem(LS_KEY_LOCAL_CREATES, JSON.stringify(localCreates.value))
-    } catch (e) {
-      console.warn('保存本地新增线索失败', e)
-    }
-  }
+
   // 初始化加载本地数据
   loadLocalCreates()
-  // 基础数据集（首个请求时生成一次）
-  let baseAll: ClueItem[] | null = null
 
   // 使用项目内的标准分页响应结构，方便 useTable 自动推断泛型
-  const mockApi = async (params: any): Promise<Api.Common.PaginatedResponse<ClueItem>> => {
-    // 构造基础数据（仅一次）
-    if (!baseAll) {
-      const today = '2024-10-10'
-      baseAll = Array.from({ length: 35 }, (_, i) => {
-        const enter = `${today} ${String(9 + (i % 5)).padStart(2, '0')}:00`
-        const leave = `${today} ${String(10 + (i % 5)).padStart(2, '0')}:30`
-        const duration = calcDuration(enter, leave)
-        return {
-          id: String(i + 1),
-          visitDate: today,
-          enterTime: enter,
-          leaveTime: leave,
-          receptionDuration: duration,
-          visitorCount: (i % 4) + 1,
-          receptionStatus: (['sales', 'none', 'noNeed'] as const)[i % 3],
-          salesConsultant: ['张伟', '李强', '王芳'][i % 3],
-          customerName: `客户-${i + 1}`,
-          visitPurpose: (['看车', '维保', '提车', '续保', '咨询', '拜访'] as const)[i % 6],
-          isReserved: i % 2 === 0,
-          visitCategory: (['首次', '再次'] as const)[i % 2],
-          customerPhone: `1380000${String(i).padStart(4, '0')}`,
-          focusModelId: (i % 4) + 2,
-          testDrive: i % 2 === 1,
-          bargaining: i % 3 === 0,
-          dealDone: i % 4 === 0,
-          dealModelId: (i % 4) + 3,
-          businessSource: ['官网', '线下活动', '渠道推荐'][i % 3],
-          channelCategory: ['自营', '第三方'][i % 2],
-          channelLevel1: ['线上', '线下'][i % 2],
-          channelLevel2: ['公众号', '短视频', '社区'][i % 3],
-          convertOrRetentionModel: ['保客车型A', '转化车型B'][i % 2],
-          referrer: ['老王', '老李', '老赵'][i % 3],
-          contactTimes: (i % 5) + 1,
-          opportunityLevel: (['H', 'A', 'B', 'C'] as const)[i % 4],
-          userGender: (['男', '女', '未知'] as const)[i % 3],
-          userAge: 20 + (i % 20),
-          buyExperience: (['首购', '换购', '增购'] as const)[i % 3],
-          userPhoneModel: ['iPhone', 'Android', 'Huawei'][i % 3],
-          currentBrand: ['奥迪', '宝马', '奔驰'][i % 3],
-          currentModel: ['A4L', 'Q5', 'e-tron'][i % 3],
-          carAge: (i % 6) + 1,
-          mileage: 10000 * (i % 10),
-          livingArea: ['北京-朝阳', '上海-浦东', '广州-天河'][i % 3]
-        }
-      })
-    }
-    // 合并新增与基础数据
-    const all: ClueItem[] = [...localCreates.value, ...(baseAll || [])]
-
-    // 过滤
-    let filtered = all
-    if (params.customerName)
-      filtered = filtered.filter((r) => r.customerName.includes(params.customerName))
-    if (params.customerPhone)
-      filtered = filtered.filter((r) => r.customerPhone.includes(params.customerPhone))
-    if (params.opportunityLevel)
-      filtered = filtered.filter((r) => r.opportunityLevel === params.opportunityLevel)
-    if (params.dealDone === 'true') filtered = filtered.filter((r) => r.dealDone)
-    if (params.dealDone === 'false') filtered = filtered.filter((r) => !r.dealDone)
-    if (Array.isArray(params.daterange) && params.daterange.length === 2) {
-      const [start, end] = params.daterange
-      filtered = filtered.filter((r) => r.visitDate >= start && r.visitDate <= end)
-    }
-    const total = filtered.length
-    const start = (params.current - 1) * params.size
-    const end = start + params.size
-    return {
-      records: filtered.slice(start, end),
-      total,
-      current: params.current,
-      size: params.size
-    }
-  }
 
   // 商品分类选项（用于关注/成交车型选择）
   const categoryStore = useProductCategoryStore()
@@ -515,6 +440,12 @@
       apiParams: { current: 1, size: 10 },
       columnsFactory: (): ColumnOption<ClueItem>[] => [
         { type: 'globalIndex', label: '序号', width: 80 },
+        {
+          prop: 'storeId',
+          label: '归属门店',
+          width: 140,
+          formatter: (row: ClueItem) => storeNameById.value[row.storeId || -1] || ''
+        },
         { prop: 'visitDate', label: '到店日期', width: 120 },
         { prop: 'enterTime', label: '进店时间', width: 160 },
         { prop: 'leaveTime', label: '离店时间', width: 160 },
@@ -611,6 +542,7 @@
     isReserved: '是否留资',
     visitCategory: '到店分类',
     customerPhone: '客户电话',
+    storeId: '归属门店',
     focusModelId: '关注车型',
     testDrive: '是否试驾',
     bargaining: '是否议价',
@@ -990,7 +922,11 @@
       label: '归属门店',
       key: 'storeId',
       type: 'select',
-      props: { options: storeOptions.value, placeholder: '请选择归属门店' }
+      props: {
+        options: storeOptions.value,
+        placeholder: '请选择归属门店',
+        disabled: typeof info.value?.storeId === 'number'
+      }
     },
     {
       label: '一级渠道',
@@ -1004,7 +940,7 @@
       label: '二级渠道',
       key: 'channelLevel2',
       type: 'select',
-      props: { options: (channelLevel2MapRef.value[String(addForm.value.channelLevel1)] || []) }
+      props: { options: channelLevel2MapRef.value[String(addForm.value.channelLevel1)] || [] }
     },
     { label: '接触次数', key: 'contactTimes', type: 'input', props: { type: 'number', min: 1 } },
     {
@@ -1204,6 +1140,11 @@
   }
   const openAddDialog = () => {
     resetAddForm()
+    // 若仅有一个可选门店，自动填充为默认
+    const opts = storeOptions.value
+    if (Array.isArray(opts) && opts.length === 1) {
+      addForm.value.storeId = opts[0].value
+    }
     addDialogVisible.value = true
   }
   const fillEditForm = (row: ClueItem) => {
@@ -1338,7 +1279,7 @@
         const naturalL1 = ['展厅到店', 'ADC到店', '车展外展', 'DCC/ADC到店']
         addForm.value.businessSource = naturalL1.includes(String(l1)) ? '自然到店' : '主动开发'
       }
-  
+
       // 限制并清空：转化/保客车型 / 一级推荐人 / 推荐人
       const l1str = String(l1)
       if (!ALLOWED_PRIMARY_REFERRER.includes(l1str)) {
@@ -1418,8 +1359,31 @@
       if (Array.isArray(n.children)) n.children.forEach(walk)
     }
     deptTree.value.forEach(walk)
+    const myStoreId = info.value?.storeId
+    if (typeof myStoreId === 'number') {
+      return res.filter((o) => o.value === myStoreId)
+    }
     return res
   })
+  const storeNameById = computed(() => {
+    const map: Record<number, string> = {}
+    for (const o of storeOptions.value) map[o.value] = o.label
+    return map
+  })
+  // 当用户仅有一个门店或已限制门店时，自动填充
+  watch(
+    () => storeOptions.value,
+    (opts) => {
+      const myStoreId = info.value?.storeId
+      if (typeof myStoreId === 'number') {
+        const hit = opts.find((o) => o.value === myStoreId)
+        if (hit) addForm.value.storeId = myStoreId
+      } else if (Array.isArray(opts) && opts.length === 1) {
+        addForm.value.storeId = opts[0].value
+      }
+    },
+    { immediate: true, deep: true }
+  )
 </script>
 
 <style scoped>

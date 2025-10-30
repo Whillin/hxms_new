@@ -5,6 +5,7 @@ import { Repository, In } from 'typeorm'
 import { Role } from '../roles/role.entity'
 import { RolePermission } from '../roles/role-permission.entity'
 import { UserService } from '../users/user.service'
+import { Employee } from '../employees/employee.entity'
 
 @Controller('api/user')
 export class UserController {
@@ -12,7 +13,8 @@ export class UserController {
   constructor(
     @InjectRepository(Role) private readonly roleRepo: Repository<Role>,
     @InjectRepository(RolePermission) private readonly permRepo: Repository<RolePermission>,
-    @Inject(UserService) private readonly userService: UserService
+    @Inject(UserService) private readonly userService: UserService,
+    @InjectRepository(Employee) private readonly empRepo: Repository<Employee>
   ) {}
 
   @UseGuards(JwtGuard)
@@ -49,6 +51,25 @@ export class UserController {
     if (effectiveRoles.includes('R_INFO')) {
       buttons = ensure(['add', 'edit', 'delete', 'import', 'export', 'view'])
     }
+    // 销售岗位：销售经理、销售顾问拥有线索管理的所有前端操作权限
+    if (effectiveRoles.includes('R_SALES_MANAGER') || effectiveRoles.includes('R_SALES')) {
+      buttons = ensure(['add', 'edit', 'delete', 'import', 'export', 'view'])
+    }
+
+    // 追加：返回关联员工与归属门店，便于前端精确限制选项
+    let employeeId: number | undefined
+    let storeId: number | undefined
+    try {
+      const user = await this.userService.findById(Number(userId))
+      employeeId = user?.employeeId
+      if (typeof employeeId === 'number') {
+        const emp = await this.empRepo.findOne({ where: { id: employeeId } })
+        storeId = emp?.storeId
+      }
+    } catch (err) {
+      // log and continue with undefined employee/store
+      console.warn('user.info failed to resolve employee/store', err)
+    }
 
     return {
       code: 200,
@@ -57,7 +78,9 @@ export class UserController {
         buttons,
         roles: effectiveRoles,
         userId,
-        userName
+        userName,
+        employeeId,
+        storeId
       }
     }
   }

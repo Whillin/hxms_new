@@ -55,6 +55,10 @@ declare namespace Api {
       userName: string
       email: string
       avatar?: string
+      /** 关联员工ID（用于数据范围与门店限制） */
+      employeeId?: number
+      /** 归属门店ID（用于限制线索门店选择） */
+      storeId?: number
     }
 
     // 新增：注册参数
