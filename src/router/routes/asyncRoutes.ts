@@ -249,7 +249,8 @@ export const asyncRoutes: AppRouteRecord[] = [
     component: RoutesAlias.Layout,
     meta: {
       title: 'menus.template.title',
-      icon: '&#xe860;'
+      icon: '&#xe860;',
+      roles: ['R_SUPER']
     },
     children: [
       {
@@ -324,7 +325,8 @@ export const asyncRoutes: AppRouteRecord[] = [
     component: RoutesAlias.Layout,
     meta: {
       title: 'menus.widgets.title',
-      icon: '&#xe81a;'
+      icon: '&#xe81a;',
+      roles: ['R_SUPER']
     },
     children: [
       {
@@ -464,7 +466,8 @@ export const asyncRoutes: AppRouteRecord[] = [
     component: RoutesAlias.Layout,
     meta: {
       title: 'menus.examples.title',
-      icon: '&#xe8d4;'
+      icon: '&#xe8d4;',
+      roles: ['R_SUPER']
     },
     children: [
       {
@@ -755,7 +758,8 @@ export const asyncRoutes: AppRouteRecord[] = [
     component: RoutesAlias.Layout,
     meta: {
       title: 'menus.result.title',
-      icon: '&#xe715;'
+      icon: '&#xe715;',
+      roles: ['R_SUPER']
     },
     children: [
       {
@@ -784,7 +788,8 @@ export const asyncRoutes: AppRouteRecord[] = [
     component: RoutesAlias.Layout,
     meta: {
       title: 'menus.exception.title',
-      icon: '&#xe820;'
+      icon: '&#xe820;',
+      roles: ['R_SUPER']
     },
     children: [
       {
@@ -827,7 +832,8 @@ export const asyncRoutes: AppRouteRecord[] = [
     meta: {
       title: 'menus.safeguard.title',
       icon: '&#xe816;',
-      keepAlive: false
+      keepAlive: false,
+      roles: ['R_SUPER']
     },
     children: [
       {
