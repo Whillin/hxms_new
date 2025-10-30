@@ -33,7 +33,13 @@ async function bootstrap() {
   await ensureDatabase()
   const app = await NestFactory.create(AppModule)
   app.enableCors({ origin: [/^http:\/\/localhost:\d+$/], credentials: true })
-  app.useGlobalPipes(new ValidationPipe({ whitelist: true }))
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      transform: true,
+      transformOptions: { enableImplicitConversion: true }
+    })
+  )
   const port = Number(process.env.PORT || 3001)
   await app.listen(port)
   console.log(`Nest server is running at http://localhost:${port}`)
