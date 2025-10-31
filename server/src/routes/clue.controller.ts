@@ -212,7 +212,7 @@ export class ClueController {
           customerId = saved.id
         } catch (err: any) {
           if (err?.code === 'ER_DUP_ENTRY') {
-            return { code: 400, msg: '该门店手机号已存在', data: false }
+            return { code: 400, msg: '该门店已存在相同姓名与手机号的客户', data: false }
           }
           throw err
         }
