@@ -11,7 +11,7 @@ export interface ClueItem {
   salesConsultant?: string
   customerName?: string
   visitPurpose?: '看车' | '维保' | '提车' | '续保' | '咨询' | '拜访'
-  isReserved?: boolean
+  isAddWeChat?: boolean
   visitCategory?: '首次' | '再次'
   customerPhone?: string
   focusModelId?: number
@@ -73,5 +73,9 @@ export function fetchSaveClue(body: Partial<ClueItem>) {
 }
 
 export function fetchDeleteClue(id: number | string) {
-  return request.post<boolean>({ url: '/api/clue/delete', params: { id }, showSuccessMessage: true })
+  return request.post<boolean>({
+    url: '/api/clue/delete',
+    params: { id },
+    showSuccessMessage: true
+  })
 }

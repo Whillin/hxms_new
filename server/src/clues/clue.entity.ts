@@ -44,11 +44,12 @@ export class Clue {
   @Column('int', { nullable: true })
   customerId?: number
 
-  /** 到店事宜、是否留资、到店分类 */
+  /** 到店事宜、是否加微、到店分类 */
   @Column('varchar', { length: 20, default: '看车' })
   visitPurpose!: '看车' | '维保' | '提车' | '续保' | '咨询' | '拜访'
-  @Column('tinyint', { default: false })
-  isReserved!: boolean
+  // 是否加微
+  @Column('tinyint', { default: false, name: 'isAddWeChat' })
+  isAddWeChat!: boolean
   @Column('varchar', { length: 10, default: '首次' })
   visitCategory!: '首次' | '再次'
 

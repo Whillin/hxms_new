@@ -145,8 +145,8 @@
           <ElDescriptionsItem label="到店事宜">{{
             currentDetail?.visitPurpose
           }}</ElDescriptionsItem>
-          <ElDescriptionsItem label="是否留资">{{
-            currentDetail?.isReserved ? '是' : '否'
+          <ElDescriptionsItem label="是否加微">{{
+            (currentDetail as any)?.isAddWeChat ? '是' : '否'
           }}</ElDescriptionsItem>
           <ElDescriptionsItem label="到店分类">{{
             currentDetail?.visitCategory
@@ -358,7 +358,7 @@
     salesConsultant?: string
     customerName?: string
     visitPurpose?: '看车' | '维保' | '提车' | '续保' | '咨询' | '拜访'
-    isReserved?: boolean
+    isAddWeChat?: boolean
     visitCategory?: '首次' | '再次'
     customerPhone?: string
     focusModelId?: number
@@ -472,10 +472,10 @@
         { prop: 'customerName', label: '客户姓名', width: 120 },
         { prop: 'visitPurpose', label: '到店事宜', width: 120 },
         {
-          prop: 'isReserved',
-          label: '是否留资',
+          prop: 'isAddWeChat',
+          label: '是否加微',
           width: 100,
-          formatter: (row: ClueItem) => (row.isReserved ? '是' : '否')
+          formatter: (row: any) => ((row as any).isAddWeChat ? '是' : '否')
         },
         { prop: 'visitCategory', label: '到店分类', width: 100 },
         { prop: 'customerPhone', label: '客户电话', width: 140 },
@@ -561,7 +561,7 @@
     salesConsultant: '销售顾问',
     customerName: '客户姓名',
     visitPurpose: '到店事宜',
-    isReserved: '是否留资',
+    isAddWeChat: '是否加微',
     visitCategory: '到店分类',
     customerPhone: '客户电话',
     storeId: '归属门店',
@@ -603,7 +603,7 @@
     salesConsultant: { title: '销售顾问', width: 14 },
     customerName: { title: '客户姓名', width: 14 },
     visitPurpose: { title: '到店事宜', width: 14 },
-    isReserved: { title: '是否留资', width: 12, formatter: (v: any) => (v ? '是' : '否') },
+    isAddWeChat: { title: '是否加微', width: 12, formatter: (v: any) => (v ? '是' : '否') },
     visitCategory: { title: '到店分类', width: 12 },
     customerPhone: { title: '客户电话', width: 16 },
     focusModelId: {
@@ -657,7 +657,7 @@
     salesConsultant: '',
     customerName: '',
     visitPurpose: '看车',
-    isReserved: false,
+    isAddWeChat: false,
     visitCategory: '首次',
     customerPhone: '',
     focusModelName: '',
@@ -902,8 +902,8 @@
       }
     },
     {
-      label: '是否留资',
-      key: 'isReserved',
+      label: '是否加微',
+      key: 'isAddWeChat',
       type: 'select',
       props: {
         options: [
@@ -1185,6 +1185,40 @@
       }
     ]
 
+    // 年龄：必须 ≥ 18 岁
+    rules.userAge = [
+      { required: true, message: '请输入使用者年龄', trigger: 'blur' },
+      {
+        validator: (_rule: any, value: any, callback: any) => {
+          const ageNum = Number(value)
+          if (!Number.isFinite(ageNum)) return callback(new Error('请输入数字年龄'))
+          if (ageNum < 18) return callback(new Error('年龄必须不小于18岁'))
+          callback()
+        },
+        trigger: 'blur'
+      }
+    ]
+
+    // 时间顺序：离店时间必须不早于进店时间
+    rules.leaveTime = [
+      { required: true, message: '请选择离店时间', trigger: 'change' },
+      {
+        validator: (_rule: any, value: any, callback: any) => {
+          const date = String(addForm.value.visitDate || '')
+          const et = String(addForm.value.enterTime || '')
+          const lt = String(value || '')
+          if (!date || !et || !lt) return callback()
+          const toISO = (d: string, t: string) => `${d} ${t}`.replace(' ', 'T')
+          const s = new Date(toISO(date, et)).getTime()
+          const e = new Date(toISO(date, lt)).getTime()
+          if (Number.isNaN(s) || Number.isNaN(e)) return callback()
+          if (e < s) return callback(new Error('离店时间不能早于进店时间'))
+          callback()
+        },
+        trigger: 'change'
+      }
+    ]
+
     return rules
   })
   const resetAddForm = () => {
@@ -1269,7 +1303,9 @@
       salesConsultant: r['销售顾问'] || r['salesConsultant'],
       customerName: r['客户姓名'] || r['customerName'],
       visitPurpose: r['到店事宜'] || r['visitPurpose'],
-      isReserved: parseYesNo(r['是否留资'] ?? r['isReserved']),
+      isAddWeChat: parseYesNo(
+        r['是否加微'] ?? r['是否留资'] ?? r['isAddWeChat'] ?? r['isReserved']
+      ),
       visitCategory: r['到店分类'] || r['visitCategory'],
       customerPhone: r['客户电话'] || r['customerPhone'],
       focusModelId: parseInt(r['关注车型Id'] || r['关注车型'] || r['focusModelId']) || undefined,

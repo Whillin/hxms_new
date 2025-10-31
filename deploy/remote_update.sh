@@ -57,6 +57,20 @@ fi
 echo "[+] Checking Docker containers..."
 docker ps | grep hxms || echo "No hxms containers found"
 
+# Database migration: rename clues.isReserved -> clues.isAddWeChat (idempotent)
+echo "[+] Running DB migration: rename clues.isReserved -> isAddWeChat if exists..."
+if docker ps --format '{{.Names}}' | grep -qx "hxms_new-mysql-1"; then
+  EXISTS=$(docker exec hxms_new-mysql-1 sh -lc "mysql -uroot -p\$MYSQL_ROOT_PASSWORD -N -e \"SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=\\\"hxms_dev\\\" AND table_name=\\\"clues\\\" AND column_name=\\\"isReserved\\\";\"" 2>/dev/null || echo 0)
+  if [ "${EXISTS}" = "1" ]; then
+    echo "[+] Column isReserved found; renaming to isAddWeChat..."
+    docker exec hxms_new-mysql-1 sh -lc "mysql -uroot -p\$MYSQL_ROOT_PASSWORD -e \"ALTER TABLE hxms_dev.clues CHANGE COLUMN isReserved isAddWeChat TINYINT(1) NOT NULL DEFAULT 0;\""
+  else
+    echo "[-] Column isReserved not found; skip rename"
+  fi
+else
+  echo "[!] MySQL container hxms_new-mysql-1 not running; skip DB migration"
+fi
+
 # Build and restart API via docker compose to ensure latest code is running
 echo "[+] Building and restarting API via docker compose..."
 docker compose build api
