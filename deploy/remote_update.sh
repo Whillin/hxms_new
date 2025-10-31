@@ -6,9 +6,32 @@ echo "[+] Updating HXMS application on cloud server"
 # Navigate to project directory
 cd ~/apps/hxms_new
 
-# Pull latest code
+# Pull latest code (preserve local server/.env)
 echo "[+] Pulling latest code from GitHub..."
+# Detect local modifications to server/.env and back up
+if git status --porcelain | grep -q "^ M server/.env"; then
+  echo "[!] Detected local changes in server/.env; backing up and stashing before pull"
+  backup_path="/tmp/server.env.backup.$(date +%s)"
+  cp server/.env "$backup_path" || true
+  git stash push -m "auto stash server/.env before pull" -- server/.env || true
+fi
+# Temporarily disable exit-on-error for pull retry logic
+set +e
 git pull origin main
+PULL_EXIT=$?
+set -e
+if [ "$PULL_EXIT" -ne 0 ]; then
+  echo "[!] git pull failed; retrying after stashing server/.env"
+  git stash push -m "auto stash server/.env for retry" -- server/.env || true
+  git pull origin main
+fi
+# Restore local env and mark it ignored for future merges
+if ls /tmp/server.env.backup.* 1> /dev/null 2>&1; then
+  latest_backup=$(ls -t /tmp/server.env.backup.* | head -1)
+  echo "[+] Restoring local server/.env from backup $latest_backup"
+  cp "$latest_backup" server/.env || true
+  git update-index --skip-worktree server/.env || true
+fi
 
 # Show recent commits
 echo "[+] Recent commits:"
