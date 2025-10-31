@@ -192,10 +192,8 @@ export class ClueController {
     const name = String(body.customerName || '').trim() || '未命名客户'
     if (phone) {
       const living = livingArea
-      // 改为按门店+手机号+客户姓名查重（三个字段都相同才视为同人）
-      const existCustomer = await this.customerRepo.findOne({ where: { phone, storeId, name } })
+      const existCustomer = await this.customerRepo.findOne({ where: { phone, storeId } })
       if (existCustomer) {
-        // 同名同店同手机号：更新画像等信息
         existCustomer.name = name || existCustomer.name
         existCustomer.gender = String(body.userGender || existCustomer.gender || '未知') as any
         existCustomer.age = Number(body.userAge ?? existCustomer.age ?? 0)
@@ -208,8 +206,15 @@ export class ClueController {
         existCustomer.carAge = Number(body.carAge ?? existCustomer.carAge ?? 0)
         existCustomer.mileage = Number(body.mileage ?? existCustomer.mileage ?? 0)
         existCustomer.livingArea = living ?? existCustomer.livingArea
-        const saved = await this.customerRepo.save(existCustomer)
-        customerId = saved.id
+        try {
+          const saved = await this.customerRepo.save(existCustomer)
+          customerId = saved.id
+        } catch (err: any) {
+          if (err?.code === 'ER_DUP_ENTRY') {
+            return { code: 400, msg: '该门店手机号已存在', data: false }
+          }
+          throw err
+        }
       } else {
         const created = this.customerRepo.create({
           name,
@@ -225,8 +230,15 @@ export class ClueController {
           mileage: Number(body.mileage || 0),
           livingArea: living
         })
-        const saved = await this.customerRepo.save(created)
-        customerId = saved.id
+        try {
+          const saved = await this.customerRepo.save(created)
+          customerId = saved.id
+        } catch (err: any) {
+          if (err?.code === 'ER_DUP_ENTRY') {
+            return { code: 400, msg: '该门店手机号已存在', data: false }
+          }
+          throw err
+        }
       }
     }
 
