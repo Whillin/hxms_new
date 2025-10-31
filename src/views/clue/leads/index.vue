@@ -1166,9 +1166,18 @@
     ]
 
     // 基本时间：必填
-    rules.visitDate = [{ required: true, message: '请选择到店日期', trigger: 'change' }]
-    rules.enterTime = [{ required: true, message: '请选择进店时间', trigger: 'change' }]
-    rules.leaveTime = [{ required: true, message: '请选择离店时间', trigger: 'change' }]
+    rules.visitDate = [
+      { required: true, message: '请选择到店日期', trigger: 'change' },
+      { required: true, message: '请选择到店日期', trigger: 'blur' }
+    ]
+    rules.enterTime = [
+      { required: true, message: '请选择进店时间', trigger: 'change' },
+      { required: true, message: '请选择进店时间', trigger: 'blur' }
+    ]
+    rules.leaveTime = [
+      { required: true, message: '请选择离店时间', trigger: 'change' },
+      { required: true, message: '请选择离店时间', trigger: 'blur' }
+    ]
 
     // 客户姓名：必填
     rules.customerName = [{ required: true, message: '请输入客户姓名', trigger: 'blur' }]
@@ -1200,24 +1209,25 @@
     ]
 
     // 时间顺序：离店时间必须不早于进店时间
-    rules.leaveTime = [
-      { required: true, message: '请选择离店时间', trigger: 'change' },
-      {
-        validator: (_rule: any, value: any, callback: any) => {
-          const date = String(addForm.value.visitDate || '')
-          const et = String(addForm.value.enterTime || '')
-          const lt = String(value || '')
-          if (!date || !et || !lt) return callback()
-          const toISO = (d: string, t: string) => `${d} ${t}`.replace(' ', 'T')
-          const s = new Date(toISO(date, et)).getTime()
-          const e = new Date(toISO(date, lt)).getTime()
-          if (Number.isNaN(s) || Number.isNaN(e)) return callback()
-          if (e < s) return callback(new Error('离店时间不能早于进店时间'))
-          callback()
-        },
-        trigger: 'change'
-      }
-    ]
+    const timeOrderValidator = (_rule: any, value: any, callback: any) => {
+      const date = String(addForm.value.visitDate || '')
+      const et = String(addForm.value.enterTime || '')
+      const lt = String(addForm.value.leaveTime || '')
+      // 若当前是 leaveTime 的校验，value 为最新值；兼容 enterTime 校验时使用已有 lt
+      const curLt = typeof value === 'string' && _rule?.field === 'leaveTime' ? value : lt
+      if (!date || !et || !curLt) return callback()
+      const toISO = (d: string, t: string) => `${d} ${t}`.replace(' ', 'T')
+      const s = new Date(toISO(date, et)).getTime()
+      const e = new Date(toISO(date, curLt)).getTime()
+      if (Number.isNaN(s) || Number.isNaN(e)) return callback()
+      if (e < s) return callback(new Error('离店时间不能早于进店时间'))
+      callback()
+    }
+    // 在两个字段上都挂载校验，确保任一时间变化都触发
+    rules.leaveTime.push({ validator: timeOrderValidator, trigger: 'change' })
+    rules.leaveTime.push({ validator: timeOrderValidator, trigger: 'blur' })
+    rules.enterTime.push({ validator: timeOrderValidator, trigger: 'change' })
+    rules.enterTime.push({ validator: timeOrderValidator, trigger: 'blur' })
 
     return rules
   })
