@@ -146,3 +146,27 @@ docker ps
 - 优点：
   - 运行环境更干净，避免误改源码影响线上。
   - CI/CD 可只产出制品（镜像/静态资源），部署更可控。
+
+## 十二、数据库唯一索引调整（允许同门店同手机号不同姓名）
+
+为满足“门店+手机号+客户姓名”三项查重，并允许同门店下相同手机号被不同姓名使用，需要在数据库中调整 `customers` 表的唯一索引。
+
+执行步骤：
+
+1. 进入数据库容器或通过宿主机端口连接到 MySQL（根据 `docker-compose.yml` 中端口映射，通常为 `13306 -> 3306`）。
+2. 在目标库（如 `hxms_new`）执行以下 SQL：
+   - 方式 A：通过容器执行
+
+     `docker exec -i <mysql_container_name> mysql -uroot -p<ROOT_PASSWORD> hxms_new < /root/apps/hxms_new/deploy/sql/2025-10-31-alter-customers-unique-index.sql`
+
+   - 方式 B：直接执行语句
+
+     `ALTER TABLE customers DROP INDEX uniq_store_phone;` `ALTER TABLE customers ADD UNIQUE KEY uniq_store_phone_name (storeId, phone, name);` `CREATE INDEX idx_store_phone ON customers(storeId, phone);`
+
+3. 重启 API 服务：`docker compose restart api`
+
+验证：
+
+- 在“线索管理”页新增线索，使用同一门店相同手机号但不同姓名，期望可以正常保存；如与已有客户三项完全一致，仍会提示重复。
+
+回滚：见 `deploy/sql/2025-10-31-alter-customers-unique-index.sql` 文件底部注释。

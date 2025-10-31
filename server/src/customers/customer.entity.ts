@@ -9,7 +9,10 @@ import {
 
 /** 客户信息实体（与线索分离，便于复用与维护） */
 @Entity('customers')
-@Index('uniq_store_phone', ['storeId', 'phone'], { unique: true })
+// 唯一约束调整：允许同门店相同手机号被不同姓名使用
+@Index('uniq_store_phone_name', ['storeId', 'phone', 'name'], { unique: true })
+// 兼顾查询性能，保留非唯一索引（storeId+phone）以便快速定位同号历史
+@Index('idx_store_phone', ['storeId', 'phone'])
 export class Customer {
   @PrimaryGeneratedColumn()
   id!: number
