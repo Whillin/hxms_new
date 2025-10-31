@@ -690,13 +690,13 @@
           prop: 'testDrive',
           label: '试驾',
           width: 90,
-          formatter: (_r, _c, v) => (v ? '是' : '否')
+          formatter: (row: OpportunityItem) => (row.testDrive ? '是' : '否')
         },
         {
           prop: 'bargaining',
           label: '议价',
           width: 90,
-          formatter: (_r, _c, v) => (v ? '是' : '否')
+          formatter: (row: OpportunityItem) => (row.bargaining ? '是' : '否')
         },
         { prop: 'buyExperience', label: '购车经历', width: 100 },
         { prop: 'currentModel', label: '现用车型', minWidth: 120 },
@@ -705,7 +705,7 @@
           prop: 'livingArea',
           label: '居住区域',
           minWidth: 180,
-          formatter: (row, _c, v) => (Array.isArray(v) ? v.join('/') : v)
+          formatter: (row: OpportunityItem) => (Array.isArray(row.livingArea) ? row.livingArea.join('/') : row.livingArea)
         },
         { prop: 'customerDesc', label: '客户描述', minWidth: 180 },
         { prop: 'latestStatus', label: '最新状态', width: 110 },
@@ -713,7 +713,7 @@
           prop: 'defeatReasons',
           label: '战败/未成交分析',
           minWidth: 200,
-          formatter: (_r, _c, v) => (Array.isArray(v) ? v.join('、') : v)
+          formatter: (row: OpportunityItem) => (Array.isArray(row.defeatReasons) ? row.defeatReasons.join('、') : row.defeatReasons)
         },
         { prop: 'remark', label: '备注', minWidth: 160 },
         {

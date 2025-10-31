@@ -138,6 +138,7 @@
   import { storeToRefs } from 'pinia'
   import { useProductCategoryStore } from '@/store/modules/productCategory'
   import { ElMessage, ElMessageBox } from 'element-plus'
+  import type { SaveCategoryPayload } from '@/api/category.ts'
   import { Plus, Search, Refresh, Shop, Discount } from '@element-plus/icons-vue'
   import { fetchSaveCategory, fetchDeleteCategory, fetchGetAllCategories } from '@/api/category'
 
@@ -416,7 +417,7 @@
       submitLoading.value = true
 
       // 调用后端保存分类（新增或编辑）
-      const payload = {
+      const payload: SaveCategoryPayload = {
         id: formData.id || undefined,
         name: formData.name,
         parentId: Number(formData.parentId) || 0,
@@ -622,7 +623,7 @@
         .map((item) => item.code)
       let maxNum = 0
       existingCodes.forEach((code) => {
-        const match = code.match(/BRAND(\d{2})$/)
+        const match = (code ?? '').match(/BRAND(\d{2})$/)
         if (match) {
           const num = parseInt(match[1])
           if (num > maxNum) maxNum = num
@@ -640,7 +641,7 @@
 
       let maxNum = 0
       siblingCodes.forEach((code) => {
-        const match = code.match(/(\d{3})$/)
+        const match = (code ?? '').match(/(\d{3})$/)
         if (match) {
           const num = parseInt(match[1])
           if (num > maxNum) maxNum = num

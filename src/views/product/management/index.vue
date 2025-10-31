@@ -390,10 +390,26 @@
 
   defineOptions({ name: 'ProductManagement' })
 
+  // 定义产品行类型，确保详情对话框安全访问属性
+  interface ProductRow {
+    id: number
+    name: string
+    engineType: 'ICE' | 'NEV' | 'HEV' | string
+    brandName: string
+    categoryId?: number
+    categoryName: string
+    price: number
+    sales: number
+    status: number
+    image: string
+    description: string
+    createTime: string
+  }
+
   // 响应式数据
   const loading = ref(false)
   const detailVisible = ref(false)
-  const currentProduct = ref(null)
+  const currentProduct = ref<ProductRow | null>(null)
 
   // 搜索表单
   const searchForm = reactive({
@@ -541,8 +557,10 @@
   }
 
   // 图片类型切换（避免未定义事件处理）
-  const handleImageTypeChange = (val: 'url' | 'upload') => {
-    imageUploadType.value = val
+  const handleImageTypeChange = (val: string | number | boolean | undefined) => {
+    if (val === 'url' || val === 'upload') {
+      imageUploadType.value = val
+    }
   }
 
   const addDialogVisible = ref(false)
@@ -611,6 +629,49 @@
     searchForm.status = ''
     pagination.current = 1
     loadData()
+  }
+
+  // 批量导出当前列表到CSV
+  const handleBatchExport = () => {
+    const rows = (filteredTableData.value || []) as ProductRow[]
+    const headers = [
+      'ID',
+      '车型名称',
+      '动力类型',
+      '品牌',
+      '分类',
+      '指导价',
+      '销量',
+      '状态',
+      '创建时间'
+    ]
+    const csvLines = [headers.join(',')]
+    rows.forEach((r) => {
+      const values = [
+        r.id,
+        r.name,
+        r.engineType,
+        r.brandName,
+        r.categoryName,
+        r.price,
+        r.sales,
+        r.status === 1 ? '上架' : '下架',
+        r.createTime
+      ]
+      const line = values
+        .map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`)
+        .join(',')
+      csvLines.push(line)
+    })
+    const blob = new Blob(["\ufeff" + csvLines.join('\n')], {
+      type: 'text/csv;charset=utf-8;'
+    })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `产品列表_${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
   const handleAddSubmit = async () => {
