@@ -128,6 +128,14 @@
           <ElDescriptionsItem label="接待情况">{{
             formatReceptionStatus(currentDetail?.receptionStatus)
           }}</ElDescriptionsItem>
+          <!-- 新增：归属门店显示 -->
+          <ElDescriptionsItem label="归属门店">{{
+            (() => {
+              const id = Number(currentDetail?.storeId)
+              const name = storeNameById.value[id]
+              return name || (Number.isFinite(id) ? String(id) : '-')
+            })()
+          }}</ElDescriptionsItem>
           <ElDescriptionsItem label="销售顾问">{{
             currentDetail?.salesConsultant
           }}</ElDescriptionsItem>
@@ -226,7 +234,8 @@
   import { useAuth } from '@/composables/useAuth'
   import { fetchGetClueList, fetchSaveClue, fetchDeleteClue } from '@/api/clue'
   import { fetchChannelOptions } from '@/api/channel'
-  import { fetchGetDepartmentList } from '@/api/system-manage'
+  import { fetchGetDepartmentList, fetchGetEmployeeList } from '@/api/system-manage'
+  import { EMPLOYEE_ROLE_LABELS } from '@/utils/employee'
 
   defineOptions({ name: 'ClueLeads' })
 
@@ -369,16 +378,7 @@
     referrer?: string
     contactTimes?: number
     opportunityLevel?: 'H' | 'A' | 'B' | 'C'
-    userGender?: '男' | '女' | '未知'
-    userAge?: number
-    buyExperience?: '首购' | '换购' | '增购'
-    userPhoneModel?: string
-    currentBrand?: string
-    currentModel?: string
-    carAge?: number
-    mileage?: number
-    livingArea?: string | string[]
-    /** 归属门店 */
+    // 新增：归属门店
     storeId?: number
   }
 
@@ -458,6 +458,17 @@
           formatter: (row: ClueItem) => formatReceptionStatus(row.receptionStatus)
         },
         { prop: 'salesConsultant', label: '销售顾问', width: 120 },
+        // 新增：归属门店列
+        {
+          prop: 'storeId',
+          label: '归属门店',
+          width: 140,
+          formatter: (row: any) => {
+            const id = Number(row.storeId)
+            const name = storeNameById.value[id]
+            return name || (Number.isFinite(id) ? String(id) : '-')
+          }
+        },
         { prop: 'customerName', label: '客户姓名', width: 120 },
         { prop: 'visitPurpose', label: '到店事宜', width: 120 },
         {
@@ -678,6 +689,40 @@
   const { nameOptions } = storeToRefs(productStore)
   const ALLOWED_PRIMARY_REFERRER = ['转化开发', '保客开发']
   const ALLOWED_REFERRER = ['转化开发', '保客开发', '转介绍开发']
+
+  // 销售顾问下拉选项（按门店加载，仅显示销售顾问/销售经理）
+  const salesConsultantOptions = ref<{ label: string; value: string }[]>([])
+  const loadingSales = ref(false)
+  const loadSalesConsultants = async () => {
+    const storeId =
+      typeof addForm.value.storeId === 'number'
+        ? addForm.value.storeId
+        : typeof info.value?.storeId === 'number'
+          ? (info.value!.storeId as number)
+          : undefined
+    const storeIdNum = Number(storeId)
+    if (!Number.isFinite(storeIdNum) || storeIdNum <= 0) {
+      salesConsultantOptions.value = []
+      return
+    }
+    loadingSales.value = true
+    try {
+      const resp: any = await fetchGetEmployeeList({ storeId: storeIdNum, current: 1, size: 200 })
+      const list: Api.SystemManage.EmployeeItem[] =
+        (resp?.data?.records as any) || (resp?.records as any) || []
+      const filtered = (Array.isArray(list) ? list : []).filter(
+        (e) => e.role === 'R_SALES' || e.role === 'R_SALES_MANAGER'
+      )
+      salesConsultantOptions.value = filtered.map((e) => ({
+        label: `${e.name}（${EMPLOYEE_ROLE_LABELS[e.role] ?? e.role}）`,
+        value: e.name
+      }))
+    } catch {
+      salesConsultantOptions.value = []
+    } finally {
+      loadingSales.value = false
+    }
+  }
   const cityCascaderOptionsRef = ref<any[]>(regionData as any)
   // 使用手机品牌选项
   const phoneBrandOptions = [
@@ -828,8 +873,12 @@
     {
       label: '销售顾问',
       key: 'salesConsultant',
-      type: 'input',
-      props: { placeholder: '请输入销售顾问', disabled: addForm.value.receptionStatus !== 'sales' }
+      type: 'select',
+      props: {
+        placeholder: '请选择销售顾问',
+        options: salesConsultantOptions.value,
+        disabled: addForm.value.receptionStatus !== 'sales'
+      }
     },
     {
       label: '客户姓名',
@@ -1129,10 +1178,10 @@
       {
         validator: (_rule: any, value: any, callback: any) => {
           if (addForm.value.receptionStatus === 'sales' && !value)
-            callback(new Error('请输入销售顾问'))
+            callback(new Error('请选择销售顾问'))
           else callback()
         },
-        trigger: 'blur'
+        trigger: 'change'
       }
     ]
 
@@ -1328,6 +1377,16 @@
     { immediate: true }
   )
 
+  // 门店变化时刷新员工选项
+  watch(
+    () => addForm.value.storeId,
+    () => {
+      loadSalesConsultants()
+      // 切换门店后清空已选销售顾问，以避免跨店误选
+      addForm.value.salesConsultant = ''
+    }
+  )
+
   const parseYesNo = (v: any): boolean => {
     if (typeof v === 'boolean') return v
     if (v === '是' || v === 'yes' || v === 'true' || v === 'Y' || v === '1') return true
@@ -1371,9 +1430,10 @@
       if (Array.isArray(n.children)) n.children.forEach(walk)
     }
     deptTree.value.forEach(walk)
-    const myStoreId = info.value?.storeId
-    if (typeof myStoreId === 'number') {
-      return res.filter((o) => o.value === myStoreId)
+    // 统一为数字判断，避免后端返回字符串导致未过滤
+    const myStoreIdNum = Number(info.value?.storeId as any)
+    if (Number.isFinite(myStoreIdNum) && myStoreIdNum > 0) {
+      return res.filter((o) => Number(o.value) === myStoreIdNum)
     }
     return res
   })
@@ -1393,6 +1453,8 @@
       } else if (Array.isArray(opts) && opts.length === 1) {
         addForm.value.storeId = opts[0].value
       }
+      // 门店选项初始化后也尝试加载员工列表
+      loadSalesConsultants()
     },
     { immediate: true, deep: true }
   )
