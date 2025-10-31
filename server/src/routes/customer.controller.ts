@@ -17,23 +17,23 @@ export class CustomerController {
   async list(@Req() req: any, @Query() query: any) {
     const current = Math.max(1, Number(query.current || 1))
     const size = Math.max(1, Math.min(100, Number(query.size || 10)))
+    const roles: string[] = Array.isArray(req.user?.roles) ? req.user.roles : []
+    const excluded = ['R_SALES', 'R_SALES_MANAGER', 'R_APPOINTMENT', 'R_FRONT_DESK']
+    const hasExcluded = roles.some((r) => excluded.includes(String(r).trim()))
+    if (hasExcluded) {
+      return {
+        code: 403,
+        msg: '无权限查看客户列表',
+        data: { records: [], total: 0, current, size }
+      }
+    }
 
     const scope = await this.dataScopeService.getScope(req.user)
+    const allowedStoreIds = await this.dataScopeService.resolveAllowedStoreIds(scope)
 
-    // 仅按门店范围过滤（每个账号只看自己门店/可见门店）
+    // 按可见门店范围过滤；当集合为空时返回空数据
     const where: any = {}
-    if (scope.level === 'store' && Array.isArray(scope.storeIds) && scope.storeIds.length) {
-      where.storeId = In(scope.storeIds)
-    } else if (
-      scope.level === 'department' &&
-      Array.isArray(scope.storeIds) &&
-      scope.storeIds.length
-    ) {
-      where.storeId = In(scope.storeIds)
-    } else if (scope.level === 'self' && typeof scope.employeeId === 'number') {
-      // self 级别时无法直接关联员工门店，这里不返回任何数据，前端依赖用户关联门店以保存线索后生成客户
-      where.storeId = -1
-    }
+    where.storeId = In(allowedStoreIds.length ? allowedStoreIds : [-1])
 
     // 搜索条件
     if (query.userName) where.name = Like(`%${String(query.userName)}%`)

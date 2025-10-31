@@ -74,6 +74,57 @@ export class DataScopeService {
     return { level: 'self', employeeId }
   }
 
+  /**
+   * 解析当前用户在“客户列表”场景下可见的门店ID集合。
+   * - store/department：直接使用已有 storeIds
+   * - region/brand：根据组织结构计算其下所有门店ID
+   * - self/all：self 返回空；all 返回全部门店（为避免全量扫描，这里返回空，交由调用方决定）
+   */
+  async resolveAllowedStoreIds(scope: DataScope): Promise<number[]> {
+    if (scope.level === 'store' || scope.level === 'department') {
+      const ids = Array.isArray(scope.storeIds) ? scope.storeIds : []
+      return ids.filter((id) => typeof id === 'number')
+    }
+    if (scope.level === 'region' && typeof scope.regionId === 'number') {
+      return await this.collectStoresUnder(scope.regionId!)
+    }
+    if (scope.level === 'brand' && typeof scope.brandId === 'number') {
+      return await this.collectStoresUnder(scope.brandId!)
+    }
+    // self 或 all 默认返回空，由调用方根据业务决定是否放行
+    return []
+  }
+
+  /**
+   * 根据组织节点（品牌/区域/门店任一节点）收集其下所有门店ID
+   */
+  private async collectStoresUnder(rootId: number): Promise<number[]> {
+    const all = await this.deptRepo.find()
+    const byId = new Map<number, Department>()
+    const byParent = new Map<number | null | undefined, Department[]>()
+    all.forEach((d) => {
+      byId.set(d.id, d)
+      const p = d.parentId ?? null
+      const arr = byParent.get(p) || []
+      arr.push(d)
+      byParent.set(p, arr)
+    })
+    const root = byId.get(rootId)
+    if (!root) return []
+    const stores = new Set<number>()
+    const stack: Department[] = [root]
+    const guard = new Set<number>()
+    while (stack.length) {
+      const cur = stack.pop()!
+      if (guard.has(cur.id)) continue
+      guard.add(cur.id)
+      if ((cur as any).type === 'store') stores.add(cur.id)
+      const children = byParent.get(cur.id) || []
+      children.forEach((c) => stack.push(c))
+    }
+    return Array.from(stores)
+  }
+
   private async collectStoreIds(
     employeeId: number,
     primaryStoreId?: number | null
