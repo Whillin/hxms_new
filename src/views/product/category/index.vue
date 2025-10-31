@@ -138,7 +138,8 @@
   import { storeToRefs } from 'pinia'
   import { useProductCategoryStore } from '@/store/modules/productCategory'
   import { ElMessage, ElMessageBox } from 'element-plus'
-  import type { SaveCategoryPayload } from '@/api/category.ts'
+- import type { SaveCategoryPayload } from '@/api/category.ts'
++ import type { SaveCategoryPayload } from '@/api/category'
   import { Plus, Search, Refresh, Shop, Discount } from '@element-plus/icons-vue'
   import { fetchSaveCategory, fetchDeleteCategory, fetchGetAllCategories } from '@/api/category'
 
