@@ -15,6 +15,8 @@ export class SeedService implements OnApplicationBootstrap {
   ) {}
 
   async onApplicationBootstrap(): Promise<void> {
+    // 禁用自动播种：仅当显式开启 SEED_ENABLED=true 时才运行
+    if (process.env.SEED_ENABLED !== 'true') return
     await this.seedCategoriesIfEmpty()
     await this.seedProductsIfEmpty()
   }

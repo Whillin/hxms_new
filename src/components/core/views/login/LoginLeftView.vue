@@ -81,6 +81,7 @@
 </script>
 
 <style lang="scss" scoped>
+  @use '@styles/variables.scss' as *;
   // 颜色变量定义
   $primary-light-7: var(--el-color-primary-light-7);
   $primary-light-8: var(--el-color-primary-light-8);

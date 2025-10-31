@@ -108,7 +108,9 @@ export class RoleController {
   /** 角色列表（分页+搜索） */
   @Get('list')
   async list(@Query() query: Record<string, any>) {
-    await this.seedIfEmpty()
+    if (process.env.SEED_ENABLED === 'true') {
+      await this.seedIfEmpty()
+    }
 
     const current = Number(query.current || 1)
     const size = Number(query.size || 10)

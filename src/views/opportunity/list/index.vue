@@ -182,7 +182,8 @@
               <ElInput
                 v-model="formModel.customerDesc"
                 type="textarea"
-                rows="3"
+            -   rows="3"
+            +   :rows="3"
                 placeholder="请输入客户描述"
               />
             </ElFormItem>
@@ -218,7 +219,8 @@
               <ElInput
                 v-model="formModel.remark"
                 type="textarea"
-                rows="2"
+            -   rows="2"
+            +   :rows="2"
                 placeholder="请输入备注"
               />
             </ElFormItem>
@@ -241,7 +243,8 @@
               <ElInput
                 v-model="followForm.content"
                 type="textarea"
-                rows="3"
+            -   rows="3"
+            +   :rows="3"
                 placeholder="请输入跟进内容"
               />
             </ElFormItem>

@@ -95,7 +95,9 @@ export class EmployeeController {
   @UseGuards(JwtGuard)
   @Get('list')
   async list(@Req() req: any, @Query() query: Record<string, any>) {
-    await this.seedIfEmpty()
+    if (process.env.SEED_ENABLED === 'true') {
+      await this.seedIfEmpty()
+    }
 
     const current = Number(query.current || 1)
     const size = Number(query.size || 10)

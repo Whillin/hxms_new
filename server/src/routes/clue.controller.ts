@@ -9,6 +9,7 @@ import { UserService } from '../users/user.service'
 import { Customer } from '../customers/customer.entity'
 import { Channel } from '../channels/channel.entity'
 import { ProductModel } from '../products/product-model.entity'
+import { Employee } from '../employees/employee.entity'
 
 // 简化的线索项类型（与前端表格核心字段对齐）
 type ClueListItem = {
@@ -34,6 +35,7 @@ export class ClueController {
     @InjectRepository(Customer) private readonly customerRepo: Repository<Customer>,
     @InjectRepository(Channel) private readonly channelRepo: Repository<Channel>,
     @InjectRepository(ProductModel) private readonly productModelRepo: Repository<ProductModel>,
+    @InjectRepository(Employee) private readonly empRepo: Repository<Employee>,
     @Inject(DataScopeService) private readonly dataScopeService: DataScopeService,
     @Inject(UserService) private readonly userService: UserService
   ) {}
@@ -157,11 +159,17 @@ export class ClueController {
     let storeId: number | undefined =
       typeof body.storeId === 'number' ? Number(body.storeId) : undefined
 
-    // 若未提供门店：在“单店”范围自动填充；否则提示必须选择门店
+    // 若未提供门店：优先在“可见范围唯一门店”与“本人归属门店”间自动填充
     if (!storeId) {
-      if (scope.level === 'store' && Array.isArray(scope.storeIds) && scope.storeIds.length === 1) {
+      if (Array.isArray(scope.storeIds) && scope.storeIds.length === 1) {
         storeId = scope.storeIds[0]
-      } else {
+      } else if (typeof employeeId === 'number') {
+        try {
+          const self = await this.empRepo.findOne({ where: { id: employeeId } })
+          if (self?.storeId) storeId = self.storeId
+        } catch {}
+      }
+      if (!storeId) {
         return { code: 400, msg: '请指定线索归属门店', data: false }
       }
     }

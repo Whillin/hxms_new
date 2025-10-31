@@ -320,37 +320,38 @@
     })
     return Array.from(out)
   }
- 
-   const initAllRolePermissions = async () => {
-     try {
+
+  const initAllRolePermissions = async () => {
+    try {
       // 1) 收集所有可用的权限键（基于 asyncRoutes）
       const nodes = buildAsyncRouteNodes()
       const allKeys = getAllNodeKeys(nodes)
-       if (!allKeys.length) {
-         ElMessage.error('路由树为空，无法初始化权限')
-         return
-       }
- 
-       // 2) 拉取全部角色
-       const res = await fetchGetRoleList({ current: 1, size: 9999 })
-       const records = (res as any)?.data?.records || (res as any)?.records || []
-       if (!Array.isArray(records) || !records.length) {
-         ElMessage.error('没有可初始化的角色数据')
-         return
-       }
- 
+      if (!allKeys.length) {
+        ElMessage.error('路由树为空，无法初始化权限')
+        return
+      }
+
+      // 2) 拉取全部角色
+      const res = await fetchGetRoleList({ current: 1, size: 9999 })
+      const records = (res as any)?.data?.records || (res as any)?.records || []
+      if (!Array.isArray(records) || !records.length) {
+        ElMessage.error('没有可初始化的角色数据')
+        return
+      }
+
       // 模块映射：限定角色仅允许查看和编辑；前台对线索允许增改删、对个人中心允许增改
       const limitedModules = ['UserCenter', 'Customer', 'Opportunity', 'Clue']
       const frontDeskModules = ['UserCenter', 'Clue']
       const limitedModuleKeys = Array.from(new Set([
         ...limitedModules.flatMap((m) => [m, ...getModuleAuthKeys(m, ['view', 'edit'])])
-      ]))
+      )
       const frontDeskModuleKeys = Array.from(new Set([
-        'Clue',
-        ...getModuleAuthKeys('Clue', ['view', 'add', 'edit', 'delete']),
-        'UserCenter',
-        ...getModuleAuthKeys('UserCenter', ['view', 'add', 'edit'])
-      ]))
+          'Clue',
+          ...getModuleAuthKeys('Clue', ['view', 'add', 'edit', 'delete']),
+          'UserCenter',
+          ...getModuleAuthKeys('UserCenter', ['view', 'add', 'edit'])
+        ])
+      )
 
       // 角色映射
       const limitedCodes = new Set([
@@ -362,10 +363,18 @@
         'R_REGION_DIRECTOR',
         'R_BRAND_DIRECTOR'
       ])
-      const limitedNames = ['销售专员', '销售经理', '邀约专员', '门店总监', '门店经理', '区域总经理', '品牌总经理']
+      const limitedNames = [
+        '销售专员',
+        '销售经理',
+        '邀约专员',
+        '门店总监',
+        '门店经理',
+        '区域总经理',
+        '品牌总经理'
+      ]
       const frontDeskCodes = new Set(['R_FRONT_DESK'])
       const frontDeskNames = ['前台']
-       // 3) 逐个角色保存权限（分角色策略）
+      // 3) 逐个角色保存权限（分角色策略）
       for (const r of records) {
         const code: string = (r as any)?.roleCode || ''
         const name: string = (r as any)?.roleName || ''
@@ -383,16 +392,21 @@
         }
 
         await fetchSaveRolePermissions({ roleId: r.roleId, keys })
-        console.log('[初始化权限] 角色已写入:', { roleId: r.roleId, roleCode: code, roleName: name, keysCount: keys.length })
+        console.log('[初始化权限] 角色已写入:', {
+          roleId: r.roleId,
+          roleCode: code,
+          roleName: name,
+          keysCount: keys.length
+        })
       }
- 
-       ElMessage.success('所有角色权限已初始化')
-       refreshData()
-     } catch (e) {
-       console.error('初始化角色权限失败:', e)
-       ElMessage.error('初始化角色权限失败')
-     }
-   }
+
+      ElMessage.success('所有角色权限已初始化')
+      refreshData()
+    } catch (e) {
+      console.error('初始化角色权限失败:', e)
+      ElMessage.error('初始化角色权限失败')
+    }
+  }
 </script>
 
 <style lang="scss" scoped>

@@ -15,6 +15,8 @@ export class UserService implements OnModuleInit {
   ) {}
 
   async onModuleInit(): Promise<void> {
+    // 禁用默认管理员播种，除非显式开启
+    if (process.env.SEED_ENABLED !== 'true') return
     const exists = await this.repo.findOne({ where: { userName: 'Admin' } })
     if (!exists) {
       const adminPasswordHash = bcrypt.hashSync('123456', 10)
@@ -40,6 +42,15 @@ export class UserService implements OnModuleInit {
   async findById(id: number): Promise<User | null> {
     if (!id || Number.isNaN(id)) return null
     return (await this.repo.findOne({ where: { id } })) || null
+  }
+
+  // 新增：按ID删除用户
+  async deleteById(id: number): Promise<boolean> {
+    if (!id || Number.isNaN(id)) return false
+    const existing = await this.repo.findOne({ where: { id } })
+    if (!existing) return false
+    await this.repo.delete(id)
+    return true
   }
 
   async createUser(
@@ -198,12 +209,16 @@ export class UserService implements OnModuleInit {
             userGender: genderText,
             nickName: emp?.name || u.userName,
             userPhone: emp?.phone || '',
-            userEmail: '',
-            userRoles,
-            createBy: 'system',
+            userDept: '',
+            roleName: userRoles.join(','),
             createTime: nowToStr(u.createdAt),
-            updateBy: 'system',
-            updateTime: nowToStr(u.updatedAt)
+            loginIp: '',
+            loginTime: nowToStr(u.updatedAt),
+            key: u.id,
+            phone: emp?.phone || '',
+            mail: '',
+            address: '',
+            detailAddress: ''
           }
         })
       )
@@ -211,27 +226,24 @@ export class UserService implements OnModuleInit {
       return { records, total, current, size }
     }
 
-    // 默认分页路径（无角色筛选）
-    const [users, total] = await this.repo.findAndCount({
+    const [rows, total] = await this.repo.findAndCount({
       where,
       order: { id: 'ASC' },
       skip: (current - 1) * size,
       take: size
     })
 
-    const employeeIds = users
+    const employeeIds = rows
       .map((u) => u.employeeId)
       .filter((id): id is number => typeof id === 'number')
     const employees = employeeIds.length
-      ? await this.employeeRepo.find({
-          where: employeeIds.length ? employeeIds.map((id) => ({ id })) : []
-        })
+      ? await this.employeeRepo.find({ where: employeeIds.map((id) => ({ id })) })
       : []
     const empMap = new Map<number, Employee>()
     employees.forEach((e) => empMap.set(e.id, e))
 
     const records = await Promise.all(
-      users.map(async (u) => {
+      rows.map(async (u) => {
         const emp = typeof u.employeeId === 'number' ? empMap.get(u.employeeId) || null : null
         const genderText = emp?.gender === 'male' ? '男' : emp?.gender === 'female' ? '女' : '未知'
         const status = u.enabled ? '1' : '4'
@@ -246,22 +258,20 @@ export class UserService implements OnModuleInit {
           userGender: genderText,
           nickName: emp?.name || u.userName,
           userPhone: emp?.phone || '',
-          userEmail: '',
-          userRoles,
-          createBy: 'system',
+          userDept: '',
+          roleName: userRoles.join(','),
           createTime: nowToStr(u.createdAt),
-          updateBy: 'system',
-          updateTime: nowToStr(u.updatedAt)
+          loginIp: '',
+          loginTime: nowToStr(u.updatedAt),
+          key: u.id,
+          phone: emp?.phone || '',
+          mail: '',
+          address: '',
+          detailAddress: ''
         }
       })
     )
 
     return { records, total, current, size }
-  }
-
-  // 新增：删除用户
-  async deleteById(id: number): Promise<boolean> {
-    const res = await this.repo.delete(id)
-    return !!res.affected && res.affected > 0
   }
 }

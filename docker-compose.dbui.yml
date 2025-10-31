@@ -1,0 +1,19 @@
+services:
+  dbui:
+    image: phpmyadmin/phpmyadmin:latest
+    container_name: hxms_dbui
+    environment:
+      PMA_HOST: mysql
+      PMA_PORT: 3306
+    ports:
+      - "127.0.0.1:8080:80"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    restart: always
+    networks:
+      - hxms_net
+
+networks:
+  hxms_net:
+    driver: bridge

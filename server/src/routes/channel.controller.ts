@@ -72,7 +72,9 @@ export class ChannelsController {
   /** 渠道选项：从数据库返回一级列表、二级映射与一级元数据 */
   @Get('options')
   async options() {
-    await this.seedIfEmpty()
+    if (process.env.SEED_ENABLED === 'true') {
+      await this.seedIfEmpty()
+    }
 
     // DISTINCT 一级渠道
     const rawL1 = await this.repo

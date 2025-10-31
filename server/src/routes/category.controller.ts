@@ -52,7 +52,9 @@ export class CategoryController implements OnModuleInit {
   // 获取全部分类（平铺）
   @Get('all')
   async all() {
-    await this.seedIfEmpty()
+    if (process.env.SEED_ENABLED === 'true') {
+      await this.seedIfEmpty()
+    }
     const list = await this.catRepo.find({ order: { level: 'ASC', sortOrder: 'ASC', id: 'ASC' } })
     return { code: 0, msg: 'ok', data: list }
   }
@@ -60,7 +62,9 @@ export class CategoryController implements OnModuleInit {
   // 获取树结构
   @Get('tree')
   async tree(@Query('rootId') rootId?: string) {
-    await this.seedIfEmpty()
+    if (process.env.SEED_ENABLED === 'true') {
+      await this.seedIfEmpty()
+    }
     const all = await this.catRepo.find({ order: { level: 'ASC', sortOrder: 'ASC', id: 'ASC' } })
     const byParent = new Map<number | null | undefined, ProductCategory[]>()
     all.forEach((c) => {
@@ -178,6 +182,9 @@ export class CategoryController implements OnModuleInit {
     return { code: 0, msg: 'ok', data: products }
   }
   async onModuleInit(): Promise<void> {
-    await this.seedIfEmpty()
+    // 禁用模块初始化播种，除非显式开启
+    if (process.env.SEED_ENABLED === 'true') {
+      await this.seedIfEmpty()
+    }
   }
 }

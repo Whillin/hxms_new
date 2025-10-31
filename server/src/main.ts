@@ -6,7 +6,7 @@ import path from 'path'
 import dotenv from 'dotenv'
 import { createPool } from 'mysql2/promise'
 
-dotenv.config({ path: path.resolve(process.cwd(), '.env') })
+dotenv.config({ path: path.resolve(process.cwd(), '.env'), override: true })
 
 async function ensureDatabase() {
   const host = process.env.MYSQL_HOST || 'localhost'

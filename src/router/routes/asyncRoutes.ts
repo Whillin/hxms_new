@@ -237,7 +237,9 @@ export const asyncRoutes: AppRouteRecord[] = [
             { title: '新增', authMark: 'add' },
             { title: '导入', authMark: 'import' },
             { title: '导出', authMark: 'export' },
-            { title: '查看', authMark: 'view' }
+            { title: '查看', authMark: 'view' },
+            { title: '编辑', authMark: 'edit' },
+            { title: '删除', authMark: 'delete' }
           ]
         }
       }

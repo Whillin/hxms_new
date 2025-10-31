@@ -34,7 +34,7 @@
             </ArtExcelImport>
             <ArtExcelExport
               size="small"
-              :data="filteredData"
+              :data="excelData"
               filename="线索数据"
               sheetName="线索列表"
               type="success"
@@ -339,45 +339,45 @@
 
   // 表格与数据
   interface ClueItem {
-    id: string
-    visitDate: string
-    enterTime: string
-    leaveTime: string
-    receptionDuration: number
-    visitorCount: number
-    receptionStatus: 'sales' | 'none' | 'noNeed'
-    salesConsultant: string
-    customerName: string
-    visitPurpose: '看车' | '维保' | '提车' | '续保' | '咨询' | '拜访'
-    isReserved: boolean
-    visitCategory: '首次' | '再次'
-    customerPhone: string
+    id?: string | number
+    visitDate?: string
+    enterTime?: string
+    leaveTime?: string
+    receptionDuration?: number
+    visitorCount?: number
+    receptionStatus?: 'sales' | 'none' | 'noNeed'
+    salesConsultant?: string
+    customerName?: string
+    visitPurpose?: '看车' | '维保' | '提车' | '续保' | '咨询' | '拜访'
+    isReserved?: boolean
+    visitCategory?: '首次' | '再次'
+    customerPhone?: string
     focusModelId?: number
     /** 关注车型名称（导出/展示时可能使用） */
     focusModelName?: string
-    testDrive: boolean
-    bargaining: boolean
-    dealDone: boolean
+    testDrive?: boolean
+    bargaining?: boolean
+    dealDone?: boolean
     dealModelId?: number
     /** 成交车型名称（导出/展示时可能使用） */
     dealModelName?: string
-    businessSource: string
-    channelCategory: string
-    channelLevel1: string
-    channelLevel2: string
-    convertOrRetentionModel: string
-    referrer: string
-    contactTimes: number
-    opportunityLevel: 'H' | 'A' | 'B' | 'C'
-    userGender: '男' | '女' | '未知'
-    userAge: number
-    buyExperience: '首购' | '换购' | '增购'
-    userPhoneModel: string
-    currentBrand: string
-    currentModel: string
-    carAge: number
-    mileage: number
-    livingArea: string | string[]
+    businessSource?: string
+    channelCategory?: string
+    channelLevel1?: string
+    channelLevel2?: string
+    convertOrRetentionModel?: string
+    referrer?: string
+    contactTimes?: number
+    opportunityLevel?: 'H' | 'A' | 'B' | 'C'
+    userGender?: '男' | '女' | '未知'
+    userAge?: number
+    buyExperience?: '首购' | '换购' | '增购'
+    userPhoneModel?: string
+    currentBrand?: string
+    currentModel?: string
+    carAge?: number
+    mileage?: number
+    livingArea?: string | string[]
     /** 归属门店 */
     storeId?: number
   }
@@ -518,7 +518,7 @@
           prop: 'livingArea',
           label: '居住区域',
           width: 140,
-          formatter: (row: any, _c: any, v: any) => (Array.isArray(v) ? v.join('/') : v)
+          formatter: (row: ClueItem) => (Array.isArray(row.livingArea) ? row.livingArea.join('/') : row.livingArea)
         },
         { prop: 'operation', label: '操作', width: 220, useSlot: true }
       ]
@@ -526,6 +526,16 @@
   })
 
   const filteredData = computed(() => data.value)
+
+  // 构造导出数据：将数组字段转换为字符串以满足 ExportData 类型
+  const excelData = computed(() =>
+    (filteredData.value || []).map((row: any) => {
+      const obj: Record<string, any> = { ...row }
+      const la = obj.livingArea
+      obj.livingArea = Array.isArray(la) ? la.join('/') : la
+      return obj
+    })
+  )
 
   // 导入导出配置
   const exportHeaders = {
@@ -1344,7 +1354,10 @@
   // 加载门店树（用于选择归属门店）
   const loadDeptTree = async () => {
     try {
-      const tree = (await fetchGetDepartmentList({})) as any[]
+      const res = await fetchGetDepartmentList({})
+      const tree = Array.isArray(res as any)
+        ? ((res as any) as any[])
+        : ((res as any)?.data || [])
       deptTree.value = Array.isArray(tree) ? tree : []
     } catch {
       deptTree.value = []

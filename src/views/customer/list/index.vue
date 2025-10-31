@@ -309,7 +309,7 @@
           prop: 'livingArea',
           label: '居住区域',
           minWidth: 180,
-          formatter: (row: CustomerItem, _c: any, v: any) => (Array.isArray(v) ? v.join('/') : v)
+          formatter: (row: CustomerItem) => (Array.isArray(row.livingArea) ? row.livingArea.join('/') : row.livingArea)
         },
         {
           prop: 'operation',

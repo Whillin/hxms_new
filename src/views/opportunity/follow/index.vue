@@ -79,7 +79,8 @@
   ])
 
   const searchParams: any = { method: undefined, keyword: '' }
-  const handleSearch = (params: Record<string, any>) => {
+  const handleSearch = () => {
+    const params = (searchRef.value?.getFormModel?.() || searchForm.value) as Record<string, any>
     Object.assign(searchParams, params)
     refreshData()
   }
