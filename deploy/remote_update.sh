@@ -57,15 +57,14 @@ fi
 echo "[+] Checking Docker containers..."
 docker ps | grep hxms || echo "No hxms containers found"
 
-# Restart API container if exists
-if docker ps -a --format '{{.Names}}' | grep -qx "hxms_api"; then
-    echo "[+] Restarting hxms_api container..."
-    docker restart hxms_api
-    sleep 2
-    docker logs --since=10s hxms_api | tail -10
-else
-    echo "[!] hxms_api container not found"
-fi
+# Build and restart API via docker compose to ensure latest code is running
+echo "[+] Building and restarting API via docker compose..."
+docker compose build api
+docker compose up -d api
+
+# Show recent logs quickly
+echo "[+] Recent hxms_api logs (last 10s):"
+docker logs --since=10s hxms_api | tail -20 || true
 
 # Test API endpoints
 echo "[+] Testing API endpoints..."
@@ -73,6 +72,16 @@ echo "[+] Testing API endpoints..."
 # Simple health check via debug route (GET)
 echo "[*] Checking GET /api/auth/debug-di..."
 curl -i -m 5 http://localhost:3001/api/auth/debug-di || echo "Debug-di test failed"
+
+# Customer list route should exist and require auth; expect 401 instead of 404
+echo "[*] Checking GET /api/customer/list (expect 401)..."
+cust_status=$(curl -s -m 5 -o /tmp/cust_list.out -w "%{http_code}" "http://localhost:3001/api/customer/list?current=1&size=10")
+if [[ "$cust_status" == "401" || "$cust_status" == "200" ]]; then
+  echo "Customer list endpoint reachable, HTTP $cust_status"
+else
+  echo "Customer list endpoint unexpected status: $cust_status"
+  cat /tmp/cust_list.out || true
+fi
 
 # Login route requires POST; empty body should return 400/401, proving route exists
 echo "[*] Checking POST /api/auth/login..."
