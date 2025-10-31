@@ -11,22 +11,6 @@ import { Channel } from '../channels/channel.entity'
 import { ProductModel } from '../products/product-model.entity'
 import { Employee } from '../employees/employee.entity'
 
-// 简化的线索项类型（与前端表格核心字段对齐）
-type ClueListItem = {
-  id: number
-  visitDate: string
-  customerName: string
-  customerPhone: string
-  opportunityLevel: 'H' | 'A' | 'B' | 'C'
-  dealDone: boolean
-  brandId?: number
-  regionId?: number
-  storeId: number
-  departmentId?: number
-  createdBy?: number
-  createdAt: string
-}
-
 @Controller('api/clue')
 export class ClueController {
   constructor(
@@ -167,7 +151,9 @@ export class ClueController {
         try {
           const self = await this.empRepo.findOne({ where: { id: employeeId } })
           if (self?.storeId) storeId = self.storeId
-        } catch {}
+        } catch (err) {
+          console.warn('resolve employee storeId failed', err)
+        }
       }
       if (!storeId) {
         return { code: 400, msg: '请指定线索归属门店', data: false }
@@ -203,12 +189,15 @@ export class ClueController {
     const name = String(body.customerName || '').trim() || '未命名客户'
     if (phone) {
       const living = livingArea
-      const existCustomer = await this.customerRepo.findOne({ where: { phone } })
+      // 改为按门店+手机号查重（允许跨店重复）
+      const existCustomer = await this.customerRepo.findOne({ where: { phone, storeId } })
       if (existCustomer) {
         existCustomer.name = name || existCustomer.name
-        existCustomer.gender = (String(body.userGender || existCustomer.gender || '未知') as any)
+        existCustomer.gender = String(body.userGender || existCustomer.gender || '未知') as any
         existCustomer.age = Number(body.userAge ?? existCustomer.age ?? 0)
-        existCustomer.buyExperience = (String(body.buyExperience || existCustomer.buyExperience || '首购') as any)
+        existCustomer.buyExperience = String(
+          body.buyExperience || existCustomer.buyExperience || '首购'
+        ) as any
         existCustomer.phoneModel = body.userPhoneModel ?? existCustomer.phoneModel
         existCustomer.currentBrand = body.currentBrand ?? existCustomer.currentBrand
         existCustomer.currentModel = body.currentModel ?? existCustomer.currentModel
@@ -221,9 +210,10 @@ export class ClueController {
         const created = this.customerRepo.create({
           name,
           phone,
-          gender: (String(body.userGender || '未知') as any),
+          storeId: storeId!,
+          gender: String(body.userGender || '未知') as any,
           age: Number(body.userAge || 0),
-          buyExperience: (String(body.buyExperience || '首购') as any),
+          buyExperience: String(body.buyExperience || '首购') as any,
           phoneModel: body.userPhoneModel || undefined,
           currentBrand: body.currentBrand || undefined,
           currentModel: body.currentModel || undefined,
@@ -261,13 +251,17 @@ export class ClueController {
     let focusModelIdResolved: number | undefined =
       typeof body.focusModelId === 'number' ? Number(body.focusModelId) : undefined
     if (!focusModelIdResolved && body.focusModelName) {
-      const pm = await this.productModelRepo.findOne({ where: { name: String(body.focusModelName) } })
+      const pm = await this.productModelRepo.findOne({
+        where: { name: String(body.focusModelName) }
+      })
       focusModelIdResolved = pm?.id
     }
     let dealModelIdResolved: number | undefined =
       typeof body.dealModelId === 'number' ? Number(body.dealModelId) : undefined
     if (!dealModelIdResolved && body.dealModelName) {
-      const pm2 = await this.productModelRepo.findOne({ where: { name: String(body.dealModelName) } })
+      const pm2 = await this.productModelRepo.findOne({
+        where: { name: String(body.dealModelName) }
+      })
       dealModelIdResolved = pm2?.id
     }
 
@@ -313,8 +307,7 @@ export class ClueController {
       storeId,
       regionId,
       brandId,
-      departmentId:
-        typeof body.departmentId === 'number' ? Number(body.departmentId) : undefined,
+      departmentId: typeof body.departmentId === 'number' ? Number(body.departmentId) : undefined,
       createdBy: typeof employeeId === 'number' ? employeeId : undefined
     }
 
@@ -361,7 +354,9 @@ export class ClueController {
   }
 
   // === 辅助方法 ===
-  private async findAncestors(id: number): Promise<{ storeId?: number; regionId?: number; brandId?: number }> {
+  private async findAncestors(
+    id: number
+  ): Promise<{ storeId?: number; regionId?: number; brandId?: number }> {
     const getById = async (deptId: number) => await this.deptRepo.findOne({ where: { id: deptId } })
     let regionId: number | undefined
     let brandId: number | undefined

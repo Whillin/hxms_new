@@ -109,6 +109,7 @@
   import { regionData } from 'element-china-area-data'
   import { useTable } from '@/composables/useTable'
   import type { ColumnOption } from '@/types/component'
+  import { fetchGetCustomerList } from '@/api/customer'
 
   defineOptions({ name: 'CustomerList' })
 
@@ -237,40 +238,7 @@
 
   const mockData = ref<CustomerItem[]>(generateMockData())
 
-  // 本地模拟分页接口（基于 mockData）
-  const mockApi = async (params: any): Promise<Api.Common.PaginatedResponse<CustomerItem>> => {
-    let filtered = mockData.value
-    if (params.userName)
-      filtered = filtered.filter((r) => (r.userName || '').includes(params.userName))
-    if (params.userPhone)
-      filtered = filtered.filter((r) => (r.userPhone || '').includes(params.userPhone))
-    if (params.userGender) filtered = filtered.filter((r) => r.userGender === params.userGender)
-    if (params.userAge !== undefined && params.userAge !== null && params.userAge !== '')
-      filtered = filtered.filter((r) => r.userAge === Number(params.userAge))
-    if (params.buyExperience)
-      filtered = filtered.filter((r) => r.buyExperience === params.buyExperience)
-    if (params.currentBrand)
-      filtered = filtered.filter((r) => r.currentBrand === params.currentBrand)
-    if (params.currentModel)
-      filtered = filtered.filter((r) => (r.currentModel || '').includes(params.currentModel))
-    if (Array.isArray(params.livingArea) && params.livingArea.length) {
-      const target = params.livingArea.join('/')
-      filtered = filtered.filter((r) => {
-        const val = Array.isArray(r.livingArea) ? r.livingArea.join('/') : r.livingArea
-        return String(val).startsWith(target)
-      })
-    }
-
-    const total = filtered.length
-    const start = (params.current - 1) * params.size
-    const end = start + params.size
-    return {
-      records: filtered.slice(start, end),
-      total,
-      current: params.current,
-      size: params.size
-    }
-  }
+  // 已切换到后端分页接口 /api/customer/list
 
   const {
     data,
@@ -289,8 +257,8 @@
         size
       }: Api.Common.CommonSearchParams): Promise<Api.Common.PaginatedResponse<CustomerItem>> => {
         const params = { current, size, ...searchForm.value }
-        const res = await mockApi(params)
-        return { records: res.records, total: res.total, current, size }
+        const res = await fetchGetCustomerList(params as any)
+        return { records: res.records as any, total: res.total, current, size }
       },
       apiParams: { current: 1, size: 10 },
       columnsFactory: (): ColumnOption<CustomerItem>[] => [
@@ -309,7 +277,8 @@
           prop: 'livingArea',
           label: '居住区域',
           minWidth: 180,
-          formatter: (row: CustomerItem) => (Array.isArray(row.livingArea) ? row.livingArea.join('/') : row.livingArea)
+          formatter: (row: CustomerItem) =>
+            Array.isArray(row.livingArea) ? row.livingArea.join('/') : row.livingArea
         },
         {
           prop: 'operation',

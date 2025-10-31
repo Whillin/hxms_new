@@ -1,7 +1,15 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm'
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  Index
+} from 'typeorm'
 
 /** 客户信息实体（与线索分离，便于复用与维护） */
 @Entity('customers')
+@Index('uniq_store_phone', ['storeId', 'phone'], { unique: true })
 export class Customer {
   @PrimaryGeneratedColumn()
   id!: number
@@ -10,8 +18,12 @@ export class Customer {
   @Column('varchar', { length: 50 })
   name!: string
 
-  @Index('uniq_customer_phone', { unique: true })
-  @Column('varchar', { length: 20, unique: true })
+  // 客户归属门店（同店内手机号唯一，允许跨店重复）
+  @Column('int')
+  @Index('idx_customer_store')
+  storeId!: number
+
+  @Column('varchar', { length: 20 })
   phone!: string
 
   /** 画像与车辆情况 */

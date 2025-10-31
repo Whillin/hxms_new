@@ -25,6 +25,7 @@ import { ProductCategoryLink } from '../products/product-category-link.entity'
 import { CategoryController } from '../routes/category.controller'
 import { ProductController } from '../routes/product.controller'
 import { SeedService } from '../common/seed.service'
+import { CustomerController } from '../routes/customer.controller'
 
 @Module({
   imports: [
@@ -77,7 +78,8 @@ import { SeedService } from '../common/seed.service'
     ClueController,
     ChannelsController,
     CategoryController,
-    ProductController
+    ProductController,
+    CustomerController
   ],
   providers: [JwtGuard, DataScopeService, SeedService]
 })
