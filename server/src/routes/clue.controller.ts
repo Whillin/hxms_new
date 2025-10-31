@@ -192,7 +192,8 @@ export class ClueController {
     const name = String(body.customerName || '').trim() || '未命名客户'
     if (phone) {
       const living = livingArea
-      const existCustomer = await this.customerRepo.findOne({ where: { phone, storeId } })
+      // 仍按门店+手机号+客户姓名三项查重
+      const existCustomer = await this.customerRepo.findOne({ where: { phone, storeId, name } })
       if (existCustomer) {
         existCustomer.name = name || existCustomer.name
         existCustomer.gender = String(body.userGender || existCustomer.gender || '未知') as any
