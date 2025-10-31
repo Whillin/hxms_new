@@ -109,6 +109,29 @@ export class UserService implements OnModuleInit {
     return await this.repo.save(record)
   }
 
+  // 新增：按用户名重置密码（用于管理员重置功能）
+  async resetPasswordByUserName(userName: string, newPassword: string): Promise<boolean> {
+    if (!userName || !newPassword) return false
+    const existing = await this.repo.findOne({ where: { userName } })
+    if (!existing) return false
+    const passwordHash = bcrypt.hashSync(newPassword, 10)
+    existing.passwordHash = passwordHash
+    await this.repo.save(existing)
+    return true
+  }
+
+  // 新增：按用户ID重置密码（用于管理员重置功能）
+  async resetPasswordByUserId(id: number, newPassword: string): Promise<boolean> {
+    const userId = Number(id)
+    if (!userId || Number.isNaN(userId) || !newPassword) return false
+    const existing = await this.repo.findOne({ where: { id: userId } })
+    if (!existing) return false
+    const passwordHash = bcrypt.hashSync(newPassword, 10)
+    existing.passwordHash = passwordHash
+    await this.repo.save(existing)
+    return true
+  }
+
   /**
    * 归一化并兜底用户角色：
    * - 过滤掉已被删除的角色编码（当字典存在时）

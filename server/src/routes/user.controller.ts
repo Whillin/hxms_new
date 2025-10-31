@@ -119,4 +119,31 @@ export class UserController {
     if (!ok) return { code: 404, msg: '未找到用户', data: false }
     return { code: 200, msg: '删除成功', data: true }
   }
+
+  // 管理员：按用户名重置密码
+  @UseGuards(JwtGuard)
+  @Post('reset-password')
+  async resetPassword(@Req() req: any, @Body() body: any) {
+    const roles = Array.isArray(req.user?.roles) ? req.user.roles : []
+    const effectiveRoles = await this.userService.sanitizeRoles(roles)
+    const isAdmin = effectiveRoles.includes('R_ADMIN') || effectiveRoles.includes('R_SUPER')
+    if (!isAdmin) {
+      return { code: 403, msg: '无权限', data: null }
+    }
+
+    const newPassword = body?.newPassword || body?.password || ''
+    const userId = Number(body?.id || body?.userId)
+    const userName = body?.userName || body?.username || ''
+    if (!newPassword || (!userId && !userName)) {
+      return { code: 400, msg: '缺少必要参数', data: null }
+    }
+    let ok = false
+    if (userId && !Number.isNaN(userId)) {
+      ok = await this.userService.resetPasswordByUserId(userId, newPassword)
+    } else {
+      ok = await this.userService.resetPasswordByUserName(userName, newPassword)
+    }
+    if (!ok) return { code: 404, msg: '未找到用户', data: false }
+    return { code: 200, msg: '重置成功', data: true }
+  }
 }
