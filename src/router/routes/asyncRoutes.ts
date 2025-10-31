@@ -34,18 +34,7 @@ export const asyncRoutes: AppRouteRecord[] = [
     meta: {
       title: 'menus.dashboard.title',
       icon: '&#xe721;',
-      roles: [
-        'R_SUPER',
-        'R_ADMIN',
-        'R_INFO',
-        'R_BRAND_GM',
-        'R_REGION_GM',
-        'R_STORE_DIRECTOR',
-        'R_STORE_MANAGER',
-        'R_SALES_MANAGER',
-        'R_SALES',
-        'R_APPOINTMENT'
-      ]
+      roles: ['R_ADMIN']
     },
     children: [
       {

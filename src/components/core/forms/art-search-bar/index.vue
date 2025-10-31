@@ -228,7 +228,7 @@
   })
 
   const isExpanded = ref(props.defaultExpanded)
-  const expandToggleText = computed(() => (isExpanded.value ? t('table.searchBar.putAway') : t('table.searchBar.expand')))
+  const expandToggleText = computed(() => (isExpanded.value ? t('table.searchBar.collapse') : t('table.searchBar.expand')))
   const shouldShowExpandToggle = computed(() => props.showExpand && props.items.length > 0)
 
   const actionButtonsStyle = computed(() => ({

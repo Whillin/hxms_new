@@ -275,7 +275,11 @@ async function processFrontendMenu(router: Router): Promise<void> {
  */
 async function processBackendMenu(router: Router): Promise<void> {
   const { menuList } = await fetchGetMenuList()
-  await registerAndStoreMenu(router, menuList)
+  const userStore = useUserStore()
+  const roles = userStore.info.roles || []
+  // 若后端菜单包含 meta.roles，则也按角色进行一次过滤；无该字段时原样保留
+  const filteredMenuList = filterMenuByRoles(menuList, roles)
+  await registerAndStoreMenu(router, filteredMenuList)
 }
 
 /**
