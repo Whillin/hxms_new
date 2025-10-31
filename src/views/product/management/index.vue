@@ -386,7 +386,7 @@
     fetchSaveProduct,
     fetchDeleteProduct,
     fetchGetProductCategories
-  } from '@/api/product.ts'
+  } from '@/api/product'
 
   defineOptions({ name: 'ProductManagement' })
 
@@ -443,7 +443,7 @@
   const form = reactive({
     name: '',
     categoryId: undefined as number | undefined,
-    engineType: '',
+    engineType: undefined as 'ICE' | 'NEV' | 'HEV' | undefined,
     price: undefined as number | undefined,
     status: 1,
     image: '',
@@ -455,7 +455,7 @@
     dialogTitle.value = '编辑车型'
     form.name = ''
     form.categoryId = undefined
-    form.engineType = ''
+    form.engineType = undefined
     form.price = undefined
     form.status = 1
     form.image = ''
@@ -468,7 +468,9 @@
     Object.assign(form, {
       name: row.name || '',
       categoryId: typeof row.categoryId === 'number' ? row.categoryId : undefined,
-      engineType: row.engineType || '',
+      engineType: ['ICE', 'NEV', 'HEV'].includes(String(row.engineType))
+        ? (row.engineType as 'ICE' | 'NEV' | 'HEV')
+        : undefined,
       price: typeof row.price === 'number' ? row.price : undefined,
       status: typeof row.status === 'number' ? row.status : 1,
       image: row.image || '',
@@ -658,12 +660,10 @@
         r.status === 1 ? '上架' : '下架',
         r.createTime
       ]
-      const line = values
-        .map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`)
-        .join(',')
+      const line = values.map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')
       csvLines.push(line)
     })
-    const blob = new Blob(["\ufeff" + csvLines.join('\n')], {
+    const blob = new Blob(['\ufeff' + csvLines.join('\n')], {
       type: 'text/csv;charset=utf-8;'
     })
     const url = URL.createObjectURL(blob)
@@ -688,7 +688,9 @@
           name: addForm.name,
           brand: brandName,
           series: seriesName,
-          engineType: addForm.engineType,
+          ...(addForm.engineType
+            ? { engineType: addForm.engineType as 'ICE' | 'NEV' | 'HEV' }
+            : {}),
           price: typeof addForm.price === 'number' ? addForm.price : 0,
           status: typeof addForm.status === 'number' ? addForm.status : 1,
           categories: addForm.categoryId ? [addForm.categoryId] : []
@@ -723,7 +725,7 @@
           name: form.name,
           brand: brandName,
           series: seriesName,
-          engineType: form.engineType,
+          ...(form.engineType ? { engineType: form.engineType as 'ICE' | 'NEV' | 'HEV' } : {}),
           price: typeof form.price === 'number' ? form.price : 0,
           status: typeof form.status === 'number' ? form.status : 1,
           categories: form.categoryId ? [form.categoryId] : []

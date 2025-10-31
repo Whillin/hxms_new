@@ -182,8 +182,7 @@
               <ElInput
                 v-model="formModel.customerDesc"
                 type="textarea"
-            -   rows="3"
-            +   :rows="3"
+                :rows="3"
                 placeholder="请输入客户描述"
               />
             </ElFormItem>
@@ -219,8 +218,7 @@
               <ElInput
                 v-model="formModel.remark"
                 type="textarea"
-            -   rows="2"
-            +   :rows="2"
+                :rows="2"
                 placeholder="请输入备注"
               />
             </ElFormItem>
@@ -243,8 +241,7 @@
               <ElInput
                 v-model="followForm.content"
                 type="textarea"
-            -   rows="3"
-            +   :rows="3"
+                :rows="3"
                 placeholder="请输入跟进内容"
               />
             </ElFormItem>
@@ -358,7 +355,7 @@
 
   // 选项：一级渠道/商机级别/购车经历/战败分析
   const channelLevel1Options = ref<{ label: string; value: string }[]>([])
-  
+
   onMounted(async () => {
     try {
       const resp = await fetchChannelOptions()
@@ -513,7 +510,8 @@
       customerName: ['赵四', '钱五', '孙六', '周七'][i % 4],
       customerPhone: `138${String(10000000 + i).slice(0, 8)}`,
       opportunityCode: `OP-${String(i + 1).padStart(4, '0')}`,
-      channelLevel1: channelLevel1Options[i % channelLevel1Options.length].value,
+      channelLevel1:
+        channelLevel1Options.value[i % (channelLevel1Options.value.length || 1)]?.value || '',
       focusModelName: models[i % (models.length || 1)] || 'A4L',
       opportunityLevel: (['H', 'A', 'B', 'C'] as const)[i % 4],
       testDrive: i % 2 === 0,
@@ -705,7 +703,8 @@
           prop: 'livingArea',
           label: '居住区域',
           minWidth: 180,
-          formatter: (row: OpportunityItem) => (Array.isArray(row.livingArea) ? row.livingArea.join('/') : row.livingArea)
+          formatter: (row: OpportunityItem) =>
+            Array.isArray(row.livingArea) ? row.livingArea.join('/') : row.livingArea
         },
         { prop: 'customerDesc', label: '客户描述', minWidth: 180 },
         { prop: 'latestStatus', label: '最新状态', width: 110 },
@@ -713,7 +712,8 @@
           prop: 'defeatReasons',
           label: '战败/未成交分析',
           minWidth: 200,
-          formatter: (row: OpportunityItem) => (Array.isArray(row.defeatReasons) ? row.defeatReasons.join('、') : row.defeatReasons)
+          formatter: (row: OpportunityItem) =>
+            Array.isArray(row.defeatReasons) ? row.defeatReasons.join('、') : row.defeatReasons
         },
         { prop: 'remark', label: '备注', minWidth: 160 },
         {

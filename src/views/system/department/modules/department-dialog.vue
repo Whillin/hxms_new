@@ -63,8 +63,8 @@
   const deptTree = computed(() => props.deptTree || [])
   // 父级选择：允许选择除了门店以外的任意节点；门店为最低层级，禁用为父级
   const parentAllTree = computed(() => {
-    const enrich = (nodes: any[] = []) =>
-      nodes.map((n) => ({
+    const enrich = (nodes: any[] = []): any[] =>
+      nodes.map((n: any) => ({
         id: n.id,
         name: n.name,
         disabled: n.type === 'department',

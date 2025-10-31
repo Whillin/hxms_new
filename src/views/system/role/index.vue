@@ -293,18 +293,6 @@
     return asyncRoutes.map(processRouteNode)
   }
 
-  const getModuleKeys = (moduleNames: string[]): string[] => {
-    const nodes = buildAsyncRouteNodes()
-    const flat = flattenNodes(nodes)
-    const set = new Set<string>()
-    flat.forEach((n) => {
-      if (!n.name) return
-      const hit = moduleNames.includes(n._topName) || moduleNames.includes(n.name)
-      if (hit) set.add(n.name)
-    })
-    return Array.from(set)
-  }
-
   // 获取指定模块下指定动作标记的权限键（如 'Clue_edit'）
   const getModuleAuthKeys = (moduleName: string, marks: string[]): string[] => {
     const nodes = buildAsyncRouteNodes()
@@ -341,11 +329,11 @@
 
       // 模块映射：限定角色仅允许查看和编辑；前台对线索允许增改删、对个人中心允许增改
       const limitedModules = ['UserCenter', 'Customer', 'Opportunity', 'Clue']
-      const frontDeskModules = ['UserCenter', 'Clue']
-      const limitedModuleKeys = Array.from(new Set([
-        ...limitedModules.flatMap((m) => [m, ...getModuleAuthKeys(m, ['view', 'edit'])])
+      const limitedModuleKeys = Array.from(
+        new Set([...limitedModules.flatMap((m) => [m, ...getModuleAuthKeys(m, ['view', 'edit'])])])
       )
-      const frontDeskModuleKeys = Array.from(new Set([
+      const frontDeskModuleKeys = Array.from(
+        new Set([
           'Clue',
           ...getModuleAuthKeys('Clue', ['view', 'add', 'edit', 'delete']),
           'UserCenter',

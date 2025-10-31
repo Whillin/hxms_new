@@ -14,7 +14,7 @@
         type="info"
         :closable="false"
         description="可点击全部选择或手动勾选后保存，再次打开将显示默认勾选。"
-        style="margin: 0 0 12px 0"
+        style="margin: 0 0 12px"
       />
       <!-- 键名规范提示：统一使用 RouteName_action 格式，例如 ClueLeads_add -->
       <ElAlert
@@ -22,7 +22,7 @@
         type="success"
         :closable="false"
         description="统一使用 RouteName_action 格式（例如：ClueLeads_add、CustomerList_edit）。保存时会自动归一（将 .、-、\\ 转为 _），避免歧义。"
-        style="margin: 0 0 12px 0"
+        style="margin: 0 0 12px"
       />
       <ElTree
         ref="treeRef"
@@ -222,9 +222,7 @@
     // 模块映射：限定角色仅允许查看和编辑；前台对线索允许增改删、对个人中心允许增改
     const limitedModules = ['UserCenter', 'Customer', 'Opportunity', 'Clue']
     const limitedModuleKeys = Array.from(
-      new Set([
-        ...limitedModules.flatMap((m) => [m, ...getModuleAuthKeys(m, ['view', 'edit'])])
-      ])
+      new Set([...limitedModules.flatMap((m) => [m, ...getModuleAuthKeys(m, ['view', 'edit'])])])
     )
     const frontDeskModuleKeys = Array.from(
       new Set([
@@ -244,7 +242,15 @@
       'R_REGION_DIRECTOR',
       'R_BRAND_DIRECTOR'
     ])
-    const limitedNames = ['销售专员', '销售经理', '邀约专员', '门店总监', '门店经理', '区域总经理', '品牌总经理']
+    const limitedNames = [
+      '销售专员',
+      '销售经理',
+      '邀约专员',
+      '门店总监',
+      '门店经理',
+      '区域总经理',
+      '品牌总经理'
+    ]
     const frontDeskCodes = new Set(['R_FRONT_DESK'])
     const frontDeskNames = ['前台']
 
@@ -295,7 +301,9 @@
           const roleId = props.roleData.roleId
           const resp = await fetchGetRolePermissions({ roleId })
           const loadedKeys = (resp as any)?.data ?? (Array.isArray(resp) ? resp : [])
-          loadedKeysBuffer.value = loadedKeys.map((k) => String(k))
+          loadedKeysBuffer.value = (loadedKeys as Array<string | number>).map(
+            (k: string | number) => String(k)
+          )
           console.log('[权限弹窗] 后端返回的权限键:', {
             roleId,
             keys: loadedKeysBuffer.value,
@@ -329,7 +337,7 @@
   // 监听树数据变化（菜单列表加载完成后再尝试应用）
   watch(
     () => processedMenuList.value,
-    async (nodes) => {
+    async () => {
       if (visible.value && loadedKeysBuffer.value.length) {
         await nextTick()
         applyCheckedKeys()

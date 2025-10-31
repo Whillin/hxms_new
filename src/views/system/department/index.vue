@@ -176,7 +176,7 @@
     return enhanceGroup(records)
   }
 
-  const searchForm = ref<Api.SystemManage.DepartmentSearchParams>({
+  const searchForm = ref<Record<string, any>>({
     name: undefined,
     type: undefined,
     brand: undefined,
@@ -186,6 +186,13 @@
     current: 1,
     size: 20
   })
+
+  const baseParams = computed<Partial<Api.SystemManage.DepartmentSearchParams>>(() => ({
+    name: searchForm.value.name,
+    enabled: searchForm.value.enabled,
+    current: searchForm.value.current,
+    size: searchForm.value.size
+  }))
 
   const {
     columns,
@@ -199,10 +206,10 @@
     handleSizeChange,
     handleCurrentChange,
     refreshData
-  } = useTable<DepartmentItem>({
+  } = useTable({
     core: {
       apiFn: fetchGetDepartmentList,
-      apiParams: { ...searchForm.value },
+      apiParams: { ...baseParams.value },
       excludeParams: [],
       columnsFactory: () => [
         { prop: 'name', label: '名称', minWidth: 280, showOverflowTooltip: true },

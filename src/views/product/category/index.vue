@@ -138,8 +138,7 @@
   import { storeToRefs } from 'pinia'
   import { useProductCategoryStore } from '@/store/modules/productCategory'
   import { ElMessage, ElMessageBox } from 'element-plus'
-- import type { SaveCategoryPayload } from '@/api/category.ts'
-+ import type { SaveCategoryPayload } from '@/api/category'
+  import type { SaveCategoryPayload } from '@/api/category'
   import { Plus, Search, Refresh, Shop, Discount } from '@element-plus/icons-vue'
   import { fetchSaveCategory, fetchDeleteCategory, fetchGetAllCategories } from '@/api/category'
 
@@ -264,7 +263,7 @@
       const treeBuilt = buildTreeFromList(Array.isArray(list) ? list : [])
       tableData.value = treeBuilt
       categoryStore.tree = treeBuilt as any
-    } catch (e) {
+    } catch {
       ElMessage.error('刷新分类数据失败')
     }
   }
@@ -426,8 +425,7 @@
         status: formData.status === 1 ? 'active' : 'inactive',
         slug: formData.code || undefined
       }
-      const res = await fetchSaveCategory(payload, { showSuccessMessage: true })
-      const saved = (res as any)?.data ?? res
+      await fetchSaveCategory(payload, { showSuccessMessage: true })
 
       // 统一改为刷新后端数据，不再本地拼接/更新
       await refreshCategories()
@@ -440,113 +438,6 @@
     } finally {
       submitLoading.value = false
     }
-  }
-
-  // 添加数据到表格
-  const addToTableData = (data: any) => {
-    const newItem = {
-      ...data,
-      id: data.id ?? Date.now(),
-      level: data.level ?? (data.parentId === 0 ? 1 : 2),
-      createTime: new Date().toLocaleString('zh-CN'),
-      children: data.parentId === 0 ? [] : undefined,
-      hasChildren: data.parentId === 0 ? false : false // 新增的分类默认没有子分类
-    }
-
-    // 同步到共享Store（让车型管理页下拉即时刷新）
-    if (newItem.parentId === 0) {
-      categoryStore.addCategory({
-        name: newItem.name,
-        parentId: 0,
-        level: 1,
-        code: newItem.code,
-        sort: newItem.sort,
-        status: newItem.status,
-        description: newItem.description
-      })
-    } else {
-      categoryStore.addCategory({
-        name: newItem.name,
-        parentId: newItem.parentId,
-        level: 2,
-        code: newItem.code,
-        sort: newItem.sort,
-        status: newItem.status,
-        description: newItem.description
-      })
-    }
-  }
-
-  // 更新表格数据
-  const updateTableData = (data: any) => {
-    const updateInArray = (arr: any[]): boolean => {
-      for (let i = 0; i < arr.length; i++) {
-        if (arr[i].id === data.id) {
-          // 保留原有的children和其他系统字段
-          arr[i] = {
-            ...arr[i],
-            ...data,
-            id: data.id // 确保ID不变
-          }
-          return true
-        }
-        if (arr[i].children && updateInArray(arr[i].children)) {
-          return true
-        }
-      }
-      return false
-    }
-    updateInArray(tableData.value)
-    // 同步到共享Store
-    categoryStore.updateCategory({
-      id: data.id,
-      name: data.name,
-      parentId: data.parentId,
-      level: data.parentId === 0 ? 1 : 2,
-      code: data.code,
-      sort: data.sort,
-      status: data.status,
-      description: data.description,
-      hasChildren: undefined
-    } as any)
-    // 若为一级分类且禁用，级联禁用其子分类
-    if (data.parentId === 0 && data.status === 0) {
-      const brand = findCategoryById(data.id)
-      if (brand?.children?.length) {
-        brand.children.forEach((child: any) => {
-          child.status = 0
-          categoryStore.updateCategory({
-            id: child.id,
-            name: child.name,
-            parentId: child.parentId,
-            level: 2,
-            code: child.code,
-            sort: child.sort,
-            status: 0,
-            description: child.description
-          } as any)
-        })
-      }
-    }
-  }
-
-  // 从表格数据中删除项目
-  const removeFromTableData = (id: number) => {
-    const removeFromArray = (arr: any[]): boolean => {
-      for (let i = 0; i < arr.length; i++) {
-        if (arr[i].id === id) {
-          arr.splice(i, 1)
-          return true
-        }
-        if (arr[i].children && removeFromArray(arr[i].children)) {
-          return true
-        }
-      }
-      return false
-    }
-    removeFromArray(tableData.value)
-    // 同步到共享Store
-    categoryStore.removeCategory(id)
   }
 
   const handleDialogClose = () => {

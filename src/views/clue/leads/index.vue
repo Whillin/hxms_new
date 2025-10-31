@@ -518,7 +518,8 @@
           prop: 'livingArea',
           label: '居住区域',
           width: 140,
-          formatter: (row: ClueItem) => (Array.isArray(row.livingArea) ? row.livingArea.join('/') : row.livingArea)
+          formatter: (row: ClueItem) =>
+            Array.isArray(row.livingArea) ? row.livingArea.join('/') : row.livingArea
         },
         { prop: 'operation', label: '操作', width: 220, useSlot: true }
       ]
@@ -634,7 +635,7 @@
 
   // 新建线索
   const addDialogVisible = ref(false)
-  const addFormRef = ref()
+  const addFormRef = ref<any>(null)
   const initAddForm = (): Partial<ClueItem> => ({
     visitDate: '',
     enterTime: '',
@@ -1159,7 +1160,7 @@
   }
   const fillEditForm = (row: ClueItem) => {
     // 从完整时间中拆出日期与时分
-    const toHM = (t: string) => (t && t.includes(' ') ? t.split(' ')[1] : t)
+    const toHM = (t: string | undefined) => (t && t.includes(' ') ? t.split(' ')[1] : t || '')
     addForm.value = {
       ...initAddForm(),
       ...row,
@@ -1169,7 +1170,7 @@
     }
   }
   const submitAdd = async () => {
-    await addFormRef.value.validate()
+    await addFormRef.value?.validate?.()
     const payload = {
       ...(addForm.value as any),
       id: editingId.value || undefined
@@ -1183,7 +1184,7 @@
 
   // 编辑与删除（本地模拟）
   const editRow = (row: ClueItem) => {
-    editingId.value = row.id
+    editingId.value = row.id ? String(row.id) : null
     fillEditForm(row)
     addDialogVisible.value = true
   }
@@ -1355,9 +1356,7 @@
   const loadDeptTree = async () => {
     try {
       const res = await fetchGetDepartmentList({})
-      const tree = Array.isArray(res as any)
-        ? ((res as any) as any[])
-        : ((res as any)?.data || [])
+      const tree = Array.isArray(res as any) ? (res as any as any[]) : (res as any)?.data || []
       deptTree.value = Array.isArray(tree) ? tree : []
     } catch {
       deptTree.value = []
