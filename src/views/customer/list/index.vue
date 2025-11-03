@@ -12,7 +12,13 @@
     />
 
     <ElCard class="art-table-card" shadow="never">
-      <ArtTableHeader v-model:columns="columnChecks" :loading="loading" @refresh="refreshData">
+      <ArtTableHeader
+        v-model:columns="columnChecks"
+        :loading="loading"
+        layout="refresh,columns"
+        :showHeaderBackground="false"
+        @refresh="refreshData"
+      >
         <template #left>
           <ElSpace wrap>
             <ElButton type="primary" @click="refreshData">刷新</ElButton>
@@ -110,6 +116,7 @@
   import { useTable } from '@/composables/useTable'
   import type { ColumnOption } from '@/types/component'
   import { fetchGetCustomerList } from '@/api/customer'
+  import { fetchGetDepartmentList } from '@/api/system-manage'
 
   defineOptions({ name: 'CustomerList' })
 
@@ -139,7 +146,8 @@
     buyExperience: undefined as any,
     currentBrand: undefined as any,
     currentModel: undefined as any,
-    livingArea: undefined as any
+    livingArea: undefined as any,
+    storeId: undefined as any
   })
 
   // 手机品牌选项（复用线索页风格）
@@ -170,9 +178,42 @@
 
   const cityCascaderOptionsRef = ref<any[]>(regionData as any)
 
+  // 门店：加载部门树并构建门店选项与名称映射
+  const deptTree = ref<any[]>([])
+  const loadDeptTree = async () => {
+    try {
+      const res = await fetchGetDepartmentList({} as any)
+      const tree = Array.isArray(res as any) ? (res as any as any[]) : (res as any)?.data || []
+      deptTree.value = Array.isArray(tree) ? tree : []
+    } catch {
+      deptTree.value = []
+    }
+  }
+  loadDeptTree()
+  const storeOptions = computed(() => {
+    const res: { label: string; value: number }[] = []
+    const walk = (n: any) => {
+      if (n.type === 'store') res.push({ label: n.name, value: n.id })
+      if (Array.isArray(n.children)) n.children.forEach(walk)
+    }
+    deptTree.value.forEach(walk)
+    return res
+  })
+  const storeNameById = computed(() => {
+    const map: Record<number, string> = {}
+    for (const o of storeOptions.value) map[o.value] = o.label
+    return map
+  })
+
   const searchItems = computed(() => [
     { label: '客户姓名', key: 'userName', type: 'input' },
     { label: '客户电话', key: 'userPhone', type: 'input' },
+    {
+      label: '归属门店',
+      key: 'storeId',
+      type: 'select',
+      props: { options: storeOptions.value, clearable: true, placeholder: '请选择门店' }
+    },
     {
       label: '使用者性别',
       key: 'userGender',
@@ -265,6 +306,16 @@
         { type: 'globalIndex', label: '序号', width: 80 },
         { prop: 'userName', label: '客户姓名', minWidth: 140 },
         { prop: 'userPhone', label: '客户电话', minWidth: 140 },
+        {
+          prop: 'storeId',
+          label: '归属门店',
+          width: 140,
+          formatter: (row: any) => {
+            const id = Number((row as any).storeId)
+            const name = storeNameById.value[id]
+            return name || (Number.isFinite(id) ? String(id) : '-')
+          }
+        },
         { prop: 'userGender', label: '使用者性别', width: 100 },
         { prop: 'userAge', label: '使用者年龄', width: 110 },
         { prop: 'buyExperience', label: '购车经历', width: 100 },
@@ -304,7 +355,8 @@
       buyExperience: undefined,
       currentBrand: undefined,
       currentModel: undefined,
-      livingArea: undefined
+      livingArea: undefined,
+      storeId: undefined
     }
     getData()
   }

@@ -49,7 +49,8 @@
               v-model:columns="columnChecks"
               :loading="loading"
               @refresh="refreshData"
-              layout="fullscreen,columns"
+              layout="refresh,columns"
+              :showHeaderBackground="false"
               fullClass="art-table-card"
             />
           </div>

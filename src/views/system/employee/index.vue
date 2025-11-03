@@ -17,7 +17,8 @@
         v-model:columns="columnChecks"
         v-model:showSearchBar="showSearchBar"
         :loading="loading"
-        layout="search,refresh,fullscreen,columns"
+        layout="refresh,columns"
+        :showHeaderBackground="false"
         fullClass="art-table-card"
         @refresh="refreshData"
       >

@@ -31,9 +31,32 @@ export class CustomerController {
     const scope = await this.dataScopeService.getScope(req.user)
     const allowedStoreIds = await this.dataScopeService.resolveAllowedStoreIds(scope)
 
-    // 按可见门店范围过滤；当集合为空时返回空数据
+    // 解析门店筛选参数
+    const storeIdParam =
+      query.storeId !== undefined && query.storeId !== '' ? Number(query.storeId) : undefined
+
+    // 数据范围与门店过滤：
+    // - 当 scope.level 为 'all'（管理员/信息岗），不限制门店；若传入 storeId 则按该值精确过滤
+    // - 其他范围：若传入 storeId，需在可见门店集合内，否则返回空；未传入则按集合过滤
     const where: any = {}
-    where.storeId = In(allowedStoreIds.length ? allowedStoreIds : [-1])
+    if (scope.level === 'all') {
+      if (typeof storeIdParam === 'number' && !Number.isNaN(storeIdParam)) {
+        where.storeId = storeIdParam
+      }
+    } else {
+      if (typeof storeIdParam === 'number' && !Number.isNaN(storeIdParam)) {
+        if (!allowedStoreIds.includes(storeIdParam)) {
+          return {
+            code: 200,
+            msg: 'ok',
+            data: { records: [], total: 0, current, size }
+          }
+        }
+        where.storeId = storeIdParam
+      } else {
+        where.storeId = In(allowedStoreIds.length ? allowedStoreIds : [-1])
+      }
+    }
 
     // 搜索条件
     if (query.userName) where.name = Like(`%${String(query.userName)}%`)

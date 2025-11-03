@@ -9,7 +9,13 @@
 
     <ElCard class="art-table-card" shadow="never">
       <!-- 表格头部 -->
-      <ArtTableHeader v-model:columns="columnChecks" :loading="loading" @refresh="refreshData">
+      <ArtTableHeader
+        v-model:columns="columnChecks"
+        :loading="loading"
+        layout="refresh,columns"
+        :showHeaderBackground="false"
+        @refresh="refreshData"
+      >
         <template #left>
           <ElSpace wrap>
             <ElButton @click="showDialog('add')" v-ripple>新增用户</ElButton>
@@ -111,7 +117,7 @@
       roleMap.value = map
       // 角色映射更新后刷新表格以重新渲染列
       refreshData()
-    } catch (e) {
+    } catch {
       // 保持空映射，表格将显示代码作为后备
       roleMap.value = {}
     }

@@ -33,4 +33,4 @@ $argsList = @(
 
 # Start hidden background process
 Start-Process -FilePath $sshExe -ArgumentList $argsList -WindowStyle Hidden
-Write-Output "SSH tunnel started: 127.0.0.1:$LocalPort -> $RemoteHost:$RemotePort"
+Write-Output "SSH tunnel started: 127.0.0.1:$LocalPort -> $($RemoteHost):$RemotePort"
