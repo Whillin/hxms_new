@@ -339,14 +339,22 @@
   }
 
   // 行内操作
+  // 兼容不同主键字段命名（id/customerId/ID），确保操作项能正确获取ID
+  const normalizeId = (row: any): number => {
+    const candidate = (row?.id ?? row?.customerId ?? row?.ID ?? row?.Id) as any
+    const n = Number(candidate)
+    return Number.isFinite(n) && n > 0 ? n : NaN
+  }
+
   const handleRowEdit = (row: CustomerItem) => {
     // 显式确保 id 为数字类型，避免后续校验与后端查询失败
-    editForm.value = { ...row, id: Number((row as any).id) }
+    editForm.value = { ...row, id: normalizeId(row) }
     dialogVisible.value = true
   }
   const handleRowDelete = async (row: CustomerItem) => {
     try {
-      await fetchDeleteCustomer(Number(row.id), { showSuccessMessage: true })
+      const id = normalizeId(row)
+      await fetchDeleteCustomer(id, { showSuccessMessage: true })
       refreshData()
     } catch {
       ElMessage.error('删除失败')
@@ -354,12 +362,13 @@
   }
 
   const submitEdit = async () => {
-    if (!editForm.value?.id) {
-      ElMessage.error('保存失败，未找到该记录')
+    const id = Number(editForm.value?.id)
+    if (!Number.isFinite(id) || id <= 0) {
+      ElMessage.error('保存失败，缺少有效的ID')
       return
     }
     const payload = {
-      id: Number(editForm.value.id),
+      id,
       userName: String(editForm.value.userName || ''),
       userPhone: String(editForm.value.userPhone || ''),
       userGender: String(editForm.value.userGender || '未知') as any,
