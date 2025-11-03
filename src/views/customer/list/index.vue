@@ -115,8 +115,12 @@
   import { regionData } from 'element-china-area-data'
   import { useTable } from '@/composables/useTable'
   import type { ColumnOption } from '@/types/component'
-  import { fetchGetCustomerList } from '@/api/customer'
-  import { fetchGetDepartmentList } from '@/api/system-manage'
+  import {
+    fetchGetCustomerList,
+    fetchSaveCustomer,
+    fetchDeleteCustomer,
+    fetchGetCustomerStoreOptions
+  } from '@/api/customer'
 
   defineOptions({ name: 'CustomerList' })
 
@@ -178,30 +182,22 @@
 
   const cityCascaderOptionsRef = ref<any[]>(regionData as any)
 
-  // 门店：加载部门树并构建门店选项与名称映射
-  const deptTree = ref<any[]>([])
-  const loadDeptTree = async () => {
+  // 门店选项：仅加载后端允许的门店
+  const storeOptionsRef = ref<{ label: string; value: number }[]>([])
+  const loadStoreOptions = async () => {
     try {
-      const res = await fetchGetDepartmentList({} as any)
-      const tree = Array.isArray(res as any) ? (res as any as any[]) : (res as any)?.data || []
-      deptTree.value = Array.isArray(tree) ? tree : []
+      const res = await fetchGetCustomerStoreOptions()
+      const list = Array.isArray(res) ? res : (res as any)?.data || []
+      storeOptionsRef.value = list.map((s: any) => ({ label: s.name, value: s.id }))
     } catch {
-      deptTree.value = []
+      storeOptionsRef.value = []
     }
   }
-  loadDeptTree()
-  const storeOptions = computed(() => {
-    const res: { label: string; value: number }[] = []
-    const walk = (n: any) => {
-      if (n.type === 'store') res.push({ label: n.name, value: n.id })
-      if (Array.isArray(n.children)) n.children.forEach(walk)
-    }
-    deptTree.value.forEach(walk)
-    return res
-  })
+  loadStoreOptions()
+  const storeOptions = computed(() => storeOptionsRef.value)
   const storeNameById = computed(() => {
     const map: Record<number, string> = {}
-    for (const o of storeOptions.value) map[o.value] = o.label
+    for (const o of storeOptionsRef.value) map[o.value] = o.label
     return map
   })
 
@@ -259,25 +255,6 @@
       }
     }
   ])
-
-  // 本地客户数据源（支持编辑/删除持久化到当前会话）
-  const generateMockData = (): CustomerItem[] =>
-    Array.from({ length: 60 }, (_, i) => ({
-      id: String(i + 1),
-      userName: ['张三', '李四', '王五', '赵六'][i % 4],
-      userPhone: `138${String(10000000 + i).slice(0, 8)}`,
-      userGender: (['男', '女', '未知'] as const)[i % 3],
-      userAge: 20 + (i % 30),
-      buyExperience: (['首购', '换购', '增购'] as const)[i % 3],
-      userPhoneModel: ['苹果', '华为', '小米', '三星'][i % 4],
-      currentBrand: ['奥迪', '宝马', '奔驰', '比亚迪', '理想'][i % 5],
-      currentModel: ['A4L', 'Q5', '3系', 'C级'][i % 4],
-      carAge: i % 8,
-      mileage: (i % 20) * 1.5,
-      livingArea: ['北京市/朝阳区', '上海市/浦东新区', '广东省/广州市/天河区'][i % 3].split('/')
-    }))
-
-  const mockData = ref<CustomerItem[]>(generateMockData())
 
   // 已切换到后端分页接口 /api/customer/list
 
@@ -366,39 +343,42 @@
     editForm.value = { ...row }
     dialogVisible.value = true
   }
-  const handleRowDelete = (row: CustomerItem) => {
-    const idx = mockData.value.findIndex((r) => r.id === row.id)
-    if (idx > -1) {
-      mockData.value.splice(idx, 1)
-      ElMessage.success('删除成功')
+  const handleRowDelete = async (row: CustomerItem) => {
+    try {
+      await fetchDeleteCustomer(Number(row.id), { showSuccessMessage: true })
       refreshData()
-    } else {
-      ElMessage.error('删除失败，未找到该记录')
+    } catch {
+      ElMessage.error('删除失败')
     }
   }
 
-  const submitEdit = () => {
-    const idx = mockData.value.findIndex((r) => r.id === editForm.value?.id)
-    if (idx > -1) {
-      // 规范化数值与区域字段，保持数据类型一致
-      const payload = {
-        ...mockData.value[idx],
-        ...(editForm.value as CustomerItem),
-        userAge: Number((editForm.value as CustomerItem).userAge ?? mockData.value[idx].userAge),
-        carAge: Number((editForm.value as CustomerItem).carAge ?? mockData.value[idx].carAge),
-        mileage: Number((editForm.value as CustomerItem).mileage ?? mockData.value[idx].mileage),
-        livingArea: Array.isArray((editForm.value as CustomerItem).livingArea)
-          ? ((editForm.value as CustomerItem).livingArea as string[])
-          : String((editForm.value as CustomerItem).livingArea || '')
-              .split('/')
-              .filter(Boolean)
-      } as CustomerItem
-      mockData.value[idx] = payload
-      ElMessage.success('保存成功')
+  const submitEdit = async () => {
+    if (!editForm.value?.id) {
+      ElMessage.error('保存失败，未找到该记录')
+      return
+    }
+    const payload = {
+      id: Number(editForm.value.id),
+      userName: String(editForm.value.userName || ''),
+      userPhone: String(editForm.value.userPhone || ''),
+      userGender: String(editForm.value.userGender || '未知') as any,
+      userAge: Number(editForm.value.userAge || 0),
+      buyExperience: String(editForm.value.buyExperience || '首购') as any,
+      userPhoneModel: editForm.value.userPhoneModel || '',
+      currentBrand: editForm.value.currentBrand || '',
+      currentModel: editForm.value.currentModel || '',
+      carAge: Number(editForm.value.carAge || 0),
+      mileage: Number(editForm.value.mileage || 0),
+      livingArea: Array.isArray(editForm.value.livingArea)
+        ? (editForm.value.livingArea as string[]).join('/')
+        : String(editForm.value.livingArea || '')
+    }
+    try {
+      await fetchSaveCustomer(payload, { showSuccessMessage: true })
       dialogVisible.value = false
       refreshData()
-    } else {
-      ElMessage.error('保存失败，未找到该记录')
+    } catch {
+      ElMessage.error('保存失败')
     }
   }
 </script>

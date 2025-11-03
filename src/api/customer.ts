@@ -40,3 +40,26 @@ export interface PageResult<T> {
 export function fetchGetCustomerList(params: CustomerListParams) {
   return request.get<PageResult<CustomerItemDto>>({ url: '/api/customer/list', params })
 }
+
+export function fetchSaveCustomer(
+  data: Partial<CustomerItemDto> & { id: number },
+  options?: { showSuccessMessage?: boolean }
+) {
+  return request.post<boolean>({
+    url: '/api/customer/save',
+    data,
+    showSuccessMessage: options?.showSuccessMessage ?? true
+  })
+}
+
+export function fetchDeleteCustomer(id: number, options?: { showSuccessMessage?: boolean }) {
+  return request.post<boolean>({
+    url: '/api/customer/delete',
+    data: { id },
+    showSuccessMessage: options?.showSuccessMessage ?? true
+  })
+}
+
+export function fetchGetCustomerStoreOptions() {
+  return request.get<Array<{ id: number; name: string }>>({ url: '/api/customer/store-options' })
+}
