@@ -125,7 +125,7 @@
   defineOptions({ name: 'CustomerList' })
 
   interface CustomerItem {
-    id: string
+    id: number
     userName: string
     userPhone: string
     userGender: '男' | '女' | '未知'
@@ -340,7 +340,8 @@
 
   // 行内操作
   const handleRowEdit = (row: CustomerItem) => {
-    editForm.value = { ...row }
+    // 显式确保 id 为数字类型，避免后续校验与后端查询失败
+    editForm.value = { ...row, id: Number((row as any).id) }
     dialogVisible.value = true
   }
   const handleRowDelete = async (row: CustomerItem) => {
