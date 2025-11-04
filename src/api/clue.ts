@@ -69,13 +69,13 @@ export function fetchGetClueList(params: ClueListParams) {
 }
 
 export function fetchSaveClue(body: Partial<ClueItem>) {
-  return request.post<boolean>({ url: '/api/clue/save', params: body, showSuccessMessage: true })
+  return request.post<boolean>({ url: '/api/clue/save', data: body, showSuccessMessage: true })
 }
 
 export function fetchDeleteClue(id: number | string) {
   return request.post<boolean>({
     url: '/api/clue/delete',
-    params: { id },
+    data: { id },
     showSuccessMessage: true
   })
 }

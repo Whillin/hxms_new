@@ -36,6 +36,12 @@ export const staticRoutes: AppRouteRecordRaw[] = [
     meta: { title: 'menus.forgetPassword.title', isHideTab: true }
   },
   {
+    path: '/debug-connectivity',
+    name: 'DebugConnectivity',
+    component: () => import('@views/system/debug-connectivity/index.vue'),
+    meta: { title: '云端连通性调试', isHideTab: true }
+  },
+  {
     path: '/403',
     name: 'Exception403',
     component: () => import('@views/exception/403/index.vue'),

@@ -36,11 +36,10 @@ services:
       - hxms_net
 
   web:
-    image: nginx:stable
+    build:
+      context: .
+      dockerfile: deploy/web.Dockerfile
     container_name: hxms_web
-    volumes:
-      - ./dist:/usr/share/nginx/html:ro
-      - ./deploy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
     ports:
       - '80:80'
     depends_on:

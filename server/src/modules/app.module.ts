@@ -50,7 +50,9 @@ import { CustomerController } from '../routes/customer.controller'
         ProductCategory,
         ProductCategoryLink
       ],
-      synchronize: true,
+      // 生产环境默认关闭同步，避免 TypeORM 在启动时尝试创建/变更索引导致故障
+      // 通过环境变量 TYPEORM_SYNC 控制，设置为 'true' 时开启
+      synchronize: String(process.env.TYPEORM_SYNC || '').toLowerCase() === 'true',
       logging: false
     }),
     // 注入各控制器需要的仓库

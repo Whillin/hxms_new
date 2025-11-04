@@ -178,6 +178,12 @@ export class ClueController {
       if (!brandOk) return { code: 403, msg: '门店不属于当前品牌', data: false }
     }
 
+    // 门店类型校验：必须选择“门店”类型节点
+    const storeDept = await this.deptRepo.findOne({ where: { id: storeId } })
+    if (!storeDept || (storeDept as any).type !== 'store') {
+      return { code: 400, msg: '归属门店必须为“门店”类型，请重新选择', data: false }
+    }
+
     // 计算品牌/区域（根据门店沿父链）
     const { regionId, brandId } = await this.findAncestors(storeId)
 

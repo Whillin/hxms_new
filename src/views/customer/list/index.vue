@@ -363,12 +363,10 @@
 
   const submitEdit = async () => {
     const id = Number(editForm.value?.id)
-    if (!Number.isFinite(id) || id <= 0) {
-      ElMessage.error('保存失败，缺少有效的ID')
-      return
-    }
-    const payload = {
-      id,
+    // 不再因缺少有效ID而阻断请求：允许后端返回更准确的错误信息或执行新增/校验逻辑
+    const payload: any = {
+      // 仅当ID有效时才附带ID
+      ...(Number.isFinite(id) && id > 0 ? { id } : {}),
       userName: String(editForm.value.userName || ''),
       userPhone: String(editForm.value.userPhone || ''),
       userGender: String(editForm.value.userGender || '未知') as any,
@@ -384,7 +382,7 @@
         : String(editForm.value.livingArea || '')
     }
     try {
-      await fetchSaveCustomer(payload, { showSuccessMessage: true })
+      await fetchSaveCustomer(payload as any, { showSuccessMessage: true })
       dialogVisible.value = false
       refreshData()
     } catch {
