@@ -1,12 +1,16 @@
 <!-- 系统logo -->
 <template>
   <div class="art-logo">
-    <img :style="logoStyle" src="@imgs/common/logo.webp" alt="logo" />
+    <img :style="logoStyle" :src="logoSrc" alt="logo" />
   </div>
 </template>
 
 <script setup lang="ts">
   defineOptions({ name: 'ArtLogo' })
+  import { storeToRefs } from 'pinia'
+  import { useSettingStore } from '@/store/modules/setting'
+  import logoDark from '@imgs/common/logo.webp'
+  import logoLight from '@imgs/common/logo1.webp'
 
   interface Props {
     /** logo 大小 */
@@ -18,6 +22,8 @@
   })
 
   const logoStyle = computed(() => ({ width: `${props.size}px` }))
+  const { isDark } = storeToRefs(useSettingStore())
+  const logoSrc = computed(() => (isDark.value ? logoDark : logoLight))
 </script>
 
 <style lang="scss" scoped>

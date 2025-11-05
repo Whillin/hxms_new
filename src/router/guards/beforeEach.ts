@@ -19,6 +19,11 @@ import { useWorktabStore } from '@/store/modules/worktab'
 import { fetchGetUserInfo } from '@/api/auth'
 import { fetchRefresh } from '@/api/auth'
 
+// 本地预览降级：当访问模式为前端或显式开启跳过鉴权时，不触发后端鉴权相关请求
+const DEV_SKIP_AUTH =
+  String(import.meta.env.VITE_ACCESS_MODE || '').toLowerCase() === 'frontend' ||
+  String(import.meta.env.VITE_DEV_SKIP_AUTH || '').toLowerCase() === 'true'
+
 // 是否已注册动态路由
 const isRouteRegistered = ref(false)
 
@@ -174,6 +179,31 @@ async function handleDynamicRoutes(
 
     // 获取用户信息
     const userStore = useUserStore()
+
+    // 如果是本地预览降级模式：直接走前端菜单，不请求后端接口
+    if (DEV_SKIP_AUTH) {
+      // 补齐最小用户信息以保证角色过滤逻辑正常运行
+      if (!userStore.info || Object.keys(userStore.info).length === 0) {
+        userStore.setUserInfo({
+          buttons: [],
+          roles: ['R_ADMIN'],
+          userId: 0,
+          userName: 'PreviewUser',
+          email: ''
+        } as Api.Auth.UserInfo)
+      }
+
+      // 直接按前端模式注册菜单
+      await processFrontendMenu(router)
+
+      // 处理根路径跳转
+      if (handleRootPathRedirect(to, next)) {
+        return
+      }
+
+      next({ path: to.path, query: to.query, hash: to.hash, replace: true })
+      return
+    }
     // 初始化阶段：若存在刷新令牌且本会话尚未刷新，先刷新一次以获取最新角色
     try {
       const onceKey = 'once_refreshed_token'

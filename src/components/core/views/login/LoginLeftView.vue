@@ -71,13 +71,20 @@
 
 <script setup lang="ts">
   import AppConfig from '@/config'
-  import logoImg from '@imgs/common/logo.webp'
+  import logoDark from '@imgs/common/logo.webp'
+  import logoLight from '@imgs/common/logo1.webp'
   import { themeAnimation } from '@/utils/theme/animation'
+  import { storeToRefs } from 'pinia'
+  import { useSettingStore } from '@/store/modules/setting'
 
   // 定义 props
   defineProps<{
     hideContent?: boolean // 是否隐藏内容，只显示 logo
   }>()
+
+  // 根据主题切换登录页主图：暗色用原图，浅色用新图
+  const { isDark } = storeToRefs(useSettingStore())
+  const logoImg = computed(() => (isDark.value ? logoDark : logoLight))
 </script>
 
 <style lang="scss" scoped>

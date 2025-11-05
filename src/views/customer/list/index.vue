@@ -339,34 +339,24 @@
   }
 
   // 行内操作
-  // 兼容不同主键字段命名（id/customerId/ID），确保操作项能正确获取ID
-  const normalizeId = (row: any): number => {
-    const candidate = (row?.id ?? row?.customerId ?? row?.ID ?? row?.Id) as any
-    const n = Number(candidate)
-    return Number.isFinite(n) && n > 0 ? n : NaN
-  }
-
   const handleRowEdit = (row: CustomerItem) => {
-    // 显式确保 id 为数字类型，避免后续校验与后端查询失败
-    editForm.value = { ...row, id: normalizeId(row) }
+    // 回退为直接使用行数据，不做本地 ID 强校验
+    editForm.value = { ...row }
     dialogVisible.value = true
   }
   const handleRowDelete = async (row: CustomerItem) => {
     try {
-      const id = normalizeId(row)
-      await fetchDeleteCustomer(id, { showSuccessMessage: true })
+      await fetchDeleteCustomer((row as any).id as number, { showSuccessMessage: true })
       refreshData()
-    } catch {
+    } catch (err: any) {
+      // 全局请求拦截器已弹出服务端错误信息，这里仅兜底提示
       ElMessage.error('删除失败')
     }
   }
 
   const submitEdit = async () => {
-    const id = Number(editForm.value?.id)
-    // 不再因缺少有效ID而阻断请求：允许后端返回更准确的错误信息或执行新增/校验逻辑
     const payload: any = {
-      // 仅当ID有效时才附带ID
-      ...(Number.isFinite(id) && id > 0 ? { id } : {}),
+      id: (editForm.value as any).id,
       userName: String(editForm.value.userName || ''),
       userPhone: String(editForm.value.userPhone || ''),
       userGender: String(editForm.value.userGender || '未知') as any,
@@ -385,7 +375,8 @@
       await fetchSaveCustomer(payload as any, { showSuccessMessage: true })
       dialogVisible.value = false
       refreshData()
-    } catch {
+    } catch (err: any) {
+      // 全局请求拦截器已弹出服务端错误信息，这里仅兜底提示
       ElMessage.error('保存失败')
     }
   }

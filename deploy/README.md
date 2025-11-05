@@ -35,3 +35,31 @@
 
 - 前端：`curl -I http://106.52.174.194/`
 - 后端：`curl -I http://106.52.174.194:3001/`
+
+## 一键更新（前端 + 后端）
+
+- 脚本：`bash /root/apps/hxms_new/deploy/update_all.sh`
+- 功能：
+  - 在更新前自动校验关键文案值：`src/locales/langs/zh.json` 的 `menus.clue.leads` 必须为“到店客流表”。
+  - 运行后端更新（调用 `deploy/remote_update.sh`，包含 `git pull`、DB 迁移、构建并滚动更新 API）。
+  - 构建并部署前端（自动识别 `hxms_web` 容器或宿主机 `/var/www/hxms_new`）。
+  - 成功后进行基础的访问头校验。
+
+- 可选参数：
+  - `--auto-fix`：若文案不匹配，自动修正为“到店客流表”后继续更新。
+  - `--skip-check`：跳过文案校验（不推荐）。
+  - `--frontend-only`：仅更新前端。
+  - `--backend-only`：仅更新后端。
+
+示例：
+
+```bash
+# 标准一键更新（前后端）
+bash deploy/update_all.sh
+
+# 仅前端（比如只改了 UI）
+bash deploy/update_all.sh --frontend-only
+
+# 文案校验失败时自动修复并继续
+bash deploy/update_all.sh --auto-fix
+```
