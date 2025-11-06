@@ -27,6 +27,7 @@
     "typeorm": "^0.3.27"
   },
   "devDependencies": {
+    "@types/express": "^4.17.21",
     "@types/ms": "^2.1.0",
     "@types/node": "^18.19.130",
     "@vue/compiler-sfc": "^3.5.22",
