@@ -85,3 +85,7 @@ volumes:
   mysql-data:
   mysql-replica-data:
   redis-data:
+
+networks:
+  hxms_net:
+    name: hxms_net
