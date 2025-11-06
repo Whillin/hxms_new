@@ -189,7 +189,8 @@
       const res = await fetchGetCustomerStoreOptions()
       const list = Array.isArray(res) ? res : (res as any)?.data || []
       storeOptionsRef.value = list.map((s: any) => ({ label: s.name, value: s.id }))
-    } catch {
+    } catch (error) {
+      console.error('Failed to load store options:', error)
       storeOptionsRef.value = []
     }
   }
@@ -349,6 +350,7 @@
       await fetchDeleteCustomer((row as any).id as number, { showSuccessMessage: true })
       refreshData()
     } catch (err: any) {
+      console.error('Delete failed:', err)
       // 全局请求拦截器已弹出服务端错误信息，这里仅兜底提示
       ElMessage.error('删除失败')
     }
@@ -376,6 +378,7 @@
       dialogVisible.value = false
       refreshData()
     } catch (err: any) {
+      console.error('Save failed:', err)
       // 全局请求拦截器已弹出服务端错误信息，这里仅兜底提示
       ElMessage.error('保存失败')
     }

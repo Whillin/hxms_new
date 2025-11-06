@@ -31,18 +31,19 @@ export class ChannelsController {
         'DCC/ADC(易车）',
         'DCC/ADC(其他垂媒）'
       ],
-      '新媒体开发': [
+      新媒体开发: [
         '新媒体（公司抖音）',
         '新媒体（公司小红书/其他）',
         '新媒体（个人小红书）',
         '新媒体（个人抖音/其他）'
       ],
-      '保客开发': ['保客（小鹏)', '保客（奥迪)'],
-      '转介绍开发': ['转介绍（客户）', '转介绍（内部）', '转介绍（圈层）'],
-      '大用户开发': ['大用户（外拓）']
+      保客开发: ['保客（小鹏)', '保客（奥迪)'],
+      转介绍开发: ['转介绍（客户）', '转介绍（内部）', '转介绍（圈层）'],
+      大用户开发: ['大用户（外拓）']
     }
 
-    const computeCategory = (l1: string) => (['DCC/ADC到店', '新媒体开发'].includes(l1) ? '线上' : '线下')
+    const computeCategory = (l1: string) =>
+      ['DCC/ADC到店', '新媒体开发'].includes(l1) ? '线上' : '线下'
     const computeSource = (l1: string) =>
       ['展厅到店', 'DCC/ADC到店', '车展外展'].includes(l1) ? '自然到店' : '主动开发'
 
@@ -95,7 +96,8 @@ export class ChannelsController {
       for (const r of rows) {
         if (r.level2 && r.level2.trim() !== '') l2set.add(r.level2)
         // 元数据：按一级统一即可
-        if (!metaByLevel1[l1]) metaByLevel1[l1] = { category: r.category, businessSource: r.businessSource }
+        if (!metaByLevel1[l1])
+          metaByLevel1[l1] = { category: r.category, businessSource: r.businessSource }
       }
       level2Map[l1] = Array.from(l2set).map((v) => ({ label: v, value: v }))
     }

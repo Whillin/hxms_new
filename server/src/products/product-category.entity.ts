@@ -1,4 +1,11 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm'
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  Index
+} from 'typeorm'
 
 /** 商品分类（层级：品牌/系列/分类等，采用父子关系） */
 @Entity('product_categories')

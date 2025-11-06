@@ -9,7 +9,9 @@
 
     <div class="actions">
       <ElButton type="primary" @click="testGetDebug">测试 GET /api/auth/debug-di</ElButton>
-      <ElButton type="warning" @click="testPostLogin" style="margin-left: 8px">测试 POST /api/auth/login</ElButton>
+      <ElButton type="warning" @click="testPostLogin" style="margin-left: 8px"
+        >测试 POST /api/auth/login</ElButton
+      >
     </div>
 
     <div class="result" v-if="lastResult">
@@ -48,24 +50,37 @@
   }
 
   const testPostLogin = async () => {
-      lastResult.value = ''
-      try {
-        const res = await fetch('/api/auth/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userName: 'Admin', password: '123456' })
-        })
-        const text = await res.text()
-        lastResult.value = `HTTP ${res.status}\n` + text
-      } catch (err) {
-        lastResult.value = '[POST login] 错误：\n' + safeStringify(err)
-      }
+    lastResult.value = ''
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userName: 'Admin', password: '123456' })
+      })
+      const text = await res.text()
+      lastResult.value = `HTTP ${res.status}\n` + text
+    } catch (err) {
+      lastResult.value = '[POST login] 错误：\n' + safeStringify(err)
+    }
   }
 </script>
 
 <style scoped>
-  .debug-page { padding: 16px; }
-  .info p { margin: 4px 0; }
-  .actions { margin: 12px 0; }
-  .result pre { background: #f7f7f7; padding: 12px; border-radius: 6px; }
+  .debug-page {
+    padding: 16px;
+  }
+
+  .info p {
+    margin: 4px 0;
+  }
+
+  .actions {
+    margin: 12px 0;
+  }
+
+  .result pre {
+    padding: 12px;
+    background: #f7f7f7;
+    border-radius: 6px;
+  }
 </style>

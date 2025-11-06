@@ -121,7 +121,9 @@
       gender: isEdit ? row.userGender || '男' : '男',
       // 预填时过滤掉 R_USER
       role: isEdit
-        ? (Array.isArray(row.userRoles) ? row.userRoles.filter((code: string) => code !== 'R_USER') : [])
+        ? Array.isArray(row.userRoles)
+          ? row.userRoles.filter((code: string) => code !== 'R_USER')
+          : []
         : []
     })
   }

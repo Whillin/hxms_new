@@ -1,18 +1,21 @@
 // Generate JWT tokens for existing users without logging in
-// Usage: node server/scripts/generate-token.cjs <userId> <userName> <rolesComma>
-// Example: node server/scripts/generate-token.cjs 18 陈纪杭 R_USER,R_SALES
+// Usage: node server/scripts/generate-token.mjs <userId> <userName> <rolesComma>
+// Example: node server/scripts/generate-token.mjs 18 陈纪杭 R_USER,R_SALES
 
-const path = require('path')
-const fs = require('fs')
-const dotenv = require('dotenv')
-const jwt = require('jsonwebtoken')
+import path from 'path'
+import { fileURLToPath } from 'url'
+import dotenv from 'dotenv'
+import jwt from 'jsonwebtoken'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
 
 // Load env from server/.env
-dotenv.config({ path: path.resolve(process.cwd(), 'server', '.env') })
+dotenv.config({ path: path.resolve(path.dirname(__dirname), '.env') })
 
 const [, , idArg, nameArg, rolesArg] = process.argv
 if (!idArg || !nameArg || !rolesArg) {
-  console.error('Usage: node server/scripts/generate-token.cjs <userId> <userName> <rolesComma>')
+  console.error('Usage: node server/scripts/generate-token.mjs <userId> <userName> <rolesComma>')
   process.exit(1)
 }
 

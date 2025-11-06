@@ -191,7 +191,7 @@
       if (typeof opt === 'string' || typeof opt === 'number') {
         return { label: String(opt), value: opt }
       }
-      if (opt && ("label" in opt || "value" in opt)) {
+      if (opt && ('label' in opt || 'value' in opt)) {
         return opt
       }
       const label = opt?.name ?? opt?.text ?? String(opt)
@@ -228,7 +228,9 @@
   })
 
   const isExpanded = ref(props.defaultExpanded)
-  const expandToggleText = computed(() => (isExpanded.value ? t('table.searchBar.collapse') : t('table.searchBar.expand')))
+  const expandToggleText = computed(() =>
+    isExpanded.value ? t('table.searchBar.collapse') : t('table.searchBar.expand')
+  )
   const shouldShowExpandToggle = computed(() => props.showExpand && props.items.length > 0)
 
   const actionButtonsStyle = computed(() => ({
@@ -264,9 +266,11 @@
       display: flex;
       flex-wrap: wrap;
     }
+
     .action-column {
       flex: 1;
       max-width: 100%;
+
       .action-buttons-wrapper {
         display: flex;
         flex-wrap: wrap;
@@ -274,10 +278,12 @@
         justify-content: flex-end;
         margin-bottom: 12px;
       }
+
       .form-buttons {
         display: flex;
         gap: 8px;
       }
+
       .filter-toggle {
         display: flex;
         align-items: center;
@@ -286,11 +292,23 @@
         color: var(--main-color);
         cursor: pointer;
         transition: color 0.2s ease;
+
         &:hover {
           color: var(--ElColor-primary);
         }
-        span { font-size: 14px; user-select: none; }
-        .icon-wrapper { display: flex; align-items: center; margin-left: 4px; font-size: 14px; transition: transform 0.2s ease; }
+
+        span {
+          font-size: 14px;
+          user-select: none;
+        }
+
+        .icon-wrapper {
+          display: flex;
+          align-items: center;
+          margin-left: 4px;
+          font-size: 14px;
+          transition: transform 0.2s ease;
+        }
       }
     }
   }

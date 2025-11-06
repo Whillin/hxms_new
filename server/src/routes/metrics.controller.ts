@@ -28,11 +28,13 @@ export class MetricsController {
     try {
       return await register.metrics()
     } catch {
-      return [
-        '# HELP hxms_api_metrics_disabled Prometheus metrics are disabled',
-        '# TYPE hxms_api_metrics_disabled gauge',
-        'hxms_api_metrics_disabled 1'
-      ].join('\n') + '\n'
+      return (
+        [
+          '# HELP hxms_api_metrics_disabled Prometheus metrics are disabled',
+          '# TYPE hxms_api_metrics_disabled gauge',
+          'hxms_api_metrics_disabled 1'
+        ].join('\n') + '\n'
+      )
     }
   }
 }

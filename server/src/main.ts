@@ -6,6 +6,18 @@ import path from 'path'
 import dotenv from 'dotenv'
 import { createPool } from 'mysql2/promise'
 import helmet from 'helmet'
+import { NodeSDK } from '@opentelemetry/sdk-node'
+import { JaegerExporter } from '@opentelemetry/exporter-jaeger'
+import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node'
+
+// Initialize OpenTelemetry
+const sdk = new NodeSDK({
+  traceExporter: new JaegerExporter({
+    endpoint: process.env.JAEGER_ENDPOINT || 'http://jaeger:14268/api/traces'
+  }),
+  instrumentations: [getNodeAutoInstrumentations()]
+})
+sdk.start()
 
 dotenv.config({ path: path.resolve(process.cwd(), '.env'), override: true })
 
@@ -37,7 +49,9 @@ async function bootstrap() {
   try {
     const instance = app.getHttpAdapter().getInstance?.()
     if (instance?.set) instance.set('trust proxy', true)
-  } catch {}
+  } catch (error) {
+    console.error('Failed to set trust proxy:', error)
+  }
   app.enableCors({ origin: [/^http:\/\/localhost:\d+$/], credentials: true })
   // 安全响应头：在后端也加固，配合前置 Nginx/HTTPS 更佳
   app.use(

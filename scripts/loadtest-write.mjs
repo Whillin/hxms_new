@@ -15,22 +15,37 @@ const args = (() => {
 const BASE = (args.base || 'http://localhost:3010/api').replace(/\/$/, '')
 const USER = args.user || 'Admin'
 const PASS = args.pass || '123456'
-const ENDPOINTS = (args.endpoints || 'clue,employee,customer').split(',').map((s) => s.trim()).filter(Boolean)
+const ENDPOINTS = (args.endpoints || 'clue,employee,customer')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean)
 const CONCURRENCY = Number(args.concurrency || 5)
 const REQUESTS = Number(args.requests || 50)
 const SIMULATE_IPS = String(args.simulateIps || 'false') === 'true'
 
-function makeUrl(path) { return `${BASE}${path.startsWith('/') ? '' : '/'}${path}` }
-function now() { return Date.now() }
+function makeUrl(path) {
+  return `${BASE}${path.startsWith('/') ? '' : '/'}${path}`
+}
+function now() {
+  return Date.now()
+}
 
 async function fetchJson(url, { method = 'GET', headers = {}, body, token, xff } = {}) {
   const h = { 'Content-Type': 'application/json', ...headers }
   if (token) h['Authorization'] = `Bearer ${token}`
   if (xff) h['X-Forwarded-For'] = xff
   const t0 = now()
-  const res = await fetch(url, { method, headers: h, body: body ? JSON.stringify(body) : undefined })
+  const res = await fetch(url, {
+    method,
+    headers: h,
+    body: body ? JSON.stringify(body) : undefined
+  })
   let json = undefined
-  try { json = await res.json() } catch {}
+  try {
+    json = await res.json()
+  } catch {
+    // 忽略 JSON 解析错误
+  }
   const ms = now() - t0
   const code = json?.code ?? (res.ok ? 0 : res.status)
   const msg = json?.msg ?? json?.message ?? ''
@@ -39,12 +54,19 @@ async function fetchJson(url, { method = 'GET', headers = {}, body, token, xff }
 
 function extractToken(loginJson) {
   return (
-    loginJson?.data?.token || loginJson?.data?.accessToken || loginJson?.data?.jwt || loginJson?.token || ''
+    loginJson?.data?.token ||
+    loginJson?.data?.accessToken ||
+    loginJson?.data?.jwt ||
+    loginJson?.token ||
+    ''
   )
 }
 
 async function login() {
-  const r = await fetchJson(makeUrl('/auth/login'), { method: 'POST', body: { username: USER, password: PASS } })
+  const r = await fetchJson(makeUrl('/auth/login'), {
+    method: 'POST',
+    body: { username: USER, password: PASS }
+  })
   const token = extractToken(r.json)
   if (!token) throw new Error('login failed')
   return token
@@ -58,20 +80,26 @@ function percentile(arr, p) {
 }
 
 async function runQueue(tasks, limit) {
-  const results = []
   let i = 0
   const runners = Array.from({ length: Math.min(limit, tasks.length) }).map(async () => {
     while (i < tasks.length) {
       const cur = i++
-      try { results[cur] = await tasks[cur]() } catch (e) { results[cur] = { error: String(e) } }
+      try {
+        await tasks[cur]()
+      } catch (e) {
+        console.error(`Task ${cur} failed: ${e}`)
+      }
     }
   })
   await Promise.all(runners)
-  return results
 }
 
 function makeClueSave(i) {
-  const body = { title: `并发线索${i}`, customerName: `张三${i}`, phone: `138${String(10000000 + i).slice(-8)}` }
+  const body = {
+    title: `并发线索${i}`,
+    customerName: `张三${i}`,
+    phone: `138${String(10000000 + i).slice(-8)}`
+  }
   return body
 }
 function makeEmployeeSave(i) {
@@ -103,7 +131,9 @@ async function main() {
   for (const ep of ENDPOINTS) {
     const tasks = []
     const latencies = []
-    let ok = 0, fail = 0, limited = 0
+    let ok = 0,
+      fail = 0,
+      limited = 0
     const isClue = ep === 'clue'
     const isEmp = ep === 'employee'
     const isCus = ep === 'customer'
@@ -113,23 +143,39 @@ async function main() {
         let url = ''
         let body = {}
         // 模拟不同客户端 IP，以避免被全局限流拦截（测试环境）
-        const xff = SIMULATE_IPS ? `10.${isClue ? 1 : isEmp ? 2 : 3}.${(i / 254) | 0}.${(i % 254) + 1}` : undefined
-        if (isClue) { url = makeUrl('/clue/save'); body = makeClueSave(i) }
-        else if (isEmp) { url = makeUrl('/employee/save'); body = makeEmployeeSave(i) }
-        else if (isCus) { url = makeUrl('/customer/save'); body = makeCustomerSave(i) }
+        const xff = SIMULATE_IPS
+          ? `10.${isClue ? 1 : isEmp ? 2 : 3}.${(i / 254) | 0}.${(i % 254) + 1}`
+          : undefined
+        if (isClue) {
+          url = makeUrl('/clue/save')
+          body = makeClueSave(i)
+        } else if (isEmp) {
+          url = makeUrl('/employee/save')
+          body = makeEmployeeSave(i)
+        } else if (isCus) {
+          url = makeUrl('/customer/save')
+          body = makeCustomerSave(i)
+        }
         const r = await fetchJson(url, { method: 'POST', token, body, xff })
         latencies.push(r.ms)
-        if (r.status === 429) { limited++ }
-        else if (r.code === 200 || r.status === 201) { ok++ } else { fail++ }
+        if (r.status === 429) {
+          limited++
+        } else if (r.code === 200 || r.status === 201) {
+          ok++
+        } else {
+          fail++
+        }
         return r
       })
     }
 
-    const results = await runQueue(tasks, CONCURRENCY)
+    await runQueue(tasks, CONCURRENCY)
     summary[ep] = {
       requests: REQUESTS,
       concurrency: CONCURRENCY,
-      ok, fail, limited,
+      ok,
+      fail,
+      limited,
       p50: percentile(latencies, 50),
       p90: percentile(latencies, 90),
       p95: percentile(latencies, 95),
@@ -141,4 +187,7 @@ async function main() {
   console.log(JSON.stringify({ base: BASE, summary }, null, 2))
 }
 
-main().catch(e => { console.error(e); process.exit(2) })
+main().catch((e) => {
+  console.error(e)
+  process.exit(2)
+})

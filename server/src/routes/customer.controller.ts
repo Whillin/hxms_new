@@ -72,7 +72,8 @@ export class CustomerController {
       where,
       order: { updatedAt: 'DESC' },
       skip: (current - 1) * size,
-      take: size
+      take: size,
+      cache: { id: `customer_list_${JSON.stringify(where)}`, milliseconds: 60000 } // 添加查询缓存，1分钟
     })
 
     const payload = {

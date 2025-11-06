@@ -48,7 +48,8 @@ export default [
         ...autoImportConfig.globals,
         // TypeScript 全局命名空间
         Api: 'readonly',
-        Form: 'readonly'
+        Form: 'readonly',
+        __APP_VERSION__: 'readonly' // 添加 vite 定义的全局变量
       }
     },
     rules: {
@@ -76,7 +77,9 @@ export default [
       'public',
       '.vscode/**',
       'src/assets/**',
-      'src/utils/console.ts'
+      'src/utils/console.ts',
+      'server/dist/**', // 明确忽略 server/dist 目录
+      '**/dist/**' // 忽略所有 dist 目录
     ]
   },
   // prettier 配置

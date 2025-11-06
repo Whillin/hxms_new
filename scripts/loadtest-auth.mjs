@@ -33,7 +33,8 @@ async function once(url, user, password) {
     })
     const ms = performance.now() - start
     return { status: res.status, ms }
-  } catch (e) {
+  } catch {
+    // 忽略错误，继续执行
     const ms = performance.now() - start
     return { status: -1, ms }
   }

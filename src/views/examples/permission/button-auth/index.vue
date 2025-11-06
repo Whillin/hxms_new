@@ -76,9 +76,7 @@
 
             <!-- 前台角色可见 -->
             <div class="button-item">
-              <ElButton type="success" plain v-roles="'R_FRONT_DESK'">
-                前台可见
-              </ElButton>
+              <ElButton type="success" plain v-roles="'R_FRONT_DESK'"> 前台可见 </ElButton>
               <div class="button-desc">
                 <code>v-roles="'R_FRONT_DESK'"</code>
                 <span>前台岗位可见</span>

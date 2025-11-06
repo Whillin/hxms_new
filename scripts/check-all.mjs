@@ -99,22 +99,36 @@ async function main() {
   authedGetResults['user/debug'] = await fetchJson(`${BASE}/user/debug`, {
     headers: bearer(token)
   })
-  authedGetResults['user/list'] = await fetchJson(new URL(`${BASE}/user/list?current=1&size=10`).toString(), {
-    headers: bearer(token)
-  })
-  authedGetResults['customer/list'] = await fetchJson(new URL(`${BASE}/customer/list?current=1&size=10`).toString(), {
-    headers: bearer(token)
-  })
+  authedGetResults['user/list'] = await fetchJson(
+    new URL(`${BASE}/user/list?current=1&size=10`).toString(),
+    {
+      headers: bearer(token)
+    }
+  )
+  authedGetResults['customer/list'] = await fetchJson(
+    new URL(`${BASE}/customer/list?current=1&size=10`).toString(),
+    {
+      headers: bearer(token)
+    }
+  )
   authedGetResults['customer/store-options'] = await fetchJson(`${BASE}/customer/store-options`, {
     headers: bearer(token)
   })
-  authedGetResults['employee/list'] = await fetchJson(new URL(`${BASE}/employee/list?current=1&size=5`).toString(), {
-    headers: bearer(token)
-  })
-  authedGetResults['clue/list'] = await fetchJson(new URL(`${BASE}/clue/list?current=1&size=5`).toString(), {
-    headers: bearer(token)
-  })
-  authedGetResults['role/list'] = await fetchJson(new URL(`${BASE}/role/list?current=1&size=5`).toString())
+  authedGetResults['employee/list'] = await fetchJson(
+    new URL(`${BASE}/employee/list?current=1&size=5`).toString(),
+    {
+      headers: bearer(token)
+    }
+  )
+  authedGetResults['clue/list'] = await fetchJson(
+    new URL(`${BASE}/clue/list?current=1&size=5`).toString(),
+    {
+      headers: bearer(token)
+    }
+  )
+  authedGetResults['role/list'] = await fetchJson(
+    new URL(`${BASE}/role/list?current=1&size=5`).toString()
+  )
   authedGetResults['channel/options'] = await fetchJson(`${BASE}/channel/options`)
   authedGetResults['category/all'] = await fetchJson(`${BASE}/category/all`)
   authedGetResults['category/tree'] = await fetchJson(`${BASE}/category/tree`)
@@ -171,12 +185,21 @@ async function main() {
   const tmpRoleCode = `R_AUTOTEST_${suffix}`
   const roleSaveRes = await fetchJson(`${BASE}/role/save`, {
     method: 'POST',
-    body: { roleName: 'AutoTest', roleCode: tmpRoleCode, description: 'temporary role', enabled: true }
+    body: {
+      roleName: 'AutoTest',
+      roleCode: tmpRoleCode,
+      description: 'temporary role',
+      enabled: true
+    }
   })
   postResults['role/save'] = roleSaveRes
   // fetch role list to get id
-  const roleListRes = await fetchJson(new URL(`${BASE}/role/list?roleCode=${encodeURIComponent(tmpRoleCode)}`).toString())
-  const createdRole = (roleListRes?.json?.data?.records || []).find((r) => r.roleCode === tmpRoleCode)
+  const roleListRes = await fetchJson(
+    new URL(`${BASE}/role/list?roleCode=${encodeURIComponent(tmpRoleCode)}`).toString()
+  )
+  const createdRole = (roleListRes?.json?.data?.records || []).find(
+    (r) => r.roleCode === tmpRoleCode
+  )
   const roleId = createdRole?.roleId || createdRole?.id
   if (roleId) {
     const permSaveRes = await fetchJson(`${BASE}/role/permissions/save`, {
@@ -184,14 +207,25 @@ async function main() {
       body: { roleId, keys: ['User_view', 'User_edit'] }
     })
     postResults['role/permissions/save'] = permSaveRes
-    const permGetRes = await fetchJson(new URL(`${BASE}/role/permissions?roleId=${roleId}`).toString())
+    const permGetRes = await fetchJson(
+      new URL(`${BASE}/role/permissions?roleId=${roleId}`).toString()
+    )
     postResults['role/permissions'] = permGetRes
     const roleDelRes = await fetchJson(`${BASE}/role/delete`, { method: 'POST', body: { roleId } })
     postResults['role/delete'] = roleDelRes
   } else {
-    postResults['role/permissions/save'] = { status: 200, json: { code: 200, msg: 'skipped: roleId missing' } }
-    postResults['role/permissions'] = { status: 200, json: { code: 200, msg: 'skipped: roleId missing' } }
-    postResults['role/delete'] = { status: 200, json: { code: 200, msg: 'skipped: roleId missing' } }
+    postResults['role/permissions/save'] = {
+      status: 200,
+      json: { code: 200, msg: 'skipped: roleId missing' }
+    }
+    postResults['role/permissions'] = {
+      status: 200,
+      json: { code: 200, msg: 'skipped: roleId missing' }
+    }
+    postResults['role/delete'] = {
+      status: 200,
+      json: { code: 200, msg: 'skipped: roleId missing' }
+    }
   }
 
   // category/product: create product, associate with a category, query, then cleanup
@@ -200,11 +234,21 @@ async function main() {
   const prodName = `AutoModel_${suffix}`
   const prodCreate = await fetchJson(`${BASE}/product/save`, {
     method: 'POST',
-    body: { name: prodName, brand: 'AutoBrand', series: 'AutoSeries', price: 123456, status: 1, sales: 0, engineType: 'ICE' }
+    body: {
+      name: prodName,
+      brand: 'AutoBrand',
+      series: 'AutoSeries',
+      price: 123456,
+      status: 1,
+      sales: 0,
+      engineType: 'ICE'
+    }
   })
   postResults['product/save(create)'] = prodCreate
   // get product id via list
-  const prodList = await fetchJson(new URL(`${BASE}/product/list?name=${encodeURIComponent(prodName)}&current=1&size=5`).toString())
+  const prodList = await fetchJson(
+    new URL(`${BASE}/product/list?name=${encodeURIComponent(prodName)}&current=1&size=5`).toString()
+  )
   const prod = (prodList?.json?.data?.records || []).find((m) => m.name === prodName)
   const prodId = prod?.id
   if (prodId) {
@@ -220,9 +264,18 @@ async function main() {
     const delRes = await fetchJson(`${BASE}/product/${prodId}`, { method: 'DELETE' })
     postResults['product/delete'] = delRes
   } else {
-    postResults['product/save(update categories)'] = { status: 200, json: { code: 200, msg: 'skipped: productId missing' } }
-    postResults['product/:id/categories'] = { status: 200, json: { code: 200, msg: 'skipped: productId missing' } }
-    postResults['product/delete'] = { status: 200, json: { code: 200, msg: 'skipped: productId missing' } }
+    postResults['product/save(update categories)'] = {
+      status: 200,
+      json: { code: 200, msg: 'skipped: productId missing' }
+    }
+    postResults['product/:id/categories'] = {
+      status: 200,
+      json: { code: 200, msg: 'skipped: productId missing' }
+    }
+    postResults['product/delete'] = {
+      status: 200,
+      json: { code: 200, msg: 'skipped: productId missing' }
+    }
   }
 
   // category: create brand and child, query products, then cleanup
@@ -266,10 +319,17 @@ async function main() {
   })
   postResults['clue/save'] = clueSave
   // locate clue by phone
-  const clueListByPhone = await fetchJson(new URL(`${BASE}/clue/list?current=1&size=5&customerPhone=${encodeURIComponent(cluePhone)}`).toString(), {
-    headers: bearer(token)
-  })
-  const clueItem = (clueListByPhone?.json?.data?.records || []).find((r) => String(r.customerPhone) === cluePhone)
+  const clueListByPhone = await fetchJson(
+    new URL(
+      `${BASE}/clue/list?current=1&size=5&customerPhone=${encodeURIComponent(cluePhone)}`
+    ).toString(),
+    {
+      headers: bearer(token)
+    }
+  )
+  const clueItem = (clueListByPhone?.json?.data?.records || []).find(
+    (r) => String(r.customerPhone) === cluePhone
+  )
   if (clueItem?.id) {
     const clueDel = await fetchJson(`${BASE}/clue/delete`, {
       method: 'POST',
@@ -278,7 +338,10 @@ async function main() {
     })
     postResults['clue/delete'] = clueDel
   } else {
-    postResults['clue/delete'] = { status: 200, json: { code: 200, msg: 'skipped: clue id missing' } }
+    postResults['clue/delete'] = {
+      status: 200,
+      json: { code: 200, msg: 'skipped: clue id missing' }
+    }
   }
 
   // employee: create then delete (find by phone)
@@ -296,9 +359,14 @@ async function main() {
     }
   })
   postResults['employee/save'] = empSave
-  const empList = await fetchJson(new URL(`${BASE}/employee/list?current=1&size=5&phone=${encodeURIComponent(empPhone)}`).toString(), {
-    headers: bearer(token)
-  })
+  const empList = await fetchJson(
+    new URL(
+      `${BASE}/employee/list?current=1&size=5&phone=${encodeURIComponent(empPhone)}`
+    ).toString(),
+    {
+      headers: bearer(token)
+    }
+  )
   const empItem = (empList?.json?.data?.records || []).find((e) => String(e.phone) === empPhone)
   if (empItem?.id) {
     const empDel = await fetchJson(`${BASE}/employee/delete`, {
@@ -307,7 +375,10 @@ async function main() {
     })
     postResults['employee/delete'] = empDel
   } else {
-    postResults['employee/delete'] = { status: 200, json: { code: 200, msg: 'skipped: employee id missing' } }
+    postResults['employee/delete'] = {
+      status: 200,
+      json: { code: 200, msg: 'skipped: employee id missing' }
+    }
   }
 
   // dangerous admin endpoints skipped by default (require explicit confirmation):
@@ -317,7 +388,12 @@ async function main() {
 }
 
 function printSummary(pub, getAuthed, posts, refreshRes) {
-  const wrap = (name, res) => ({ name, status: res?.status ?? 0, code: res?.json?.code, msg: res?.json?.msg })
+  const wrap = (name, res) => ({
+    name,
+    status: res?.status ?? 0,
+    code: res?.json?.code,
+    msg: res?.json?.msg
+  })
   const summary = {
     public: Object.entries(pub).map(([k, v]) => wrap(k, v)),
     authedGet: Object.entries(getAuthed).map(([k, v]) => wrap(k, v)),

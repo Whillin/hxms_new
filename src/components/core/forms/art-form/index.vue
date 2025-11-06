@@ -227,7 +227,7 @@
       if (typeof opt === 'string' || typeof opt === 'number') {
         return { label: String(opt), value: opt }
       }
-      if (opt && ("label" in opt || "value" in opt)) {
+      if (opt && ('label' in opt || 'value' in opt)) {
         return opt
       }
       const label = opt?.name ?? opt?.text ?? String(opt)

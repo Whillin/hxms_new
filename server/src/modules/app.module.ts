@@ -30,6 +30,11 @@ import { HealthController } from '../routes/health.controller'
 import { MetricsController } from '../routes/metrics.controller'
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler'
 import { APP_GUARD } from '@nestjs/core'
+import { BullModule } from '@nestjs/bull'
+import { CacheModule } from '@nestjs/cache-manager'
+import * as redisStore from 'cache-manager-redis-store'
+import { DebounceMiddleware } from '../common/debounce.middleware'
+import { MiddlewareConsumer } from '@nestjs/common'
 
 @Module({
   imports: [
@@ -75,8 +80,17 @@ import { APP_GUARD } from '@nestjs/core'
     ]),
     AuthModule,
     UserModule,
+    CacheModule.register({
+      isGlobal: true,
+      store: redisStore,
+      host: process.env.REDIS_HOST || 'redis',
+      port: process.env.REDIS_PORT || 6379
+    }),
     // 全局限流（v5+ 采用数组定义；ttl 单位毫秒）
-    ThrottlerModule.forRoot([{ ttl: 60000, limit: 60 }])
+    ThrottlerModule.forRoot([{ ttl: 60000, limit: 60 }]),
+    BullModule.registerQueue({
+      name: 'clue-processing'
+    })
   ],
   controllers: [
     UserController,
@@ -95,7 +109,12 @@ import { APP_GUARD } from '@nestjs/core'
     JwtGuard,
     DataScopeService,
     SeedService,
-    { provide: APP_GUARD, useClass: ThrottlerGuard }
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    DebounceMiddleware
   ]
 })
-export class AppModule {}
+export class AppModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(DebounceMiddleware).forRoutes('clue/list', 'customer/list')
+  }
+}

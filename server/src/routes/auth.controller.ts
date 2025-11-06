@@ -104,7 +104,9 @@ export class AuthController {
   /** 将刷新令牌写入 HttpOnly Cookie，生产开启 Secure 与 Lax SameSite */
   private setRefreshCookie(res: Response, value: string) {
     try {
-      const secure = (process.env.NODE_ENV === 'production') || String(process.env.COOKIE_SECURE).toLowerCase() === 'true'
+      const secure =
+        process.env.NODE_ENV === 'production' ||
+        String(process.env.COOKIE_SECURE).toLowerCase() === 'true'
       const domain = process.env.COOKIE_DOMAIN || undefined
       const maxAge = this.parseTtlToMs(process.env.JWT_REFRESH_EXPIRES_IN || '7d')
       res.cookie('refresh_token', value, {
@@ -123,11 +125,18 @@ export class AuthController {
 
   /** 解析 7d/2h/30m/60s 等 TTL 字符串为毫秒数（默认 7 天） */
   private parseTtlToMs(s: string): number {
-    const m = String(s).trim().match(/^(\d+)\s*([smhd])?$/i)
+    const m = String(s)
+      .trim()
+      .match(/^(\d+)\s*([smhd])?$/i)
     if (!m) return 7 * 24 * 60 * 60 * 1000
     const n = Number(m[1])
     const unit = (m[2] || 'd').toLowerCase()
-    const map: Record<string, number> = { s: 1000, m: 60 * 1000, h: 60 * 60 * 1000, d: 24 * 60 * 60 * 1000 }
+    const map: Record<string, number> = {
+      s: 1000,
+      m: 60 * 1000,
+      h: 60 * 60 * 1000,
+      d: 24 * 60 * 60 * 1000
+    }
     return n * (map[unit] || map['d'])
   }
 }

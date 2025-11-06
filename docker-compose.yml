@@ -20,6 +20,28 @@ services:
     networks:
       - hxms_net
 
+  jaeger:
+    image: jaegertracing/all-in-one:1.50
+    container_name: hxms_jaeger
+    environment:
+      COLLECTOR_OTLP_ENABLED: true
+    ports:
+      - '16686:16686'
+      - '14268:14268'
+    restart: always
+    networks:
+      - hxms_net
+
+  redis:
+    image: redis:7.0
+    container_name: hxms_redis
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis-data:/data
+    networks:
+      - hxms_net
+
   api:
     build: ./server
     container_name: hxms_api
@@ -30,27 +52,36 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
-    restart: always
-    command: sh -lc "until getent hosts mysql; do echo 'waiting mysql dns'; sleep 2; done; node dist/main.js"
+      jaeger:
+        condition: service_started
+      redis:
+        condition: service_started
     networks:
       - hxms_net
 
-  web:
-    build:
-      context: .
-      dockerfile: deploy/web.Dockerfile
-    container_name: hxms_web
-    ports:
-      - '80:80'
+  mysql-replica:
+    image: mysql:8.0
+    container_name: hxms_new-mysql-replica
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DB:-hxms_dev}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_PASSWORD:-123456}
+      MYSQL_REPLICATION_USER: repl
+      MYSQL_REPLICATION_PASSWORD: replpass
+    command: --server-id=2 --log-bin=mysql-bin --binlog-format=ROW
+    volumes:
+      - mysql-replica-data:/var/lib/mysql
+    healthcheck:
+      test: ['CMD', 'mysqladmin', 'ping', '-h', 'localhost']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - hxms_net # 修正为一致的网络名称
     depends_on:
-      - api
-    restart: always
-    networks:
-      - hxms_net
-
-networks:
-  hxms_net:
-    driver: bridge
+      mysql:
+        condition: service_healthy
 
 volumes:
   mysql-data:
+  mysql-replica-data:
+  redis-data:

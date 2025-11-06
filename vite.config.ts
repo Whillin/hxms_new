@@ -13,7 +13,7 @@ import { URL } from 'url'
 import type { Plugin } from 'vite'
 import { DEPARTMENT_TREE_DATA } from './src/mock/temp/departmentData'
 import { USER_LIST_DATA } from './src/mock/temp/userData'
-// import { visualizer } from 'rollup-plugin-visualizer'
+import { visualizer } from 'rollup-plugin-visualizer'
 
 export default ({ mode }: { mode: string }) => {
   const root = process.cwd()
@@ -92,6 +92,25 @@ export default ({ mode }: { mode: string }) => {
         warnOnError: true,
         exclude: [],
         include: ['src/views/**/*.vue']
+      },
+      sourcemap: false, // 禁用sourcemap以减少打包大小
+      rollupOptions: {
+        output: {
+          manualChunks: (id) => {
+            if (id.includes('node_modules')) {
+              if (id.includes('vue') || id.includes('vue-router') || id.includes('pinia')) {
+                return 'vue-vendor'
+              }
+              if (id.includes('element-plus')) {
+                return 'element-plus'
+              }
+              if (id.includes('echarts')) {
+                return 'echarts'
+              }
+              return 'vendor'
+            }
+          }
+        }
       }
     },
     plugins: [
@@ -126,14 +145,14 @@ export default ({ mode }: { mode: string }) => {
         threshold: 10240, // 只有大小大于该值的资源会被处理 10240B = 10KB
         deleteOriginFile: false // 压缩后是否删除原文件
       }),
-      vueDevTools()
+      vueDevTools(),
       // 打包分析
-      // visualizer({
-      //   open: true,
-      //   gzipSize: true,
-      //   brotliSize: true,
-      //   filename: 'dist/stats.html' // 分析图生成的文件名及路径
-      // }),
+      visualizer({
+        open: true,
+        gzipSize: true,
+        brotliSize: true,
+        filename: 'dist/stats.html' // 分析图生成的文件名及路径
+      })
     ],
     // 依赖预构建
     optimizeDeps: {

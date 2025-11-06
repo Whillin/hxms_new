@@ -23,7 +23,7 @@ export class HealthController {
     const status = ready ? 200 : 503
     return {
       code: status,
-      msg: ready ? 'ok' : (dbReady ? 'starting' : 'db_down'),
+      msg: ready ? 'ok' : dbReady ? 'starting' : 'db_down',
       data: { uptime: process.uptime(), dbReady }
     }
   }
