@@ -143,6 +143,12 @@ function deploy_frontend() {
   if docker ps -a --format '{{.Names}}' | grep -qx "hxms_web"; then
     echo "[+] Detected container hxms_web, copying dist to /usr/share/nginx/html"
     docker cp "$dist_dir/." hxms_web:/usr/share/nginx/html/
+    # 同步 Nginx 配置并重载，确保最新的缓存/安全/代理设置生效
+    if [ -f "deploy/nginx.conf" ]; then
+      echo "[+] Updating nginx config inside container"
+      docker cp deploy/nginx.conf hxms_web:/etc/nginx/conf.d/default.conf
+      docker exec hxms_web nginx -t || true
+    fi
     docker exec hxms_web nginx -s reload || true
     docker exec hxms_web ls -lah /usr/share/nginx/html | sed -n '1,8p' || true
     echo "[OK] Frontend deployed to container hxms_web"
@@ -155,6 +161,11 @@ function deploy_frontend() {
     echo "[+] Detected host path $host_dest, syncing dist"
     rsync -av --delete "$dist_dir/" "$host_dest/"
     chown -R www-data:www-data "$host_dest" || true
+    # 更新宿主机 Nginx 配置（如存在），并重载
+    if [ -f "deploy/nginx.host.conf" ]; then
+      echo "[+] Updating host nginx config"
+      cp deploy/nginx.host.conf /etc/nginx/conf.d/hxms_new.conf || true
+    fi
     if command -v nginx >/dev/null 2>&1 && command -v systemctl >/dev/null 2>&1; then
       nginx -t && systemctl reload nginx || true
     fi

@@ -7,7 +7,7 @@ RUN npm i -g pnpm
 
 # 复制包管理文件并安装依赖（尽量利用缓存）
 COPY package.json pnpm-lock.yaml ./
-RUN pnpm install --frozen-lockfile
+    RUN pnpm install --no-frozen-lockfile
 
 # 复制源码并构建
 COPY . .

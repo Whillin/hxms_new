@@ -119,11 +119,31 @@ docker ps
 - 将 `deploy/nginx.conf` 中 `server_name _;` 改为你的域名
 - 使用 `certbot` 为 Nginx 容器配置证书（或直接在宿主机跑 Nginx + 证书，web 容器仅做静态服务）
 
+### （腾讯云）CDN/WAF/HTTPS 快速落地
+
+若你使用腾讯云，推荐如下路径快速完成 P0 安全与加速：
+
+- CDN：在腾讯云“内容分发网络”中添加你的域名，源站指向云主机公网 IP（或 CLB），开启“HTTPS 加密”，上传证书并启用 HTTP2；缓存规则保持默认，对 `/index.html` 关闭缓存。
+- WAF：在“Web 应用防火墙”中绑定你的域名，开启基础防护、CC 防护与常见威胁拦截。按需设置白名单（例如公司固定出口）以避免误拦。
+- 证书：在“SSL 证书”申请并签发域名证书；若终止在宿主机 Nginx，请将证书路径填入 `deploy/nginx.host.conf` 中的：
+  - `ssl_certificate /etc/nginx/certs/fullchain.pem;`
+  - `ssl_certificate_key /etc/nginx/certs/privkey.pem;`
+  然后 `sudo nginx -t && sudo systemctl reload nginx` 生效；HTTP 将 301 跳转到 HTTPS，并附加 HSTS。
+- 回源协议：若 CDN/WAF 终止 TLS，回源到宿主机使用 HTTP 即可；我们在宿主机 Nginx 已设置 `Strict-Transport-Security` 响应头，浏览器端将强制使用 HTTPS 访问。
+
+> 注意：容器内 Nginx（`deploy/nginx.conf`）不启用 443，仅用于无证书的 HTTP 反代；生产建议以宿主机或云端（CDN/WAF/CLB）终止 TLS。
+
 ## 十、安全建议
 
 - 仅开放 `80/443/22` 端口；后端端口对外不暴露也可（Compose 中移除 `3001:3001` 映射）
 - 使用强随机的 `JWT_SECRET` / 数据库凭据
 - 定期备份数据库与镜像
+
+### 限流与指标（P0）
+
+- 已为登录接口添加限流（默认 5 次/分钟），并开启全局限流（默认 60 次/分钟）；可在 `server/src/modules/app.module.ts` 与 `routes/auth.controller.ts` 调整。
+- 监控指标端点：`GET /api/metrics`（Prometheus 格式）。可在腾讯云可观测、新装 Prometheus/Grafana 或其他平台采集。
+- 安全响应头：后端通过 Helmet 附加安全头，宿主机 Nginx 强制 HTTPS 并开启 HSTS。
 
 ## 文件说明
 
@@ -132,6 +152,9 @@ docker ps
 - `deploy/nginx.conf`：Nginx 站点配置（SPA 回退 + `/api` 反代）
 - `env.production.example`：前端生产环境示例，复制为 `.env.production`
 - `server/.env.production.example`：后端生产环境示例，复制为 `.env.production`
+- `deploy/nginx.host.conf`：宿主机 Nginx（含 HTTPS/HSTS 与反代 `/api`）
+- `server/src/routes/metrics.controller.ts`：Prometheus 指标端点
+- `scripts/loadtest-auth.mjs`：登录接口压测脚本，可验证限流与性能
 
 若需要，我可以为你再补一个 GitHub Actions 工作流，将 `main` 分支的变更自动构建并通过 SSH 发布到服务器，并执行 `docker compose up -d --build` 完成自动更新。
 

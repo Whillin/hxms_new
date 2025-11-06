@@ -26,6 +26,10 @@ import { CategoryController } from '../routes/category.controller'
 import { ProductController } from '../routes/product.controller'
 import { SeedService } from '../common/seed.service'
 import { CustomerController } from '../routes/customer.controller'
+import { HealthController } from '../routes/health.controller'
+import { MetricsController } from '../routes/metrics.controller'
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler'
+import { APP_GUARD } from '@nestjs/core'
 
 @Module({
   imports: [
@@ -70,7 +74,9 @@ import { CustomerController } from '../routes/customer.controller'
       ProductCategoryLink
     ]),
     AuthModule,
-    UserModule
+    UserModule,
+    // 全局限流（v5+ 采用数组定义；ttl 单位毫秒）
+    ThrottlerModule.forRoot([{ ttl: 60000, limit: 60 }])
   ],
   controllers: [
     UserController,
@@ -81,8 +87,15 @@ import { CustomerController } from '../routes/customer.controller'
     ChannelsController,
     CategoryController,
     ProductController,
-    CustomerController
+    CustomerController,
+    HealthController,
+    MetricsController
   ],
-  providers: [JwtGuard, DataScopeService, SeedService]
+  providers: [
+    JwtGuard,
+    DataScopeService,
+    SeedService,
+    { provide: APP_GUARD, useClass: ThrottlerGuard }
+  ]
 })
 export class AppModule {}

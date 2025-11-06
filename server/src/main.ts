@@ -5,6 +5,7 @@ import { ValidationPipe } from '@nestjs/common'
 import path from 'path'
 import dotenv from 'dotenv'
 import { createPool } from 'mysql2/promise'
+import helmet from 'helmet'
 
 dotenv.config({ path: path.resolve(process.cwd(), '.env'), override: true })
 
@@ -32,7 +33,27 @@ async function ensureDatabase() {
 async function bootstrap() {
   await ensureDatabase()
   const app = await NestFactory.create(AppModule)
+  // 让 Express 信任反向代理，正确识别 X-Forwarded-For 中的真实客户端 IP
+  try {
+    const instance = app.getHttpAdapter().getInstance?.()
+    if (instance?.set) instance.set('trust proxy', true)
+  } catch {}
   app.enableCors({ origin: [/^http:\/\/localhost:\d+$/], credentials: true })
+  // 安全响应头：在后端也加固，配合前置 Nginx/HTTPS 更佳
+  app.use(
+    helmet({
+      contentSecurityPolicy: false, // 前端为 SPA，避免误伤
+      crossOriginEmbedderPolicy: false
+    })
+  )
+  // 明确设置 HSTS（若前置层终止 TLS，亦可在该层设置）
+  app.use(
+    helmet.hsts({
+      maxAge: 31536000,
+      includeSubDomains: true,
+      preload: false
+    })
+  )
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,

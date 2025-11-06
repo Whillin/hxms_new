@@ -80,8 +80,31 @@ docker compose up -d api
 echo "[+] Recent hxms_api logs (last 10s):"
 docker logs --since=10s hxms_api | tail -20 || true
 
-# Test API endpoints
-echo "[+] Testing API endpoints..."
+########################################
+# Health probes
+########################################
+echo "[+] Probing health endpoints..."
+if command -v curl >/dev/null 2>&1; then
+  echo "[*] GET /api/health/live (expect 200)"
+  live_status=$(curl -s -m 5 -o /dev/null -w "%{http_code}" http://localhost:3001/api/health/live || echo 000)
+  echo "    live status: $live_status"
+  echo "[*] Waiting for /api/health/ready to be 200 (up to 60s)"
+  ready_status=000
+  for i in $(seq 1 30); do
+    ready_status=$(curl -s -m 2 -o /dev/null -w "%{http_code}" http://localhost:3001/api/health/ready || echo 000)
+    if [ "$ready_status" = "200" ]; then
+      echo "    ready after $((i*2))s"
+      break
+    fi
+    sleep 2
+  done
+  if [ "$ready_status" != "200" ]; then
+    echo "[!] readiness check not passed (HTTP $ready_status), continuing with warnings"
+  fi
+fi
+
+# Test API endpoints (non-fatal)
+echo "[+] Testing API endpoints (non-fatal)..."
 
 # Simple health check via debug route (GET)
 echo "[*] Checking GET /api/auth/debug-di..."
@@ -89,7 +112,7 @@ curl -i -m 5 http://localhost:3001/api/auth/debug-di || echo "Debug-di test fail
 
 # Customer list route should exist and require auth; expect 401 instead of 404
 echo "[*] Checking GET /api/customer/list (expect 401)..."
-cust_status=$(curl -s -m 5 -o /tmp/cust_list.out -w "%{http_code}" "http://localhost:3001/api/customer/list?current=1&size=10")
+cust_status=$(curl -s -m 5 -o /tmp/cust_list.out -w "%{http_code}" "http://localhost:3001/api/customer/list?current=1&size=10" || echo 000)
 if [[ "$cust_status" == "401" || "$cust_status" == "200" ]]; then
   echo "Customer list endpoint reachable, HTTP $cust_status"
 else
@@ -102,7 +125,7 @@ echo "[*] Checking POST /api/auth/login..."
 status=$(curl -s -m 5 -o /tmp/login_test.out -w "%{http_code}" \
   -X POST http://localhost:3001/api/auth/login \
   -H 'Content-Type: application/json' \
-  -d '{}')
+  -d '{}' || echo 000)
 if [[ "$status" == "200" || "$status" == "400" || "$status" == "401" ]]; then
   echo "Login endpoint reachable, HTTP $status"
 else
