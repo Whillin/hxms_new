@@ -2,7 +2,7 @@ import { Process, Processor } from '@nestjs/bull'
 import { Job } from 'bull'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
-import { Clue } from '../routes/clue.entity' // 假设实体路径
+import { Clue } from '../clues/clue.entity'
 import { Customer } from '../customers/customer.entity'
 import { Channel } from '../channels/channel.entity'
 import { ProductModel } from '../products/product-model.entity'
@@ -146,12 +146,14 @@ export class ClueProcessor {
   }
 
   private async findAncestors(id: number): Promise<{ regionId?: number; brandId?: number }> {
-    const ancestors = { regionId: undefined, brandId: undefined }
+    const ancestors: { regionId?: number; brandId?: number } = {}
     let current = await this.deptRepo.findOne({ where: { id } })
-    while (current && current.parentId) {
-      current = await this.deptRepo.findOne({ where: { id: current.parentId } })
-      if (current.type === 'region') ancestors.regionId = current.id
-      if (current.type === 'brand') ancestors.brandId = current.id
+    while (current && typeof current.parentId === 'number') {
+      const parent = await this.deptRepo.findOne({ where: { id: current.parentId } })
+      if (!parent) break
+      if (parent.type === 'region') ancestors.regionId = parent.id
+      if (parent.type === 'brand') ancestors.brandId = parent.id
+      current = parent
     }
     return ancestors
   }

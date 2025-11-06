@@ -31,8 +31,8 @@ import { MetricsController } from '../routes/metrics.controller'
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler'
 import { APP_GUARD } from '@nestjs/core'
 import { BullModule } from '@nestjs/bull'
-import { CacheModule } from '@nestjs/cache-manager'
-import * as redisStore from 'cache-manager-redis-store'
+import { CacheModule, CacheStore } from '@nestjs/cache-manager'
+import { redisStore } from 'cache-manager-redis-store'
 import { DebounceMiddleware } from '../common/debounce.middleware'
 import { MiddlewareConsumer } from '@nestjs/common'
 
@@ -80,11 +80,17 @@ import { MiddlewareConsumer } from '@nestjs/common'
     ]),
     AuthModule,
     UserModule,
-    CacheModule.register({
+    CacheModule.registerAsync({
       isGlobal: true,
-      store: redisStore,
-      host: process.env.REDIS_HOST || 'redis',
-      port: process.env.REDIS_PORT || 6379
+      useFactory: async () => ({
+        store: (await redisStore({
+          socket: {
+            host: process.env.REDIS_HOST || 'redis',
+            port: Number(process.env.REDIS_PORT || 6379)
+          },
+          ttl: Number(process.env.CACHE_TTL_MS || 10000)
+        })) as unknown as CacheStore
+      })
     }),
     // 全局限流（v5+ 采用数组定义；ttl 单位毫秒）
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 60 }]),

@@ -80,18 +80,20 @@ function percentile(arr, p) {
 }
 
 async function runQueue(tasks, limit) {
+  const results = []
   let i = 0
   const runners = Array.from({ length: Math.min(limit, tasks.length) }).map(async () => {
     while (i < tasks.length) {
       const cur = i++
       try {
-        await tasks[cur]()
+        results[cur] = await tasks[cur]()
       } catch (e) {
-        console.error(`Task ${cur} failed: ${e}`)
+        results[cur] = { error: String(e) }
       }
     }
   })
   await Promise.all(runners)
+  return results
 }
 
 function makeClueSave(i) {
@@ -169,7 +171,7 @@ async function main() {
       })
     }
 
-    await runQueue(tasks, CONCURRENCY)
+    const results = await runQueue(tasks, CONCURRENCY)
     summary[ep] = {
       requests: REQUESTS,
       concurrency: CONCURRENCY,

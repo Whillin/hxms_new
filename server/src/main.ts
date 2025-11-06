@@ -6,18 +6,21 @@ import path from 'path'
 import dotenv from 'dotenv'
 import { createPool } from 'mysql2/promise'
 import helmet from 'helmet'
-import { NodeSDK } from '@opentelemetry/sdk-node'
-import { JaegerExporter } from '@opentelemetry/exporter-jaeger'
-import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node'
-
-// Initialize OpenTelemetry
-const sdk = new NodeSDK({
-  traceExporter: new JaegerExporter({
-    endpoint: process.env.JAEGER_ENDPOINT || 'http://jaeger:14268/api/traces'
-  }),
-  instrumentations: [getNodeAutoInstrumentations()]
-})
-sdk.start()
+// Initialize OpenTelemetry (optional, skip if deps missing)
+try {
+  const { NodeSDK } = require('@opentelemetry/sdk-node')
+  const { JaegerExporter } = require('@opentelemetry/exporter-jaeger')
+  const { getNodeAutoInstrumentations } = require('@opentelemetry/auto-instrumentations-node')
+  const sdk = new NodeSDK({
+    traceExporter: new JaegerExporter({
+      endpoint: process.env.JAEGER_ENDPOINT || 'http://jaeger:14268/api/traces'
+    }),
+    instrumentations: [getNodeAutoInstrumentations()]
+  })
+  sdk.start()
+} catch (e) {
+  // ignore if OpenTelemetry packages are unavailable
+}
 
 dotenv.config({ path: path.resolve(process.cwd(), '.env'), override: true })
 

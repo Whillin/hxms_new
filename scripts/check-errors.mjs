@@ -33,7 +33,7 @@ async function fetchJson(
   let json = undefined
   try {
     json = expectJson ? await res.json() : undefined
-  } catch {
+  } catch (_) {
     // 忽略 JSON 解析错误
   }
   const code = json?.code ?? (res.ok ? 0 : res.status)
