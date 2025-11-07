@@ -334,6 +334,12 @@
 
   const handleSearch = () => {
     // 触发搜索并回到第一页
+    // 避免与防抖请求重复触发
+    try {
+      ;(getDataDebounced as any)?.cancel?.()
+    } catch {
+      void 0
+    }
     getData()
   }
   const handleReset = () => {
@@ -343,6 +349,12 @@
       opportunityLevel: '',
       dealDone: '',
       daterange: undefined
+    }
+    // 避免与防抖请求重复触发
+    try {
+      ;(getDataDebounced as any)?.cancel?.()
+    } catch {
+      void 0
     }
     getData()
   }
@@ -426,7 +438,8 @@
     handleSizeChange,
     handleCurrentChange,
     refreshData,
-    getData
+    getData,
+    getDataDebounced
   } = useTable({
     core: {
       apiFn: async ({
@@ -535,6 +548,10 @@
         },
         { prop: 'operation', label: '操作', width: 220, useSlot: true }
       ]
+    },
+    performance: {
+      // 轻微延迟，提升输入体验与减少请求量
+      debounceTime: 400
     }
   })
 
@@ -1489,6 +1506,19 @@
     for (const o of storeOptions.value) map[o.value] = o.label
     return map
   })
+  // 搜索参数变化时，触发防抖的服务端分页搜索（保持页码重置为第1页）
+  watch(
+    () => searchForm.value,
+    () => {
+      try {
+        ;(getDataDebounced as any)?.()
+      } catch {
+        // 兜底直接请求
+        getData()
+      }
+    },
+    { deep: true }
+  )
   // 当用户仅有一个门店或已限制门店时，自动填充
   watch(
     () => storeOptions.value,
