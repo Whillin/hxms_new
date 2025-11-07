@@ -116,6 +116,14 @@ function update_backend() {
     fi
     docker compose build api
     docker compose up -d api
+
+    # 运行数据库迁移（若本机安装了 Node）
+    if command -v node >/dev/null 2>&1; then
+      echo "[+] Applying DB migrations via Node"
+      node server/scripts/migrate.mjs || echo "[!] Migration failed; continuing"
+    else
+      echo "[-] Node not found; skipping DB migrations"
+    fi
   fi
   echo "[+] Backend updated"
 }

@@ -1,0 +1,40 @@
+version: '3.8'
+
+# Blue-Green overlay: run two API services side-by-side
+services:
+  api_blue:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: hxms_api_blue
+    env_file:
+      - server/.env.production
+    depends_on:
+      - mysql
+      - redis
+      - jaeger
+    networks:
+      - hxms_net
+    ports:
+      - '3001:3001' # BLUE on host:3001
+
+  api_green:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: hxms_api_green
+    env_file:
+      - server/.env.production
+    depends_on:
+      - mysql
+      - redis
+      - jaeger
+    networks:
+      - hxms_net
+    ports:
+      - '3002:3001' # GREEN on host:3002
+
+networks:
+  hxms_net:
+    external: true
+    name: hxms_net

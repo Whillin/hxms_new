@@ -63,3 +63,55 @@ bash deploy/update_all.sh --frontend-only
 # 文案校验失败时自动修复并继续
 bash deploy/update_all.sh --auto-fix
 ```
+
+## 蓝绿/灰度发布
+
+- 叠加启动两个后端实例：
+  - `docker compose -f docker-compose.yml -f docker-compose.bluegreen.yml up -d api_blue api_green`
+- 切换后端上游（宿主机 Nginx）：
+  - 切至 blue：`bash deploy/switch_api.sh host blue`
+  - 切至 green：`bash deploy/switch_api.sh host green`
+- 切换容器内 Nginx（如使用内置 web 容器）：
+  - 切至 blue：`bash deploy/switch_api.sh inside blue`
+  - 切至 green：`bash deploy/switch_api.sh inside green`
+
+## 功能开关（后端）
+
+- 通过环境变量控制运行时功能：
+  - `FEATURE_FLAGS="QUEUE_SAVE_CLUE"` 或 `FEATURE_ENABLE_QUEUE_SAVE_CLUE=true`
+- 线索保存队列开关：
+  - 在 `server/src/routes/clue.controller.ts` 中，`QUEUE_SAVE_CLUE` 为开时，提交到 `clue-processing` 队列进行后台重任务处理；关闭时直接返回。
+
+## 数据库迁移
+
+- 本地/云端更新流程已集成幂等迁移：
+  - 本地：`deploy/update_all.sh` 在后端启动后执行 `node server/scripts/migrate.mjs`
+  - 云端：`deploy/remote_update.sh` 优先执行 `node server/scripts/migrate.mjs`，若 Node 不可用则回退为 SQL 迁移（安全幂等）。
+- 手动执行（需要 Node）：
+  - `cd server && npm run migrate` 或 `node ../server/scripts/migrate.mjs`
+- 目前迁移内容：
+  - `customers` 普通索引 `(storeId, phone)` 与唯一索引 `(storeId, phone, name)`
+  - `channels` 唯一索引 `compoundKey` 与常规索引 `category`、`businessSource`
+  - `clues` 字段重命名：`isReserved -> isAddWeChat`
+
+## 慢查询与读副本
+
+- 慢查询阈值：设置 `DB_SLOW_MS`（默认 `200` 毫秒）用于输出慢查询日志。
+- 读写分离：在 `.env` 配置只读副本：
+  - 主库：`MYSQL_HOST`、`MYSQL_PORT`、`MYSQL_USER`、`MYSQL_PASSWORD`、`MYSQL_DB`
+  - 只读副本：`MYSQL_RO_HOST`、`MYSQL_RO_PORT`（可多个副本，多副本按当前代码配置添加）
+- 应用层已启用 TypeORM `replication`，读操作可分流至只读副本，有利于报表流量隔离。
+
+## 队列化重任务、接口防抖与分页规范
+
+- 队列：Bull 队列 `clue-processing` 已启用，`ClueProcessor` 完成保存线索的重任务，包含数据范围校验、门店/客户规范化、渠道处理与车型解析等。
+- 接口防抖：后端 `DebounceMiddleware` 针对 `GET` 响应进行 10 秒缓存（成功响应），减少重复请求压力。
+- 分页规范（前端/后端约定）：
+  - 请求参数：`current`（页码，从 1 开始）、`size`（每页数量）
+  - 响应结构：`{ records, current, size, total }`
+
+## 分布式追踪（OpenTelemetry + Jaeger）
+
+- 依赖：已在 `server/package.json` 添加所需 OTel 包，构建时自动安装。
+- 配置：设置 `JAEGER_ENDPOINT`，默认 `http://jaeger:14268/api/traces`。
+- 启用：后端启动时自动初始化 OTel SDK（若依赖可用），可通过 Jaeger UI 查看链路信息。

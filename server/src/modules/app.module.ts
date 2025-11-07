@@ -34,6 +34,7 @@ import { BullModule } from '@nestjs/bull'
 import { CacheModule, CacheStore } from '@nestjs/cache-manager'
 import { redisStore } from 'cache-manager-redis-store'
 import { DebounceMiddleware } from '../common/debounce.middleware'
+import { FeatureFlagsService } from '../common/feature-flags.service'
 import { MiddlewareConsumer } from '@nestjs/common'
 
 @Module({
@@ -154,7 +155,8 @@ import { MiddlewareConsumer } from '@nestjs/common'
     DataScopeService,
     SeedService,
     { provide: APP_GUARD, useClass: ThrottlerGuard },
-    DebounceMiddleware
+    DebounceMiddleware,
+    FeatureFlagsService
   ]
 })
 export class AppModule {

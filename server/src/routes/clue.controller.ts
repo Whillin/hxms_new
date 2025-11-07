@@ -12,6 +12,7 @@ import { ProductModel } from '../products/product-model.entity'
 import { Employee } from '../employees/employee.entity'
 import { InjectQueue } from '@nestjs/bull'
 import { Queue } from 'bull'
+import { FeatureFlagsService } from '../common/feature-flags.service'
 
 @Controller('api/clue')
 export class ClueController {
@@ -24,7 +25,8 @@ export class ClueController {
     @InjectRepository(Employee) private readonly empRepo: Repository<Employee>,
     @Inject(DataScopeService) private readonly dataScopeService: DataScopeService,
     @Inject(UserService) private readonly userService: UserService,
-    @InjectQueue('clue-processing') private clueQueue: Queue
+    @InjectQueue('clue-processing') private clueQueue: Queue,
+    @Inject(FeatureFlagsService) private readonly features: FeatureFlagsService
   ) {}
 
   @UseGuards(JwtGuard)
@@ -139,6 +141,10 @@ export class ClueController {
   @UseGuards(JwtGuard)
   @Post('save')
   async save(@Req() req: any, @Body() body: any) {
+    // 后端功能开关：QUEUE_SAVE_CLUE（默认启用）
+    if (!this.features.isEnabled('QUEUE_SAVE_CLUE', true)) {
+      return { code: 503, msg: '当前禁用后台保存任务（QUEUE_SAVE_CLUE）', data: false }
+    }
     await this.clueQueue.add('save-clue', { user: req.user, body })
     return { code: 200, msg: '线索保存任务已提交到后台处理', data: true }
   }

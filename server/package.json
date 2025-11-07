@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "tsx src/main.ts",
     "start": "node dist/main.js",
-    "build": "tsc -p tsconfig.json"
+    "build": "tsc -p tsconfig.json",
+    "migrate": "node scripts/migrate.mjs"
   },
   "dependencies": {
     "@nestjs/common": "^10.3.0",
@@ -27,6 +28,8 @@
     "typeorm": "^0.3.27",
     "@opentelemetry/api": "^1.4.1",
     "@opentelemetry/exporter-jaeger": "^1.13.0",
+    "@opentelemetry/sdk-node": "^0.48.0",
+    "@opentelemetry/auto-instrumentations-node": "^0.48.0",
     "@opentelemetry/sdk-trace-node": "^1.13.0",
     "@opentelemetry/instrumentation": "^0.41.0",
     "@opentelemetry/instrumentation-express": "^0.32.0",

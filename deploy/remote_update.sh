@@ -57,18 +57,34 @@ fi
 echo "[+] Checking Docker containers..."
 docker ps | grep hxms || echo "No hxms containers found"
 
-# Database migration: rename clues.isReserved -> clues.isAddWeChat (idempotent)
-echo "[+] Running DB migration: rename clues.isReserved -> isAddWeChat if exists..."
-if docker ps --format '{{.Names}}' | grep -qx "hxms_new-mysql-1"; then
-  EXISTS=$(docker exec hxms_new-mysql-1 sh -lc "mysql -uroot -p\$MYSQL_ROOT_PASSWORD -N -e \"SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=\\\"hxms_dev\\\" AND table_name=\\\"clues\\\" AND column_name=\\\"isReserved\\\";\"" 2>/dev/null || echo 0)
-  if [ "${EXISTS}" = "1" ]; then
-    echo "[+] Column isReserved found; renaming to isAddWeChat..."
-    docker exec hxms_new-mysql-1 sh -lc "mysql -uroot -p\$MYSQL_ROOT_PASSWORD -e \"ALTER TABLE hxms_dev.clues CHANGE COLUMN isReserved isAddWeChat TINYINT(1) NOT NULL DEFAULT 0;\""
+# 数据库迁移（幂等）：优先使用 Node 脚本，失败则回退到 SQL
+echo "[+] Applying DB migrations (indexes, renames)"
+MIGR_OK=0
+if command -v node >/dev/null 2>&1 && [ -f server/scripts/migrate.mjs ]; then
+  echo "[+] Using Node migration runner"
+  if node server/scripts/migrate.mjs; then
+    MIGR_OK=1
   else
-    echo "[-] Column isReserved not found; skip rename"
+    echo "[!] Node migration failed; will attempt fallback SQL via MySQL container"
   fi
 else
-  echo "[!] MySQL container hxms_new-mysql-1 not running; skip DB migration"
+  echo "[-] Node not available or script missing, attempting fallback SQL via MySQL container"
+fi
+
+if [ "$MIGR_OK" -ne 1 ]; then
+  # Fallback: rename clues.isReserved -> isAddWeChat if column exists (idempotent)
+  echo "[+] Fallback: checking MySQL column rename isReserved -> isAddWeChat"
+  if docker ps --format '{{.Names}}' | grep -qx "hxms_new-mysql-1"; then
+    EXISTS=$(docker exec hxms_new-mysql-1 sh -lc "mysql -uroot -p\$MYSQL_ROOT_PASSWORD -N -e \"SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=\\\"hxms_dev\\\" AND table_name=\\\"clues\\\" AND column_name=\\\"isReserved\\\";\"" 2>/dev/null || echo 0)
+    if [ "${EXISTS}" = "1" ]; then
+      echo "[+] Column isReserved found; renaming to isAddWeChat..."
+      docker exec hxms_new-mysql-1 sh -lc "mysql -uroot -p\$MYSQL_ROOT_PASSWORD -e \"ALTER TABLE hxms_dev.clues CHANGE COLUMN isReserved isAddWeChat TINYINT(1) NOT NULL DEFAULT 0;\""
+    else
+      echo "[-] Column isReserved not found; skip rename"
+    fi
+  else
+    echo "[!] MySQL container hxms_new-mysql-1 not running; skip DB migration fallback"
+  fi
 fi
 
 # Build and restart API via docker compose to ensure latest code is running
