@@ -54,6 +54,36 @@ JWT_SECRET=your-secret
 
 > 注意：`.env.production` 文件不要提交到仓库，只放在服务器上。
 
+### 新增：主从复制与慢查询日志
+
+如需开启 TypeORM 层面的读写分离与慢查询日志，请在 `server/.env.production` 中设置以下变量：
+
+```
+# 主库（必填）
+MYSQL_HOST=mysql
+MYSQL_PORT=3306
+MYSQL_USER=root
+MYSQL_PASSWORD=123456
+MYSQL_DB=hxms_dev
+
+# 从库（可选，配置后启用读写分离）
+MYSQL_REPLICA_HOST=mysql-replica
+MYSQL_REPLICA_PORT=3306
+MYSQL_REPLICA_USER=root
+MYSQL_REPLICA_PASSWORD=123456
+
+# TypeORM 日志与慢查询
+TYPEORM_SYNC=false
+TYPEORM_LOGGING=error,warn
+TYPEORM_MAX_MS=2000
+```
+
+说明：
+
+- 仅配置 `MYSQL_REPLICA_HOST` 时会启用读写分离；只配主库则保持单点连接。
+- `TYPEORM_LOGGING` 支持 `false|true|all` 或逗号分隔（如 `error,warn`）。当设置了 `TYPEORM_MAX_MS` 时，超过阈值的查询会以 `warn` 级别输出慢查询日志。
+- 需要数据库层面实际主从复制以保证读一致性，本仓库提供 `mysql` 与 `mysql-replica` 两个容器，建议在生产环境完成主库的 binlog 与复制位点配置后再开启读写分离。
+
 ## 四、构建前端产物（dist）
 
 ```bash

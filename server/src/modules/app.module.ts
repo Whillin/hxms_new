@@ -38,32 +38,70 @@ import { MiddlewareConsumer } from '@nestjs/common'
 
 @Module({
   imports: [
-    TypeOrmModule.forRoot({
-      type: 'mysql',
-      host: process.env.MYSQL_HOST || 'localhost',
-      port: Number(process.env.MYSQL_PORT || 3306),
-      username: process.env.MYSQL_USER || 'root',
-      password: process.env.MYSQL_PASSWORD || '123456',
-      database: process.env.MYSQL_DB || 'hxms_dev',
-      entities: [
-        User,
-        Department,
-        Employee,
-        EmployeeStoreLink,
-        Role,
-        RolePermission,
-        Clue,
-        Customer,
-        Channel,
-        ProductModel,
-        ProductCategory,
-        ProductCategoryLink
-      ],
-      // 生产环境默认关闭同步，避免 TypeORM 在启动时尝试创建/变更索引导致故障
-      // 通过环境变量 TYPEORM_SYNC 控制，设置为 'true' 时开启
-      synchronize: String(process.env.TYPEORM_SYNC || '').toLowerCase() === 'true',
-      logging: false
-    }),
+    TypeOrmModule.forRoot(
+      (() => {
+        const base: any = {
+          type: 'mysql',
+          entities: [
+            User,
+            Department,
+            Employee,
+            EmployeeStoreLink,
+            Role,
+            RolePermission,
+            Clue,
+            Customer,
+            Channel,
+            ProductModel,
+            ProductCategory,
+            ProductCategoryLink
+          ],
+          synchronize: String(process.env.TYPEORM_SYNC || '').toLowerCase() === 'true',
+          maxQueryExecutionTime: Number(process.env.TYPEORM_MAX_MS || 2000),
+          logger: 'advanced-console'
+        }
+
+        const loggingRaw = String(process.env.TYPEORM_LOGGING || '').trim()
+        if (!loggingRaw) base.logging = false
+        else if (loggingRaw.toLowerCase() === 'false') base.logging = false
+        else if (loggingRaw.toLowerCase() === 'true') base.logging = true
+        else if (loggingRaw.toLowerCase() === 'all') base.logging = 'all'
+        else
+          base.logging = loggingRaw
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean)
+
+        if (process.env.MYSQL_REPLICA_HOST) {
+          base.replication = {
+            master: {
+              host: process.env.MYSQL_HOST || 'localhost',
+              port: Number(process.env.MYSQL_PORT || 3306),
+              username: process.env.MYSQL_USER || 'root',
+              password: process.env.MYSQL_PASSWORD || '123456',
+              database: process.env.MYSQL_DB || 'hxms_dev'
+            },
+            slaves: [
+              {
+                host: process.env.MYSQL_REPLICA_HOST || 'mysql-replica',
+                port: Number(process.env.MYSQL_REPLICA_PORT || 3306),
+                username: process.env.MYSQL_REPLICA_USER || process.env.MYSQL_USER || 'root',
+                password:
+                  process.env.MYSQL_REPLICA_PASSWORD || process.env.MYSQL_PASSWORD || '123456'
+              }
+            ]
+          }
+        } else {
+          base.host = process.env.MYSQL_HOST || 'localhost'
+          base.port = Number(process.env.MYSQL_PORT || 3306)
+          base.username = process.env.MYSQL_USER || 'root'
+          base.password = process.env.MYSQL_PASSWORD || '123456'
+          base.database = process.env.MYSQL_DB || 'hxms_dev'
+        }
+
+        return base
+      })()
+    ),
     // 注入各控制器需要的仓库
     TypeOrmModule.forFeature([
       Department,
