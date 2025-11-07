@@ -5,36 +5,34 @@
         <div class="user-wrap box-style">
           <img class="bg" src="@imgs/user/bg.webp" />
           <img class="avatar" src="@imgs/user/avatar.webp" />
-          <h2 class="name">{{ userInfo.userName }}</h2>
-          <p class="des">Art Design Pro 是一款漂亮的后台管理系统模版.</p>
+          <h2 class="name">{{ form.realName || userInfo.userName }}</h2>
+          
 
           <div class="outer-info">
             <div>
               <i class="iconfont-sys">&#xe72e;</i>
-              <span>jdkjjfnndf@mall.com</span>
+              <span>{{ userInfo.email || '-' }}</span>
             </div>
             <div>
               <i class="iconfont-sys">&#xe608;</i>
-              <span>交互专家</span>
+              <span>{{ getRoleLabel(ext.position) || '-' }}</span>
             </div>
             <div>
               <i class="iconfont-sys">&#xe736;</i>
-              <span>广东省深圳市</span>
+              <span>{{ form.address || '-' }}</span>
             </div>
             <div>
               <i class="iconfont-sys">&#xe811;</i>
-              <span>字节跳动－某某平台部－UED</span>
+              <span>{{ ext.orgPath || '-' }}</span>
             </div>
           </div>
 
-          <div class="lables">
-            <h3>标签</h3>
-            <div>
-              <div v-for="item in lableList" :key="item">
-                {{ item }}
-              </div>
-            </div>
+          <!-- 个人介绍 -->
+          <div class="intro">
+            <p class="intro-title">个人介绍</p>
+            <p class="intro-text">{{ form.des || '-' }}</p>
           </div>
+
         </div>
 
         <!-- <el-carousel class="gallery" height="160px"
@@ -60,7 +58,7 @@
           >
             <ElRow>
               <ElFormItem label="姓名" prop="realName">
-                <el-input v-model="form.realName" :disabled="!isEdit" />
+                <el-input v-model="form.realName" :disabled="true" />
               </ElFormItem>
               <ElFormItem label="性别" prop="sex" class="right-input">
                 <ElSelect v-model="form.sex" placeholder="Select" :disabled="!isEdit">
@@ -85,12 +83,20 @@
 
             <ElRow>
               <ElFormItem label="手机" prop="mobile">
-                <ElInput v-model="form.mobile" :disabled="!isEdit" />
-              </ElFormItem>
-              <ElFormItem label="地址" prop="address" class="right-input">
-                <ElInput v-model="form.address" :disabled="!isEdit" />
-              </ElFormItem>
-            </ElRow>
+              <ElInput v-model="form.mobile" :disabled="true" />
+            </ElFormItem>
+            <ElFormItem label="地址" prop="address" class="right-input">
+                <ElCascader
+                  v-model="addressSelect"
+                  :options="regionData"
+                  :props="addressProps"
+                  :disabled="!isEdit"
+                  filterable
+                  clearable
+                  @change="handleAddressChange"
+                />
+            </ElFormItem>
+          </ElRow>
 
             <ElFormItem label="个人介绍" prop="des" :style="{ height: '130px' }">
               <ElInput type="textarea" :rows="4" v-model="form.des" :disabled="!isEdit" />
@@ -150,6 +156,11 @@
 <script setup lang="ts">
   import { useUserStore } from '@/store/modules/user'
   import type { FormInstance, FormRules } from 'element-plus'
+  import { ElMessage } from 'element-plus'
+  import { fetchGetProfile, fetchSaveProfile, fetchChangePassword } from '@/api/user-center'
+  import { fetchGetUserInfo } from '@/api/auth'
+  import { regionData } from 'element-china-area-data'
+  import { getRoleLabel } from '@/utils/employee'
 
   defineOptions({ name: 'UserCenter' })
 
@@ -160,36 +171,42 @@
   const isEditPwd = ref(false)
   const date = ref('')
   const form = reactive({
-    realName: 'John Snow',
-    nikeName: '皮卡丘',
-    email: '59301283@mall.com',
-    mobile: '18888888888',
-    address: '广东省深圳市宝安区西乡街道101栋201',
+    realName: '',
+    nikeName: '',
+    email: '',
+    mobile: '',
+    address: '',
     sex: '2',
-    des: 'Art Design Pro 是一款漂亮的后台管理系统模版.'
+    des: ''
+  })
+
+  // 扩展信息（非表单保存字段）
+  const ext = reactive({
+    position: '',
+    orgPath: ''
   })
 
   const pwdForm = reactive({
-    password: '123456',
-    newPassword: '123456',
-    confirmPassword: '123456'
+    password: '',
+    newPassword: '',
+    confirmPassword: ''
   })
 
   const ruleFormRef = ref<FormInstance>()
 
   const rules = reactive<FormRules>({
     realName: [
-      { required: true, message: '请输入昵称', trigger: 'blur' },
+      { required: true, message: '请输入姓名', trigger: 'blur' },
       { min: 2, max: 50, message: '长度在 2 到 30 个字符', trigger: 'blur' }
     ],
     nikeName: [
       { required: true, message: '请输入昵称', trigger: 'blur' },
       { min: 2, max: 50, message: '长度在 2 到 30 个字符', trigger: 'blur' }
     ],
-    email: [{ required: true, message: '请输入昵称', trigger: 'blur' }],
+    email: [{ required: true, message: '请输入邮箱', trigger: 'blur' }],
     mobile: [{ required: true, message: '请输入手机号码', trigger: 'blur' }],
     address: [{ required: true, message: '请输入地址', trigger: 'blur' }],
-    sex: [{ type: 'array', required: true, message: '请选择性别', trigger: 'blur' }]
+    sex: [{ required: true, message: '请选择性别', trigger: 'change' }]
   })
 
   const options = [
@@ -203,11 +220,41 @@
     }
   ]
 
-  const lableList: Array<string> = ['专注设计', '很有想法', '辣~', '大长腿', '川妹子', '海纳百川']
+  // 标签区块已移除
 
-  onMounted(() => {
+  // 地址选择（省/市/区），保存为字符串
+  const addressSelect = ref<string[]>([])
+  const addressProps = { value: 'label', label: 'label', children: 'children' }
+
+  const handleAddressChange = (val: string[]) => {
+    form.address = (val || []).join(' ')
+  }
+
+  onMounted(async () => {
     getDate()
+    await loadProfile()
   })
+
+  const loadProfile = async () => {
+    try {
+      const res = await fetchGetProfile()
+      // 后端字段 nickName -> 前端表单 nikeName
+      form.realName = res.realName || ''
+      form.nikeName = (res as any).nickName || ''
+      form.email = res.email || ''
+      form.mobile = res.mobile || ''
+      form.address = res.address || ''
+      form.sex = String(res.sex || '2')
+      form.des = res.des || ''
+      // 左侧信息卡额外字段
+      ext.position = (res as any).position || ''
+      ext.orgPath = (res as any).orgPath || ''
+      // 尝试填充地址选择（如果能拆分出省市区）
+      addressSelect.value = form.address ? form.address.split(/\s+|\//).filter(Boolean) : []
+    } catch (e) {
+      // ignore
+    }
+  }
 
   const getDate = () => {
     const d = new Date()
@@ -231,12 +278,66 @@
     date.value = text
   }
 
-  const edit = () => {
-    isEdit.value = !isEdit.value
+  const edit = async () => {
+    if (!isEdit.value) {
+      isEdit.value = true
+      return
+    }
+    // 保存
+    if (!ruleFormRef.value) return
+    await ruleFormRef.value.validate(async (valid) => {
+      if (!valid) return
+      try {
+        const payload: Api.UserCenter.SaveProfileParams = {
+          realName: form.realName,
+          nickName: form.nikeName,
+          email: form.email,
+          mobile: form.mobile,
+          address: form.address,
+          sex: Number(form.sex || 2),
+          des: form.des
+        }
+        await fetchSaveProfile(payload)
+        // 刷新用户信息（用于左侧卡片邮箱等）
+        const info = await fetchGetUserInfo()
+        userStore.setUserInfo(info)
+        isEdit.value = false
+      } catch (err) {
+        // 错误提示由请求拦截器处理
+      }
+    })
   }
 
-  const editPwd = () => {
-    isEditPwd.value = !isEditPwd.value
+  const editPwd = async () => {
+    if (!isEditPwd.value) {
+      isEditPwd.value = true
+      return
+    }
+    // 保存密码
+    if (!pwdForm.password && !pwdForm.newPassword && !pwdForm.confirmPassword) {
+      // 未修改任何内容，直接退出编辑
+      isEditPwd.value = false
+      ElMessage.info('未修改密码')
+      return
+    }
+    if (!pwdForm.password || !pwdForm.newPassword || !pwdForm.confirmPassword) {
+      ElMessage.error('请填写完整的密码信息')
+      return
+    }
+    if (pwdForm.newPassword !== pwdForm.confirmPassword) {
+      ElMessage.error('两次输入的新密码不一致')
+      return
+    }
+    try {
+      await fetchChangePassword({ password: pwdForm.password, newPassword: pwdForm.newPassword })
+      isEditPwd.value = false
+      // 清空表单
+      pwdForm.password = ''
+      pwdForm.newPassword = ''
+      pwdForm.confirmPassword = ''
+    } catch (e) {
+      // 错误提示由请求拦截器处理
+    }
   }
 </script>
 
@@ -279,8 +380,9 @@
 
         .user-wrap {
           position: relative;
-          height: 600px;
-          padding: 35px 40px;
+          height: auto;
+          min-height: 520px;
+          padding: 35px 40px 24px;
           overflow: hidden;
           text-align: center;
           background: var(--art-main-bg-color);
@@ -307,8 +409,8 @@
           }
 
           .name {
-            margin-top: 20px;
-            font-size: 22px;
+            margin-top: 16px;
+            font-size: 24px;
             font-weight: 400;
           }
 
@@ -318,13 +420,14 @@
           }
 
           .outer-info {
-            width: 300px;
+            width: 320px;
             margin: auto;
-            margin-top: 30px;
+            margin-top: 20px;
             text-align: left;
 
             > div {
               margin-top: 10px;
+              line-height: 20px;
 
               span {
                 margin-left: 8px;
@@ -333,28 +436,28 @@
             }
           }
 
-          .lables {
-            margin-top: 40px;
+          .intro {
+            width: 320px;
+            margin: 14px auto 0;
+            padding: 10px 12px;
+            text-align: left;
+            background: var(--art-main-bg-color);
+            border: 1px solid var(--art-border-color);
+            border-radius: 6px;
 
-            h3 {
-              font-size: 15px;
-              font-weight: 500;
+            .intro-title {
+              margin: 0 0 8px;
+              font-size: 14px;
+              color: var(--art-text-gray-800);
             }
 
-            > div {
-              display: flex;
-              flex-wrap: wrap;
-              justify-content: center;
-              margin-top: 15px;
-
-              > div {
-                padding: 3px 6px;
-                margin: 0 10px 10px 0;
-                font-size: 12px;
-                background: var(--art-main-bg-color);
-                border: 1px solid var(--art-border-color);
-                border-radius: 2px;
-              }
+            .intro-text {
+              margin: 0;
+              font-size: 14px;
+              color: var(--art-gray-800);
+              white-space: pre-wrap;
+              word-break: break-word;
+              line-height: 20px;
             }
           }
         }

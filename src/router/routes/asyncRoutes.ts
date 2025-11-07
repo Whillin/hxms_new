@@ -676,6 +676,18 @@ export const asyncRoutes: AppRouteRecord[] = [
       }
     ]
   },
+  // 独立的个人中心顶级路由，避免被 /system 父级 roles 过滤
+  {
+    path: '/user-center',
+    name: 'UserCenterStandalone',
+    component: RoutesAlias.UserCenter,
+    meta: {
+      title: 'menus.system.userCenter',
+      isHide: true,
+      keepAlive: true,
+      isHideTab: true
+    }
+  },
   {
     path: '/article',
     name: 'Article',

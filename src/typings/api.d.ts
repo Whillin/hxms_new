@@ -70,6 +70,34 @@ declare namespace Api {
     }
   }
 
+  /** 用户中心类型 */
+  namespace UserCenter {
+    /** 个人资料 */
+    interface Profile {
+      realName: string
+      nickName: string
+      email: string
+      mobile: string
+      address: string
+      sex: string // '1' | '2'
+      des: string
+      /** 岗位（来自员工 role 映射） */
+      position?: string
+      /** 组织路径（集团/品牌/区域/门店/部门名称拼接） */
+      orgPath?: string
+    }
+
+    /** 保存个人资料参数 */
+    type SaveProfileParams = Partial<Profile>
+
+    /** 改密参数 */
+    interface ChangePasswordParams {
+      currentPassword: string
+      newPassword: string
+      confirmPassword: string
+    }
+  }
+
   /** 系统管理类型 */
   namespace SystemManage {
     /** 用户列表 */

@@ -6,6 +6,7 @@ import { Role } from '../roles/role.entity'
 import { RolePermission } from '../roles/role-permission.entity'
 import { UserService } from '../users/user.service'
 import { Employee } from '../employees/employee.entity'
+import { Department } from '../departments/department.entity'
 
 @Controller('api/user')
 export class UserController {
@@ -14,7 +15,8 @@ export class UserController {
     @InjectRepository(Role) private readonly roleRepo: Repository<Role>,
     @InjectRepository(RolePermission) private readonly permRepo: Repository<RolePermission>,
     @Inject(UserService) private readonly userService: UserService,
-    @InjectRepository(Employee) private readonly empRepo: Repository<Employee>
+    @InjectRepository(Employee) private readonly empRepo: Repository<Employee>,
+    @InjectRepository(Department) private readonly deptRepo: Repository<Department>
   ) {}
 
   @UseGuards(JwtGuard)
@@ -59,9 +61,11 @@ export class UserController {
     // 追加：返回关联员工与归属门店，便于前端精确限制选项
     let employeeId: number | undefined
     let storeId: number | undefined
+    let email: string | undefined
     try {
       const user = await this.userService.findById(Number(userId))
       employeeId = user?.employeeId
+      email = user?.email ?? undefined
       if (typeof employeeId === 'number') {
         const emp = await this.empRepo.findOne({ where: { id: employeeId } })
         storeId = emp?.storeId
@@ -79,6 +83,7 @@ export class UserController {
         roles: effectiveRoles,
         userId,
         userName,
+        email,
         employeeId,
         storeId
       }
@@ -145,5 +150,150 @@ export class UserController {
     }
     if (!ok) return { code: 404, msg: '未找到用户', data: false }
     return { code: 200, msg: '重置成功', data: true }
+  }
+
+  /** 个人资料：获取自己的资料（综合用户与员工信息） */
+  @UseGuards(JwtGuard)
+  @Get('profile')
+  async getProfile(@Req() req: any) {
+    try {
+      const userId = Number(req?.user?.sub)
+      if (!userId || Number.isNaN(userId)) {
+        return { code: 401, msg: '未登录', data: null }
+      }
+      const user = await this.userService.findById(userId)
+      if (!user) return { code: 404, msg: '用户不存在', data: null }
+
+      const emp = user?.employeeId
+        ? await this.empRepo.findOne({ where: { id: user.employeeId } })
+        : null
+
+      const sexMap: Record<string, string> = { male: '1', female: '2' }
+      const sex = emp?.gender ? sexMap[emp.gender] || '' : ''
+
+      // 组织路径：brand -> region -> store -> department
+      let orgPath = ''
+      try {
+        const names: string[] = []
+        if (emp?.brandId) {
+          const d = await this.deptRepo.findOne({ where: { id: emp.brandId } })
+          if (d?.name) names.push(d.name)
+        }
+        if (emp?.regionId) {
+          const d = await this.deptRepo.findOne({ where: { id: emp.regionId } })
+          if (d?.name) names.push(d.name)
+        }
+        if (emp?.storeId) {
+          const d = await this.deptRepo.findOne({ where: { id: emp.storeId } })
+          if (d?.name) names.push(d.name)
+        }
+        if (emp?.departmentId) {
+          const d = await this.deptRepo.findOne({ where: { id: emp.departmentId } })
+          if (d?.name) names.push(d.name)
+        }
+        orgPath = names.filter(Boolean).join(' - ')
+      } catch {}
+
+      const data = {
+        realName: emp?.name || user.nickname || user.userName,
+        nickName: user.nickname || emp?.name || '',
+        email: user.email || '',
+        mobile: emp?.phone || '',
+        address: user.address || '',
+        sex,
+        des: user.bio || '',
+        position: emp?.role || '',
+        orgPath
+      }
+      return { code: 200, msg: '获取成功', data }
+    } catch (e) {
+      console.error('[UserController.getProfile] error:', e)
+      return { code: 500, msg: '服务异常', data: null }
+    }
+  }
+
+  /** 个人资料：保存自己的资料（用户表+员工表） */
+  @UseGuards(JwtGuard)
+  @Post('profile')
+  async saveProfile(
+    @Req() req: any,
+    @Body()
+    body: {
+      realName?: string
+      nickName?: string
+      email?: string
+      mobile?: string
+      address?: string
+      sex?: string // '1' | '2'
+      des?: string
+    }
+  ) {
+    try {
+      const userId = Number(req?.user?.sub)
+      if (!userId || Number.isNaN(userId)) {
+        return { code: 401, msg: '未登录', data: false }
+      }
+      const user = await this.userService.findById(userId)
+      if (!user) return { code: 404, msg: '用户不存在', data: false }
+
+      const { realName, nickName, email, mobile, address, sex, des } = body || {}
+      const emailOk = !email || /.+@.+\..+/.test(String(email))
+      if (!emailOk) return { code: 400, msg: '邮箱格式不正确', data: false }
+
+      user.email = email ?? user.email
+      user.nickname = nickName ?? user.nickname
+      user.address = address ?? user.address
+      user.bio = des ?? user.bio
+      await this.userService.save(user)
+
+      if (user.employeeId) {
+        const emp = await this.empRepo.findOne({ where: { id: user.employeeId } })
+        if (emp) {
+          if (realName) emp.name = realName
+          if (mobile) emp.phone = mobile
+          if (sex === '1') emp.gender = 'male'
+          if (sex === '2') emp.gender = 'female'
+          await this.empRepo.save(emp)
+        }
+      }
+
+      return await this.getProfile(req)
+    } catch (e) {
+      console.error('[UserController.saveProfile] error:', e)
+      return { code: 500, msg: '保存失败', data: false }
+    }
+  }
+
+  /** 个人改密：校验原密码并保存新密码 */
+  @UseGuards(JwtGuard)
+  @Post('change-password')
+  async changePassword(
+    @Req() req: any,
+    @Body() body: { currentPassword?: string; newPassword?: string; confirmPassword?: string }
+  ) {
+    try {
+      const userId = Number(req?.user?.sub)
+      if (!userId || Number.isNaN(userId)) return { code: 401, msg: '未登录', data: false }
+      const user = await this.userService.findById(userId)
+      if (!user) return { code: 404, msg: '用户不存在', data: false }
+
+      const current = String(body?.currentPassword || '')
+      const next = String(body?.newPassword || '')
+      const confirm = String(body?.confirmPassword || '')
+      if (!current || !next || !confirm) {
+        return { code: 400, msg: '缺少必要参数', data: false }
+      }
+      if (next !== confirm) {
+        return { code: 400, msg: '两次新密码不一致', data: false }
+      }
+      if (!this.userService.verifyPassword(user, current)) {
+        return { code: 403, msg: '原密码不正确', data: false }
+      }
+      const ok = await this.userService.resetPasswordByUserId(user.id, next)
+      return { code: 200, msg: ok ? '修改成功' : '修改失败', data: ok }
+    } catch (e) {
+      console.error('[UserController.changePassword] error:', e)
+      return { code: 500, msg: '服务异常', data: false }
+    }
   }
 }

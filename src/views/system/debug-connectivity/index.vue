@@ -63,6 +63,14 @@
       lastResult.value = '[POST login] 错误：\n' + safeStringify(err)
     }
   }
+
+  // 页面加载后自动执行一次连通性检查，便于观察代理日志
+  onMounted(() => {
+    // 先测 GET，再测 POST
+    testGetDebug().finally(() => {
+      testPostLogin()
+    })
+  })
 </script>
 
 <style scoped>

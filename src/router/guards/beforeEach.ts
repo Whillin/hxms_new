@@ -309,7 +309,40 @@ async function processBackendMenu(router: Router): Promise<void> {
   const roles = userStore.info.roles || []
   // 若后端菜单包含 meta.roles，则也按角色进行一次过滤；无该字段时原样保留
   const filteredMenuList = filterMenuByRoles(menuList, roles)
-  await registerAndStoreMenu(router, filteredMenuList)
+
+  // 补充：为非管理员角色注入独立的“个人中心”顶级路由，避免被 /system 父级 roles 过滤掉
+  const ensureUserCenterStandalone = (list: AppRouteRecord[]): AppRouteRecord[] => {
+    const exists = (routes: AppRouteRecord[], target: string): boolean => {
+      return routes.some((r) => {
+        if (r.path === target) return true
+        if (Array.isArray(r.children) && r.children.length) {
+          return exists(r.children, target)
+        }
+        return false
+      })
+    }
+
+    // 如果后端已返回 /user-center 或 /system/user-center，则不重复添加
+    const hasUserCenter = exists(list, '/user-center') || exists(list, '/system/user-center')
+    if (hasUserCenter) return list
+
+    const userCenterRoute: AppRouteRecord = {
+      path: '/user-center',
+      name: 'UserCenterStandalone',
+      component: RoutesAlias.UserCenter, // 复用现有页面组件
+      meta: {
+        title: 'menus.system.userCenter',
+        isHide: true,
+        keepAlive: true,
+        isHideTab: true
+      }
+    }
+
+    return [...list, userCenterRoute]
+  }
+
+  const finalMenuList = ensureUserCenterStandalone(filteredMenuList)
+  await registerAndStoreMenu(router, finalMenuList)
 }
 
 /**

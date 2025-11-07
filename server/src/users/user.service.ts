@@ -44,6 +44,11 @@ export class UserService implements OnModuleInit {
     return (await this.repo.findOne({ where: { id } })) || null
   }
 
+  // 新增：保存用户（用于资料更新）
+  async save(user: User): Promise<User> {
+    return await this.repo.save(user)
+  }
+
   // 新增：按ID删除用户
   async deleteById(id: number): Promise<boolean> {
     if (!id || Number.isNaN(id)) return false

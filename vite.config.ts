@@ -115,6 +115,20 @@ export default ({ mode }: { mode: string }) => {
     },
     plugins: [
       vue(),
+      // 轻量代理日志：在开发时打印 /api 请求，便于排障
+      {
+        name: 'proxy-logger',
+        apply: 'serve',
+        configureServer(server) {
+          server.middlewares.use((req, _res, next) => {
+            if (req.url && req.url.startsWith('/api/')) {
+              const m = (req.method || 'GET').toUpperCase()
+              console.log(`[proxy-logger] ${m} ${req.url}`)
+            }
+            next()
+          })
+        }
+      },
       // 根据开关启用/禁用本地 mock 插件
       ...(useMock ? [departmentMockPlugin(), authMockPlugin(), employeeMockPlugin()] : []),
       // 自动按需导入 API

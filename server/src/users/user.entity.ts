@@ -11,6 +11,22 @@ export class User {
   @Column('varchar', { length: 255 })
   passwordHash!: string
 
+  // 个人资料相关字段
+  @Column('varchar', { length: 191, nullable: true })
+  email?: string
+
+  @Column('varchar', { length: 100, nullable: true })
+  nickname?: string
+
+  @Column('varchar', { length: 255, nullable: true })
+  address?: string
+
+  @Column('text', { nullable: true })
+  bio?: string
+
+  @Column('varchar', { length: 255, nullable: true })
+  avatar?: string
+
   @Column('simple-json', { nullable: true })
   roles!: string[]
 

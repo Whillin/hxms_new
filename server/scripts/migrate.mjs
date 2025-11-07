@@ -150,6 +150,28 @@ async function mig003_clues_rename(conn, db) {
   await markApplied(conn, db, version)
 }
 
+async function mig004_users_profile_fields(conn, db) {
+  const version = '004_users_profile_fields'
+  if (await wasApplied(conn, db, version)) return
+
+  // Add columns to users table if missing
+  const additions = [
+    { name: 'email', ddl: `ALTER TABLE \`${db}\`.users ADD COLUMN email VARCHAR(191) NULL` },
+    { name: 'nickname', ddl: `ALTER TABLE \`${db}\`.users ADD COLUMN nickname VARCHAR(100) NULL` },
+    { name: 'address', ddl: `ALTER TABLE \`${db}\`.users ADD COLUMN address VARCHAR(255) NULL` },
+    { name: 'bio', ddl: `ALTER TABLE \`${db}\`.users ADD COLUMN bio TEXT NULL` },
+    { name: 'avatar', ddl: `ALTER TABLE \`${db}\`.users ADD COLUMN avatar VARCHAR(255) NULL` }
+  ]
+  for (const add of additions) {
+    if (!(await hasColumn(conn, db, 'users', add.name))) {
+      await conn.query(add.ddl)
+      console.log('[migrate] users: added column', add.name)
+    }
+  }
+
+  await markApplied(conn, db, version)
+}
+
 async function main() {
   const root = path.resolve(process.cwd(), 'server')
   parseEnvFile(path.join(root, '.env.production'))
@@ -161,6 +183,7 @@ async function main() {
     await mig001_customers(conn, db)
     await mig002_channels(conn, db)
     await mig003_clues_rename(conn, db)
+    await mig004_users_profile_fields(conn, db)
     console.log('[OK] migrations applied')
   } finally {
     await conn.end()
