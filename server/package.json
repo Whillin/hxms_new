@@ -26,8 +26,6 @@
     "rxjs": "^7.8.1",
     "typeorm": "^0.3.27",
     "@opentelemetry/api": "^1.4.1",
-    "@opentelemetry/sdk-node": "^1.30.0",
-    "@opentelemetry/auto-instrumentations-node": "^0.41.0",
     "@opentelemetry/exporter-jaeger": "^1.13.0",
     "@opentelemetry/sdk-trace-node": "^1.13.0",
     "@opentelemetry/instrumentation": "^0.41.0",
