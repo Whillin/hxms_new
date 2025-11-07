@@ -127,8 +127,7 @@ docker ps
 - WAF：在“Web 应用防火墙”中绑定你的域名，开启基础防护、CC 防护与常见威胁拦截。按需设置白名单（例如公司固定出口）以避免误拦。
 - 证书：在“SSL 证书”申请并签发域名证书；若终止在宿主机 Nginx，请将证书路径填入 `deploy/nginx.host.conf` 中的：
   - `ssl_certificate /etc/nginx/certs/fullchain.pem;`
-  - `ssl_certificate_key /etc/nginx/certs/privkey.pem;`
-  然后 `sudo nginx -t && sudo systemctl reload nginx` 生效；HTTP 将 301 跳转到 HTTPS，并附加 HSTS。
+  - `ssl_certificate_key /etc/nginx/certs/privkey.pem;` 然后 `sudo nginx -t && sudo systemctl reload nginx` 生效；HTTP 将 301 跳转到 HTTPS，并附加 HSTS。
 - 回源协议：若 CDN/WAF 终止 TLS，回源到宿主机使用 HTTP 即可；我们在宿主机 Nginx 已设置 `Strict-Transport-Security` 响应头，浏览器端将强制使用 HTTPS 访问。
 
 > 注意：容器内 Nginx（`deploy/nginx.conf`）不启用 443，仅用于无证书的 HTTP 反代；生产建议以宿主机或云端（CDN/WAF/CLB）终止 TLS。
@@ -193,3 +192,28 @@ docker ps
 - 在“线索管理”页新增线索，使用同一门店相同手机号但不同姓名，期望可以正常保存；如与已有客户三项完全一致，仍会提示重复。
 
 回滚：见 `deploy/sql/2025-10-31-alter-customers-unique-index.sql` 文件底部注释。
+
+## 十三、监控与告警栈（Prometheus/Grafana/Blackbox）
+
+为满足“基线压测与容量评估，设置监控与告警看板”的需求，仓库新增了独立监控栈 `docker-compose.monitoring.yml`：
+
+- 组件：Prometheus、Grafana、Node Exporter、cAdvisor、Blackbox Exporter。
+- 采集内容：主机与容器指标（Node Exporter/cAdvisor），公网端点可用性（Blackbox，首页与 `/api/health/*`）。
+- 告警规则：见 `monitoring/prometheus/rules.yml`（端点不可用与 CPU 高负载）。
+
+启动步骤：
+
+```bash
+# 在项目根目录
+docker compose -f docker-compose.monitoring.yml up -d
+
+# 访问地址（默认端口）：
+# Prometheus: http://<server_ip>:9090
+# Grafana:    http://<server_ip>:3000  （默认账号 admin/admin，建议立即修改）
+```
+
+Grafana 已预置 Prometheus 数据源（`monitoring/grafana/provisioning/datasources/datasource.yml`）。建议导入以下仪表盘（Grafana -> Import）：
+
+- Node Exporter Full（ID: 1860）用于主机指标
+- cAdvisor 容器监控（官方仪表盘）
+- Blackbox HTTP 可用性

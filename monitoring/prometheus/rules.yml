@@ -1,0 +1,22 @@
+groups:
+  - name: availability
+    rules:
+      - alert: EndpointDown
+        expr: probe_success == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: Endpoint down
+          description: '{{ $labels.instance }} is not responding'
+
+  - name: hostload
+    rules:
+      - alert: HighCpuLoad
+        expr: 100 * (1 - avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m]))) > 85
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: High CPU load
+          description: 'CPU > 85% for 10m on {{ $labels.instance }}'
