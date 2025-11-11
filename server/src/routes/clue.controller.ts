@@ -188,7 +188,7 @@ export class ClueController {
         }
       }
 
-      // 构建线索并保存
+      // 构建线索并保存（确保类型与实体声明匹配）
       const clue = this.repo.create({
         visitDate: String(visitDate),
         customerName: String(customerName),
@@ -200,14 +200,15 @@ export class ClueController {
         storeId: Number(storeId),
         regionId: ancestors.regionId,
         brandId: ancestors.brandId,
-        departmentId: Number(storeId),
+        // 若无明确部门，小组可为空
+        departmentId: undefined,
         customerId: customer?.id,
-        opportunityLevel: String(body.opportunityLevel || 'B'),
-        userGender: String(body.userGender || '未知') as any,
+        opportunityLevel: (body.opportunityLevel || 'B') as 'H' | 'A' | 'B' | 'C',
+        userGender: (body.userGender || '未知') as '男' | '女' | '未知',
         userAge: Number(body.userAge || 0),
-        buyExperience: String(body.buyExperience || '首购') as any,
+        buyExperience: (body.buyExperience || '首购') as '首购' | '换购' | '增购',
         createdBy: typeof employeeId === 'number' ? employeeId : undefined
-      })
+      } as Partial<Clue>)
       const saved = await this.repo.save(clue)
       return { code: 201, msg: '直存成功', data: { id: saved.id } }
     }
