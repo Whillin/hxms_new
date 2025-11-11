@@ -88,9 +88,9 @@ if [ "$MIGR_OK" -ne 1 ]; then
 fi
 
 # Build and restart API via docker compose to ensure latest code is running
-echo "[+] Building and restarting API via docker compose..."
-docker compose build api
-docker compose up -d api
+echo "[+] Building and restarting API via docker compose (with observability profile)..."
+docker compose --profile observability build api
+docker compose --profile observability up -d api
 
 # Show recent logs quickly
 echo "[+] Recent hxms_api logs (last 10s):"
