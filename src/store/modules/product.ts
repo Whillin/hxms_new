@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import { fetchGetProductList } from '@/api/product'
 
 export interface ProductItem {
   id: number
@@ -17,82 +18,36 @@ export interface ProductItem {
 }
 
 export const useProductStore = defineStore('productStore', () => {
-  // 示例车型数据，与商品管理页保持一致
-  const products = ref<ProductItem[]>([
-    {
-      id: 1,
-      name: '奥迪A4L 2024款 40 TFSI 时尚动感型',
-      categoryId: 2,
-      categoryName: '奥迪 - CKD(ICE)',
-      brandName: '奥迪',
-      price: 329800,
-      engineType: 'ICE',
-      sales: 1280,
-      status: 1,
-      image: 'https://picsum.photos/200/200?random=1',
-      description: '奥迪A4L，经典豪华轿车，搭载2.0T涡轮增压发动机，动力强劲，操控精准。',
-      createTime: '2024-01-15 10:30:00'
-    },
-    {
-      id: 2,
-      name: '奥迪e-tron GT 2024款 quattro',
-      categoryId: 3,
-      categoryName: '奥迪 - NEV',
-      brandName: '奥迪',
-      price: 1068800,
-      engineType: 'NEV',
-      sales: 156,
-      status: 1,
-      image: 'https://picsum.photos/200/200?random=2',
-      description: '奥迪e-tron GT，纯电动高性能轿跑，续航里程超过400公里，零百加速3.9秒。',
-      createTime: '2024-01-15 11:00:00'
-    },
-    {
-      id: 3,
-      name: '奥迪Q7 2024款 45 TFSI quattro',
-      categoryId: 4,
-      categoryName: '奥迪 - FBU',
-      brandName: '奥迪',
-      price: 699800,
-      engineType: 'ICE',
-      sales: 890,
-      status: 1,
-      image: 'https://picsum.photos/200/200?random=3',
-      description: '奥迪Q7，大型豪华SUV，进口车型，配置丰富，空间宽敞。',
-      createTime: '2024-01-15 12:00:00'
-    },
-    {
-      id: 4,
-      name: '小鹏P7 2024款 706G',
-      categoryId: 6,
-      categoryName: '小鹏 - NEV',
-      brandName: '小鹏',
-      price: 249900,
-      engineType: 'NEV',
-      sales: 2340,
-      status: 1,
-      image: 'https://picsum.photos/200/200?random=4',
-      description: '小鹏P7，智能纯电轿跑，续航里程706公里，搭载XPILOT自动驾驶辅助系统。',
-      createTime: '2024-01-15 13:00:00'
-    },
-    {
-      id: 5,
-      name: '小鹏G9 2024款 702 Max',
-      categoryId: 6,
-      categoryName: '小鹏 - NEV',
-      brandName: '小鹏',
-      price: 359900,
-      engineType: 'NEV',
-      sales: 1560,
-      status: 0,
-      image: 'https://picsum.photos/200/200?random=5',
-      description: '小鹏G9，智能纯电SUV，续航里程702公里，配备800V高压快充技术。',
-      createTime: '2024-01-15 14:00:00'
+  // 车型数据从后端动态加载
+  const products = ref<ProductItem[]>([])
+
+  // 动态加载产品模型（状态为上架，分页拉取较大 size）
+  const loadProducts = async () => {
+    try {
+      const result = await fetchGetProductList({ current: 1, size: 500, status: 1 })
+      const rows = Array.isArray((result as any)?.records) ? (result as any).records : []
+      products.value = rows.map((r: any) => ({
+        id: Number(r.id),
+        name: String(r.name || ''),
+        // 后端模型无直出 categoryId/categoryName，这里填充为可选显示字段
+        categoryId: 0,
+        categoryName: [r.brand, r.series].filter(Boolean).join(' - '),
+        brandName: String(r.brand || ''),
+        price: typeof r.price === 'number' ? r.price : undefined,
+        engineType: String(r.engineType || ''),
+        sales: typeof r.sales === 'number' ? r.sales : undefined,
+        status: typeof r.status === 'number' ? r.status : undefined,
+        image: '',
+        description: ''
+      }))
+    } catch (e) {
+      // 加载失败时保持已有值（空数组）
+      console.error('[productStore] loadProducts failed:', e)
     }
-  ])
+  }
 
   // 车型名称下拉选项（以商品管理的车型名称为准）
   const nameOptions = computed(() => products.value.map((p) => ({ label: p.name, value: p.name })))
 
-  return { products, nameOptions }
+  return { products, nameOptions, loadProducts }
 })

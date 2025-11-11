@@ -256,6 +256,12 @@
     } catch (e: any) {
       console.error('[fetchChannelOptions] failed:', e)
     }
+    // 动态加载关注/成交车型选项（来自商品管理）
+    try {
+      await productStore.loadProducts()
+    } catch (e: any) {
+      console.error('[productStore.loadProducts] failed:', e)
+    }
   })
 
   const { hasAuth } = useAuth()
@@ -1272,12 +1278,16 @@
   const fillEditForm = (row: ClueItem) => {
     // 从完整时间中拆出日期与时分
     const toHM = (t: string | undefined) => (t && t.includes(' ') ? t.split(' ')[1] : t || '')
+    const toCascader = (v: any) =>
+      Array.isArray(v) ? v : typeof v === 'string' && v ? v.split('/') : []
     addForm.value = {
       ...initAddForm(),
       ...row,
       visitDate: row.visitDate,
       enterTime: toHM(row.enterTime),
-      leaveTime: toHM(row.leaveTime)
+      leaveTime: toHM(row.leaveTime),
+      // 居住区域为级联选择器，编辑时需要将字符串拆分为数组
+      livingArea: toCascader((row as any).livingArea)
     }
   }
   const submitAdd = async () => {
