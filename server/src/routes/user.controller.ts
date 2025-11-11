@@ -192,7 +192,9 @@ export class UserController {
           if (d?.name) names.push(d.name)
         }
         orgPath = names.filter(Boolean).join(' - ')
-      } catch {}
+      } catch {
+        void 0
+      }
 
       const data = {
         realName: emp?.name || user.nickname || user.userName,

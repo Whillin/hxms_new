@@ -103,6 +103,13 @@ import { MiddlewareConsumer } from '@nestjs/common'
         return base
       })()
     ),
+    // 配置 Bull 队列的 Redis 连接（读取环境变量 REDIS_HOST/REDIS_PORT）
+    BullModule.forRoot({
+      redis: {
+        host: process.env.REDIS_HOST || 'redis',
+        port: Number(process.env.REDIS_PORT || 6379)
+      }
+    }),
     // 注入各控制器需要的仓库
     TypeOrmModule.forFeature([
       Department,

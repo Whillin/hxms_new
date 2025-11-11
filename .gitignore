@@ -19,6 +19,9 @@ src/types/components.d.ts
 .env.production.local
 server/.env
 
+# sensitive keys
+.ssh/
+
 # logs
 *.log
 npm-debug.log*

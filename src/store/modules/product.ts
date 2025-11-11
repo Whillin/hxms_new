@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import { fetchGetProductList } from '@/api/product'
 
 export interface ProductItem {
   id: number
@@ -17,8 +18,8 @@ export interface ProductItem {
 }
 
 export const useProductStore = defineStore('productStore', () => {
-  // 示例车型数据，与商品管理页保持一致
-  const products = ref<ProductItem[]>([
+  // 示例车型数据（作为后端不可用时的兜底）
+  const seedProducts: ProductItem[] = [
     {
       id: 1,
       name: '奥迪A4L 2024款 40 TFSI 时尚动感型',
@@ -89,10 +90,36 @@ export const useProductStore = defineStore('productStore', () => {
       description: '小鹏G9，智能纯电SUV，续航里程702公里，配备800V高压快充技术。',
       createTime: '2024-01-15 14:00:00'
     }
-  ])
+  ]
+
+  const products = ref<ProductItem[]>([...seedProducts])
+
+  // 从后端加载商品车型（替换示例数据）
+  const loadFromApi = async () => {
+    try {
+      const result = await fetchGetProductList({ current: 1, size: 1000, includeChildren: false })
+      const records = Array.isArray(result.records) ? result.records : []
+      products.value = records.map((r: any) => ({
+        id: Number(r.id),
+        name: String(r.name || ''),
+        categoryId: Number(r.categoryId || 0),
+        categoryName: String(r.categoryName || ''),
+        brandName: String(r.brand || r.brandName || ''),
+        price: typeof r.price === 'number' ? r.price : undefined,
+        engineType: r.engineType,
+        status: typeof r.status === 'number' ? r.status : undefined,
+        image: r.image || '',
+        description: r.description || '',
+        createTime: String(r.createdAt || ''),
+      }))
+    } catch (e) {
+      // 保持示例数据作为兜底，不抛错让界面可用
+      // console.warn('[productStore] loadFromApi failed:', e)
+    }
+  }
 
   // 车型名称下拉选项（以商品管理的车型名称为准）
   const nameOptions = computed(() => products.value.map((p) => ({ label: p.name, value: p.name })))
 
-  return { products, nameOptions }
+  return { products, nameOptions, loadFromApi }
 })
