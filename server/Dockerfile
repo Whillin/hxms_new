@@ -3,11 +3,12 @@ FROM node:18-alpine AS base
 WORKDIR /app
 
 # 安装 pnpm
-RUN npm i -g pnpm
+RUN npm i -g pnpm \
+ && pnpm config set registry https://registry.npmmirror.com
 
 # 复制包管理文件并安装依赖（尽量利用缓存）
 COPY package.json pnpm-lock.yaml ./
-    RUN pnpm install --no-frozen-lockfile
+RUN pnpm install --no-frozen-lockfile --prefer-offline
 
 # 复制源码并构建
 COPY . .

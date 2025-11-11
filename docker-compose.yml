@@ -5,6 +5,7 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: '123456'
       MYSQL_DATABASE: 'hxms_dev'
+    command: --server-id=1 --skip-log-bin --innodb-buffer-pool-size=256M --max-connections=100
     volumes:
       - mysql-data:/var/lib/mysql
     healthcheck:
@@ -23,6 +24,8 @@ services:
   jaeger:
     image: jaegertracing/all-in-one:1.50
     container_name: hxms_jaeger
+    profiles:
+      - observability
     environment:
       COLLECTOR_OTLP_ENABLED: true
     ports:
@@ -47,6 +50,8 @@ services:
     container_name: hxms_api
     env_file:
       - ./server/.env.production
+    environment:
+      - NODE_OPTIONS=--max-old-space-size=256
     ports:
       - '3001:3001'
     depends_on:
@@ -62,6 +67,8 @@ services:
   mysql-replica:
     image: mysql:8.0
     container_name: hxms_new-mysql-replica
+    profiles:
+      - replication
     environment:
       MYSQL_DATABASE: ${MYSQL_DB:-hxms_dev}
       MYSQL_ROOT_PASSWORD: ${MYSQL_PASSWORD:-123456}

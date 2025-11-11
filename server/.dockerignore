@@ -9,3 +9,7 @@ node_modules
 # Optional VCS noise
 .git
 .gitignore
+
+# Reduce build context further (dev-only)
+exports/
+test-ttl.ts

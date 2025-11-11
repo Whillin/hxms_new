@@ -34,3 +34,12 @@ create_hxms_dev.sql
 verify_counts.sql
 drop_host_db.sql
 cloud_dump.sql
+
+# build caches & local outputs (reduce repo size and pulls)
+.vite
+.cache
+coverage/
+scripts/output/
+
+# large bundles not needed in VCS
+hxms_new-main.bundle
