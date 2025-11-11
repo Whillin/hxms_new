@@ -123,6 +123,9 @@ export class ClueController {
         carAge: r.carAge,
         mileage: Number(r.mileage || 0),
         livingArea: r.livingArea || '',
+        customerSnapshot: (r as any).customerSnapshot || undefined,
+        channelSnapshot: (r as any).channelSnapshot || undefined,
+        productSnapshot: (r as any).productSnapshot || undefined,
         brandId: r.brandId,
         regionId: r.regionId,
         storeId: r.storeId,
@@ -141,10 +144,75 @@ export class ClueController {
   @UseGuards(JwtGuard)
   @Post('save')
   async save(@Req() req: any, @Body() body: any) {
-    // 后端功能开关：QUEUE_SAVE_CLUE（默认启用）
-    if (!this.features.isEnabled('QUEUE_SAVE_CLUE', true)) {
-      return { code: 503, msg: '当前禁用后台保存任务（QUEUE_SAVE_CLUE）', data: false }
+    // 后端功能开关：QUEUE_SAVE_CLUE（默认启用）。
+    // 当开关关闭时，走本地直存逻辑，便于本地开发无需 Redis。
+    const useQueue = this.features.isEnabled('QUEUE_SAVE_CLUE', true)
+    if (!useQueue) {
+      // ===== 直存逻辑（最小必填字段） =====
+      const userId = Number(req?.user?.sub)
+      const currentUser = userId ? await this.userService.findById(userId) : null
+      const employeeId = currentUser?.employeeId
+      const { customerName, customerPhone, storeId, visitDate } = body || {}
+      if (!customerName || !customerPhone || !storeId || !visitDate) {
+        return { code: 400, msg: '缺少必填字段', data: false }
+      }
+
+      // 部门层级解析：获取品牌/大区
+      const ancestors = await this.findAncestors(Number(storeId))
+
+      // 客户表：如不存在则创建，存在则忽略
+      let customer = await this.customerRepo.findOne({
+        where: {
+          storeId: Number(storeId),
+          phone: String(customerPhone),
+          name: String(customerName)
+        }
+      })
+      if (!customer) {
+        customer = this.customerRepo.create({
+          storeId: Number(storeId),
+          name: String(customerName),
+          phone: String(customerPhone)
+        })
+        try {
+          customer = await this.customerRepo.save(customer)
+        } catch {
+          // 并发或唯一约束冲突时，重新查询拿到记录
+          customer = await this.customerRepo.findOne({
+            where: {
+              storeId: Number(storeId),
+              phone: String(customerPhone),
+              name: String(customerName)
+            }
+          })
+        }
+      }
+
+      // 构建线索并保存
+      const clue = this.repo.create({
+        visitDate: String(visitDate),
+        customerName: String(customerName),
+        customerPhone: String(customerPhone),
+        businessSource: String(body.businessSource || '自然到店'),
+        channelCategory: String(body.channelCategory || '线下'),
+        channelLevel1: body.channelLevel1 || undefined,
+        channelLevel2: body.channelLevel2 || undefined,
+        storeId: Number(storeId),
+        regionId: ancestors.regionId,
+        brandId: ancestors.brandId,
+        departmentId: Number(storeId),
+        customerId: customer?.id,
+        opportunityLevel: String(body.opportunityLevel || 'B'),
+        userGender: String(body.userGender || '未知') as any,
+        userAge: Number(body.userAge || 0),
+        buyExperience: String(body.buyExperience || '首购') as any,
+        createdBy: typeof employeeId === 'number' ? employeeId : undefined
+      })
+      const saved = await this.repo.save(clue)
+      return { code: 201, msg: '直存成功', data: { id: saved.id } }
     }
+
+    // 队列路径：添加到后台处理
     await this.clueQueue.add('save-clue', { user: req.user, body })
     return { code: 200, msg: '线索保存任务已提交到后台处理', data: true }
   }

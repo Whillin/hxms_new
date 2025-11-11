@@ -42,8 +42,17 @@ export class DataScopeService {
     const self = await this.empRepo.findOne({ where: { id: employeeId } })
     if (!self) return { level: 'self', employeeId }
 
-    // 销售顾问：仅本人
+    // 销售顾问：门店层级（支持多门店）；若无门店归属则兜底到“本人”
     if (roles.includes('R_SALES')) {
+      const storeIds = await this.collectStoreIds(self.id, self.storeId)
+      if (storeIds.length) return { level: 'store', storeIds }
+      return { level: 'self', employeeId }
+    }
+
+    // 前台/邀约专员：门店层级（支持多门店）；若无门店归属则兜底到“本人”
+    if (roles.includes('R_FRONT_DESK') || roles.includes('R_APPOINTMENT')) {
+      const storeIds = await this.collectStoreIds(self.id, self.storeId)
+      if (storeIds.length) return { level: 'store', storeIds }
       return { level: 'self', employeeId }
     }
 
