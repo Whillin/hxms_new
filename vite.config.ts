@@ -18,18 +18,22 @@ import { visualizer } from 'rollup-plugin-visualizer'
 export default ({ mode }: { mode: string }) => {
   const root = process.cwd()
   const env = loadEnv(mode, root)
-  const { VITE_VERSION, VITE_PORT, VITE_BASE_URL, VITE_API_URL, VITE_API_PROXY_URL, VITE_USE_MOCK } = env
+  const {
+    VITE_VERSION,
+    VITE_PORT,
+    VITE_BASE_URL,
+    VITE_API_URL,
+    VITE_API_PROXY_URL,
+    VITE_USE_MOCK
+  } = env
   // mock 开关（显式开启才启用）：仅当设置为 'true' 时启用本地 mock
   const useMock = VITE_USE_MOCK === 'true'
-  // 默认代理目标：优先使用 VITE_API_PROXY_URL；否则从 VITE_API_URL 推断（去掉末尾 /api）；再回退到 3002
-  // 在开发模式下，直接使用 VITE_API_URL 推断出的基础地址，避免被系统环境中的 VITE_API_PROXY_URL 干扰
-  const devApiTarget = (VITE_API_URL && VITE_API_URL.trim().replace(/\/?api\/?$/, '')) || 'http://localhost:3002'
+  // 默认本地后端端口为 3002；如需改端口请在 .env.development 设置 VITE_API_PROXY_URL
+  const devApiTarget = VITE_API_PROXY_URL || 'http://localhost:3002'
   // 使用代理的条件：显式关闭 mock 时启用代理到后端
   const useProxy = !useMock
 
   console.log(`🚀 API_URL = ${VITE_API_URL}`)
-  console.log(`🔎 VITE_API_PROXY_URL = ${VITE_API_PROXY_URL}`)
-  console.log(`🔎 VITE_API_URL_BASE = ${VITE_API_URL?.trim().replace(/\/?api\/?$/, '')}`)
   console.log(`🚀 VERSION = ${VITE_VERSION}`)
   console.log(`[proxy] useMock=${useMock} useProxy=${useProxy} target=${devApiTarget}`)
 

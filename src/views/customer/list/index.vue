@@ -306,7 +306,8 @@
           prop: 'livingArea',
           label: '居住区域',
           minWidth: 180,
-          formatter: (row: CustomerItem) => formatLivingAreaForDisplay(row.livingArea as any)
+          formatter: (row: CustomerItem) =>
+            Array.isArray(row.livingArea) ? row.livingArea.join('/') : row.livingArea
         },
         {
           prop: 'operation',
@@ -340,9 +341,8 @@
 
   // 行内操作
   const handleRowEdit = (row: CustomerItem) => {
-    // 使用行数据，并将居住区域字符串解析为数组，确保级联选择器正常回显
-    const parts = parseLivingArea(row.livingArea as any)
-    editForm.value = { ...row, livingArea: mapAreaNamesOrCodesToCascaderValues(parts) }
+    // 回退为直接使用行数据，不做本地 ID 强校验
+    editForm.value = { ...row }
     dialogVisible.value = true
   }
   const handleRowDelete = async (row: CustomerItem) => {
@@ -369,8 +369,9 @@
       currentModel: editForm.value.currentModel || '',
       carAge: Number(editForm.value.carAge || 0),
       mileage: Number(editForm.value.mileage || 0),
-      // 统一保存为中文名称路径，便于展示与检索
-      livingArea: formatLivingAreaForDisplay(editForm.value.livingArea as any)
+      livingArea: Array.isArray(editForm.value.livingArea)
+        ? (editForm.value.livingArea as string[]).join('/')
+        : String(editForm.value.livingArea || '')
     }
     try {
       await fetchSaveCustomer(payload as any, { showSuccessMessage: true })
@@ -381,56 +382,6 @@
       // 全局请求拦截器已弹出服务端错误信息，这里仅兜底提示
       ElMessage.error('保存失败')
     }
-  }
-
-  // 兼容字符串格式的居住区域，解析为级联选择器所需的数组
-  const parseLivingArea = (v: any): any => {
-    if (!v) return []
-    if (Array.isArray(v)) return v
-    if (typeof v === 'string') {
-      const s = v.trim()
-      if (!s) return []
-      const parts = s
-        .split(/[\-/、,，\s]+/)
-        .map((x) => x.trim())
-        .filter(Boolean)
-      return parts.length > 0 ? parts : [s]
-    }
-    return v
-  }
-
-  // 将中文名称或地区代码映射为 Cascader 的 value（地区代码）数组
-  const mapAreaNamesOrCodesToCascaderValues = (parts: any[]): string[] => {
-    const tokens = Array.isArray(parts) ? parts.map((x) => String(x)) : []
-    if (tokens.length === 0) return []
-    let nodes: any[] = cityCascaderOptionsRef.value || []
-    const pathValues: string[] = []
-    for (const tk of tokens) {
-      const node = nodes.find((n) => String(n.label) === tk || String(n.value) === tk)
-      if (!node) {
-        // 映射失败：若所有 token 都是数字，尝试直接用作代码；否则返回空数组避免错误回显
-        const allNumeric = tokens.every((x) => /^(\d{4,})$/.test(String(x)))
-        return allNumeric ? tokens : []
-      }
-      pathValues.push(String(node.value))
-      nodes = Array.isArray(node.children) ? node.children : []
-    }
-    return pathValues
-  }
-
-  // 用于表格显示：将代码或名称路径统一转换为中文名称串
-  const formatLivingAreaForDisplay = (v: any): string => {
-    const parts = parseLivingArea(v)
-    if (!Array.isArray(parts) || parts.length === 0) return ''
-    let nodes: any[] = cityCascaderOptionsRef.value || []
-    const labels: string[] = []
-    for (const tk of parts) {
-      const node = nodes.find((n) => String(n.value) === String(tk) || String(n.label) === String(tk))
-      if (!node) return Array.isArray(parts) ? parts.join('/') : String(v || '')
-      labels.push(String(node.label))
-      nodes = Array.isArray(node.children) ? node.children : []
-    }
-    return labels.join('/')
   }
 </script>
 

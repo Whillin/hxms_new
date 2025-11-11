@@ -33,3 +33,4 @@ grant_app_user.sql
 create_hxms_dev.sql
 verify_counts.sql
 drop_host_db.sql
+cloud_dump.sql

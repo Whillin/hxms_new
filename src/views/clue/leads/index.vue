@@ -258,13 +258,6 @@
     }
   })
 
-  // 加载最新商品车型，用于“关注/成交车型”下拉
-  onMounted(async () => {
-    try {
-      await productStore.loadFromApi()
-    } catch {}
-  })
-
   const { hasAuth } = useAuth()
 
   // 搜索表单
@@ -1284,10 +1277,7 @@
       ...row,
       visitDate: row.visitDate,
       enterTime: toHM(row.enterTime),
-      leaveTime: toHM(row.leaveTime),
-      livingArea: Array.isArray((row as any).livingArea)
-        ? ((row as any).livingArea as any)
-        : parseLivingArea((row as any).livingArea)
+      leaveTime: toHM(row.leaveTime)
     }
   }
   const submitAdd = async () => {
@@ -1454,16 +1444,10 @@
   // 门店变化时刷新员工选项
   watch(
     () => addForm.value.storeId,
-    async () => {
-      await loadSalesConsultants()
-      const cur = String(addForm.value.salesConsultant || '')
-      // 新建时切换门店需清空；编辑时保留原值（若仍在选项中）
-      if (!editingId.value) {
-        addForm.value.salesConsultant = ''
-      } else if (cur) {
-        const exists = salesConsultantOptions.value.some((o) => o.value === cur)
-        if (!exists) addForm.value.salesConsultant = ''
-      }
+    () => {
+      loadSalesConsultants()
+      // 切换门店后清空已选销售顾问，以避免跨店误选
+      addForm.value.salesConsultant = ''
     }
   )
 
@@ -1484,16 +1468,7 @@
   const parseLivingArea = (v: any): any => {
     if (!v) return []
     if (Array.isArray(v)) return v
-    if (typeof v === 'string') {
-      const s = v.trim()
-      if (!s) return []
-      // 兼容多种分隔符：'省-市-区'、'省/市/区'、'省，市，区'、'省、 市'、空格
-      const parts = s
-        .split(/[\-/、,，\s]+/)
-        .map((x) => x.trim())
-        .filter(Boolean)
-      return parts.length > 0 ? parts : [s]
-    }
+    if (typeof v === 'string') return v.includes('/') ? v.split('/') : [v]
     return v
   }
 
