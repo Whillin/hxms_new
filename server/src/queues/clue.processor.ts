@@ -68,14 +68,15 @@ export class ClueProcessor {
     let customerId: number | undefined
     const phone = String(body.customerPhone || '').trim()
     const name = String(body.customerName || '').trim() || '未命名客户'
+    let customerRow: Customer | undefined
     if (phone) {
       const existCustomer = await this.customerRepo.findOne({ where: { phone, storeId, name } })
       if (existCustomer) {
         // 更新
         existCustomer.name = name || existCustomer.name
         // ... 其他字段更新
-        const saved = await this.customerRepo.save(existCustomer)
-        customerId = saved.id
+        customerRow = await this.customerRepo.save(existCustomer)
+        customerId = customerRow.id
       } else {
         const created = this.customerRepo.create({
           name,
@@ -83,13 +84,14 @@ export class ClueProcessor {
           storeId: storeId!
           // ... 其他字段
         })
-        const saved = await this.customerRepo.save(created)
-        customerId = saved.id
+        customerRow = await this.customerRepo.save(created)
+        customerId = customerRow.id
       }
     }
 
     // 规范化渠道
     // 移除重复的 let channelId
+    let channelRow: Channel | undefined
     const channelId = await (async () => {
       const category = String(body.channelCategory || '线下')
       const src = String(body.businessSource || '自然到店')
@@ -106,37 +108,142 @@ export class ClueProcessor {
           compoundKey
         })
       }
-      const savedChannel = await this.channelRepo.save(existChannel)
-      return savedChannel.id
+      channelRow = await this.channelRepo.save(existChannel)
+      return channelRow.id
     })()
 
     // 解析车型ID
     let focusModelIdResolved: number | undefined =
       typeof body.focusModelId === 'number' ? Number(body.focusModelId) : undefined
+    let pm: ProductModel | undefined
     if (!focusModelIdResolved && body.focusModelName) {
-      const pm = await this.productModelRepo.findOne({
+      pm = await this.productModelRepo.findOne({
         where: { name: String(body.focusModelName) }
       })
       focusModelIdResolved = pm?.id
     }
     let dealModelIdResolved: number | undefined =
       typeof body.dealModelId === 'number' ? Number(body.dealModelId) : undefined
+    let pm2: ProductModel | undefined
     if (!dealModelIdResolved && body.dealModelName) {
-      const pm2 = await this.productModelRepo.findOne({
+      pm2 = await this.productModelRepo.findOne({
         where: { name: String(body.dealModelName) }
       })
       dealModelIdResolved = pm2?.id
     }
 
     // 创建Clue实体
+    const livingAreaStr = Array.isArray(body.livingArea)
+      ? body.livingArea.join('/')
+      : body.livingArea || ''
     const incoming: Partial<Clue> = {
-      // ... 所有字段
+      // 基础到店信息
+      visitDate: String(body.visitDate || ''),
+      enterTime: body.enterTime || undefined,
+      leaveTime: body.leaveTime || undefined,
+      receptionDuration: Number(body.receptionDuration || 0),
+      visitorCount: Number(body.visitorCount || 1),
+      receptionStatus: (body.receptionStatus as any) || 'sales',
+      salesConsultant: body.salesConsultant || undefined,
+
+      // 客户基础信息与画像（冗余）
+      customerName: name,
+      customerPhone: phone,
+      userGender: (body.userGender as any) || '未知',
+      userAge: Number(body.userAge || 0),
+      buyExperience: (body.buyExperience as any) || '首购',
+      userPhoneModel: body.userPhoneModel || undefined,
+      currentBrand: body.currentBrand || undefined,
+      currentModel: body.currentModel || undefined,
+      carAge: Number(body.carAge || 0),
+      mileage: Number(body.mileage || 0),
+      livingArea: livingAreaStr || undefined,
+
+      // 车型与成交标记（冗余 + 外键）
+      focusModelId: focusModelIdResolved || undefined,
+      focusModelName: body.focusModelName || pm?.name || undefined,
+      testDrive: !!body.testDrive,
+      bargaining: !!body.bargaining,
+      dealDone: !!body.dealDone,
+      dealModelId: dealModelIdResolved || undefined,
+      dealModelName: body.dealModelName || pm2?.name || undefined,
+
+      // 渠道与来源（冗余 + 外键）
+      businessSource: String(body.businessSource || '自然到店'),
+      channelCategory: String(body.channelCategory || '线下'),
+      channelLevel1: body.channelLevel1 || undefined,
+      channelLevel2: body.channelLevel2 || undefined,
+      convertOrRetentionModel: body.convertOrRetentionModel || undefined,
+      referrer: body.referrer || undefined,
+      contactTimes: Number(body.contactTimes || 1),
+
+      // 商机级别
+      opportunityLevel: (body.opportunityLevel as any) || 'C',
+
+      // 归属维度
+      brandId,
+      regionId,
+      storeId,
+      departmentId: typeof body.departmentId === 'number' ? Number(body.departmentId) : undefined,
+      createdBy: typeof employeeId === 'number' ? employeeId : undefined,
+
+      // 规范化外键
       customerId,
       channelId,
-      storeId,
-      regionId,
-      brandId,
-      createdBy: typeof employeeId === 'number' ? employeeId : undefined
+
+      // 快照对象
+      customerSnapshot: customerRow
+        ? {
+            id: customerRow.id,
+            name: customerRow.name,
+            phone: customerRow.phone,
+            gender: customerRow.gender,
+            age: customerRow.age,
+            buyExperience: customerRow.buyExperience,
+            phoneModel: customerRow.phoneModel,
+            currentBrand: customerRow.currentBrand,
+            currentModel: customerRow.currentModel,
+            carAge: customerRow.carAge,
+            mileage: Number(customerRow.mileage || 0),
+            livingArea: customerRow.livingArea,
+            storeId: customerRow.storeId
+          }
+        : {
+            name,
+            phone,
+            gender: (body.userGender as any) || '未知',
+            age: Number(body.userAge || 0),
+            buyExperience: (body.buyExperience as any) || '首购',
+            phoneModel: body.userPhoneModel,
+            currentBrand: body.currentBrand,
+            currentModel: body.currentModel,
+            carAge: Number(body.carAge || 0),
+            mileage: Number(body.mileage || 0),
+            livingArea: livingAreaStr || undefined,
+            storeId
+          },
+      channelSnapshot: channelRow
+        ? {
+            id: channelRow.id,
+            category: channelRow.category,
+            businessSource: channelRow.businessSource,
+            level1: channelRow.level1,
+            level2: channelRow.level2,
+            compoundKey: channelRow.compoundKey
+          }
+        : {
+            category: String(body.channelCategory || '线下'),
+            businessSource: String(body.businessSource || '自然到店'),
+            level1: body.channelLevel1,
+            level2: body.channelLevel2,
+            compoundKey: `${String(body.channelCategory || '线下')}|${String(
+              body.businessSource || '自然到店'
+            )}|${body.channelLevel1 || ''}|${body.channelLevel2 || ''}`
+          },
+      productSnapshot: {
+        focus: { id: focusModelIdResolved, name: body.focusModelName || pm?.name },
+        deal: { id: dealModelIdResolved, name: body.dealModelName || pm2?.name }
+      }
     }
 
     const clue = this.repo.create(incoming)

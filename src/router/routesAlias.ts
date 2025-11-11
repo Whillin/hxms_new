@@ -29,7 +29,6 @@ export enum RoutesAlias {
   Drag = '/widgets/drag', // 拖拽
   TextScroll = '/widgets/text-scroll', // 文字滚动
   Fireworks = '/widgets/fireworks', // 礼花效果
-  Chat = '/template/chat', // 聊天
   Cards = '/template/cards', // 卡片
   Banners = '/template/banners', // 横幅
   Charts = '/template/charts', // 图表

@@ -76,12 +76,6 @@
         }
       }
 
-      &.chat-button:hover {
-        i {
-          animation: shake 0.5s ease-in-out;
-        }
-      }
-
       &:hover {
         color: var(--main-color);
         background-color: rgba(var(--art-gray-200-rgb), 0.7);
@@ -92,23 +86,7 @@
       }
     }
 
-    &.chat-btn {
-      .btn {
-        position: relative;
-
-        .dot {
-          position: absolute;
-          top: 8px;
-          right: 8px;
-          display: block;
-          width: 6px;
-          height: 6px;
-          background: var(--el-color-success) !important;
-          border-radius: 50%;
-          animation: breathing 1.5s ease-in-out infinite;
-        }
-      }
-    }
+    
   }
 
   .menu {

@@ -172,6 +172,71 @@ async function mig004_users_profile_fields(conn, db) {
   await markApplied(conn, db, version)
 }
 
+async function mig005_clues_snapshots(conn, db) {
+  const version = '005_clues_add_snapshots_json'
+  if (await wasApplied(conn, db, version)) return
+
+  // 添加 JSON 列（如缺失）
+  const additions = [
+    { name: 'customerSnapshot', ddl: `ALTER TABLE \`${db}\`.clues ADD COLUMN customerSnapshot JSON NULL` },
+    { name: 'channelSnapshot', ddl: `ALTER TABLE \`${db}\`.clues ADD COLUMN channelSnapshot JSON NULL` },
+    { name: 'productSnapshot', ddl: `ALTER TABLE \`${db}\`.clues ADD COLUMN productSnapshot JSON NULL` }
+  ]
+  for (const add of additions) {
+    if (!(await hasColumn(conn, db, 'clues', add.name))) {
+      await conn.query(add.ddl)
+      console.log('[migrate] clues: added column', add.name)
+    }
+  }
+
+  // 用现有冗余字段回填快照（仅空值时）
+  const fillSql = `
+    UPDATE \`${db}\`.clues SET
+      customerSnapshot = IF(
+        customerSnapshot IS NULL,
+        JSON_OBJECT(
+          'name', customerName,
+          'phone', customerPhone,
+          'gender', userGender,
+          'age', userAge,
+          'buyExperience', buyExperience,
+          'phoneModel', userPhoneModel,
+          'currentBrand', currentBrand,
+          'currentModel', currentModel,
+          'carAge', carAge,
+          'mileage', mileage,
+          'livingArea', livingArea,
+          'storeId', storeId
+        ),
+        customerSnapshot
+      ),
+      channelSnapshot = IF(
+        channelSnapshot IS NULL,
+        JSON_OBJECT(
+          'category', channelCategory,
+          'businessSource', businessSource,
+          'level1', channelLevel1,
+          'level2', channelLevel2,
+          'compoundKey', CONCAT(channelCategory,'|',businessSource,'|',COALESCE(channelLevel1,''),'|',COALESCE(channelLevel2,''))
+        ),
+        channelSnapshot
+      ),
+      productSnapshot = IF(
+        productSnapshot IS NULL,
+        JSON_OBJECT(
+          'focus', JSON_OBJECT('id', focusModelId, 'name', focusModelName),
+          'deal', JSON_OBJECT('id', dealModelId, 'name', dealModelName)
+        ),
+        productSnapshot
+      );
+  `
+
+  await conn.query(fillSql)
+  console.log('[migrate] clues: snapshots backfilled from redundant fields')
+
+  await markApplied(conn, db, version)
+}
+
 async function main() {
   const root = path.resolve(process.cwd(), 'server')
   parseEnvFile(path.join(root, '.env.production'))
@@ -184,6 +249,7 @@ async function main() {
     await mig002_channels(conn, db)
     await mig003_clues_rename(conn, db)
     await mig004_users_profile_fields(conn, db)
+    await mig005_clues_snapshots(conn, db)
     console.log('[OK] migrations applied')
   } finally {
     await conn.end()

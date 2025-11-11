@@ -280,15 +280,7 @@ export const asyncRoutes: AppRouteRecord[] = [
           keepAlive: true
         }
       },
-      {
-        path: 'chat',
-        name: 'Chat',
-        component: RoutesAlias.Chat,
-        meta: {
-          title: 'menus.template.chat',
-          keepAlive: true
-        }
-      },
+      // 聊天页面已下线，移除相关路由
       {
         path: 'calendar',
         name: 'Calendar',

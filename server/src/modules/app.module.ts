@@ -31,6 +31,7 @@ import { MetricsController } from '../routes/metrics.controller'
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler'
 import { APP_GUARD } from '@nestjs/core'
 import { BullModule } from '@nestjs/bull'
+import { ClueProcessor } from '../queues/clue.processor'
 import { CacheModule, CacheStore } from '@nestjs/cache-manager'
 import { redisStore } from 'cache-manager-redis-store'
 import { DebounceMiddleware } from '../common/debounce.middleware'
@@ -133,6 +134,13 @@ import { MiddlewareConsumer } from '@nestjs/common'
     }),
     // 全局限流（v5+ 采用数组定义；ttl 单位毫秒）
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 60 }]),
+    // Bull 队列全局连接：使用环境变量的 Redis 主机与端口
+    BullModule.forRoot({
+      redis: {
+        host: process.env.REDIS_HOST || '127.0.0.1',
+        port: Number(process.env.REDIS_PORT || 6379)
+      }
+    }),
     BullModule.registerQueue({
       name: 'clue-processing'
     })
@@ -156,7 +164,9 @@ import { MiddlewareConsumer } from '@nestjs/common'
     SeedService,
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     DebounceMiddleware,
-    FeatureFlagsService
+    FeatureFlagsService,
+    // 注册队列处理器
+    ClueProcessor
   ]
 })
 export class AppModule {

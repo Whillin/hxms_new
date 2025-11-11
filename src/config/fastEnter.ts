@@ -38,15 +38,7 @@ const fastEnterConfig: FastEnterConfig = {
       enabled: true,
       order: 3
     },
-    {
-      name: '聊天',
-      description: '即时通讯功能',
-      icon: '&#xe70a;',
-      iconColor: '#13DEB9',
-      path: RoutesAlias.Chat,
-      enabled: true,
-      order: 4
-    },
+    // 聊天应用已下线
     {
       name: '官方文档',
       description: '使用指南与开发文档',

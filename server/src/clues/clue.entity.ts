@@ -112,6 +112,40 @@ export class Clue {
   @Column('varchar', { length: 120, nullable: true })
   livingArea?: string
 
+  /** 快照字段（创建/保存时写入，后续不随主数据变化） */
+  @Column('json', { nullable: true })
+  customerSnapshot?: {
+    id?: number
+    name?: string
+    phone?: string
+    gender?: '男' | '女' | '未知'
+    age?: number
+    buyExperience?: '首购' | '换购' | '增购'
+    phoneModel?: string
+    currentBrand?: string
+    currentModel?: string
+    carAge?: number
+    mileage?: number
+    livingArea?: string
+    storeId?: number
+  }
+
+  @Column('json', { nullable: true })
+  channelSnapshot?: {
+    id?: number
+    category?: string
+    businessSource?: string
+    level1?: string
+    level2?: string
+    compoundKey?: string
+  }
+
+  @Column('json', { nullable: true })
+  productSnapshot?: {
+    focus?: { id?: number; name?: string }
+    deal?: { id?: number; name?: string }
+  }
+
   /** 归属门店/区域/品牌（列表过滤用） */
   @Index('idx_brand')
   @Column('int', { nullable: true })

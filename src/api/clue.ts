@@ -38,6 +38,34 @@ export interface ClueItem {
   carAge?: number
   mileage?: number
   livingArea?: string | string[]
+  /** 快照对象（只读） */
+  customerSnapshot?: {
+    id?: number
+    name?: string
+    phone?: string
+    gender?: '男' | '女' | '未知'
+    age?: number
+    buyExperience?: '首购' | '换购' | '增购'
+    phoneModel?: string
+    currentBrand?: string
+    currentModel?: string
+    carAge?: number
+    mileage?: number
+    livingArea?: string
+    storeId?: number
+  }
+  channelSnapshot?: {
+    id?: number
+    category?: string
+    businessSource?: string
+    level1?: string
+    level2?: string
+    compoundKey?: string
+  }
+  productSnapshot?: {
+    focus?: { id?: number; name?: string }
+    deal?: { id?: number; name?: string }
+  }
   storeId?: number
   regionId?: number
   brandId?: number

@@ -141,7 +141,7 @@
             currentDetail?.salesConsultant
           }}</ElDescriptionsItem>
           <ElDescriptionsItem label="客户姓名">{{
-            currentDetail?.customerName
+            resolvedDetail?.customerName
           }}</ElDescriptionsItem>
           <ElDescriptionsItem label="到店事宜">{{
             currentDetail?.visitPurpose
@@ -153,10 +153,10 @@
             currentDetail?.visitCategory
           }}</ElDescriptionsItem>
           <ElDescriptionsItem label="客户电话">{{
-            currentDetail?.customerPhone
+            resolvedDetail?.customerPhone
           }}</ElDescriptionsItem>
           <ElDescriptionsItem label="关注车型">{{
-            currentDetail?.focusModelName || findCategoryName(currentDetail?.focusModelId)
+            resolvedDetail?.focusModelName || findCategoryName(resolvedDetail?.focusModelId)
           }}</ElDescriptionsItem>
           <ElDescriptionsItem label="是否试驾">{{
             currentDetail?.testDrive ? '是' : '否'
@@ -168,19 +168,19 @@
             currentDetail?.dealDone ? '是' : '否'
           }}</ElDescriptionsItem>
           <ElDescriptionsItem label="成交车型">{{
-            currentDetail?.dealModelName || findCategoryName(currentDetail?.dealModelId)
+            resolvedDetail?.dealModelName || findCategoryName(resolvedDetail?.dealModelId)
           }}</ElDescriptionsItem>
           <ElDescriptionsItem label="商机来源">{{
-            currentDetail?.businessSource
+            resolvedDetail?.businessSource
           }}</ElDescriptionsItem>
           <ElDescriptionsItem label="渠道分类">{{
-            currentDetail?.channelCategory
+            resolvedDetail?.channelCategory
           }}</ElDescriptionsItem>
           <ElDescriptionsItem label="一级渠道">{{
-            currentDetail?.channelLevel1
+            resolvedDetail?.channelLevel1
           }}</ElDescriptionsItem>
           <ElDescriptionsItem label="二级渠道">{{
-            currentDetail?.channelLevel2
+            resolvedDetail?.channelLevel2
           }}</ElDescriptionsItem>
           <ElDescriptionsItem label="转化/保客车型">{{
             currentDetail?.convertOrRetentionModel
@@ -193,27 +193,27 @@
             currentDetail?.opportunityLevel
           }}</ElDescriptionsItem>
           <ElDescriptionsItem label="使用者性别">{{
-            currentDetail?.userGender
+            resolvedDetail?.userGender
           }}</ElDescriptionsItem>
-          <ElDescriptionsItem label="使用者年龄">{{ currentDetail?.userAge }}</ElDescriptionsItem>
+          <ElDescriptionsItem label="使用者年龄">{{ resolvedDetail?.userAge }}</ElDescriptionsItem>
           <ElDescriptionsItem label="购车经历">{{
-            currentDetail?.buyExperience
+            resolvedDetail?.buyExperience
           }}</ElDescriptionsItem>
           <ElDescriptionsItem label="使用手机">{{
-            currentDetail?.userPhoneModel
+            resolvedDetail?.userPhoneModel
           }}</ElDescriptionsItem>
           <ElDescriptionsItem label="现用品牌">{{
-            currentDetail?.currentBrand
+            resolvedDetail?.currentBrand
           }}</ElDescriptionsItem>
           <ElDescriptionsItem label="现用车型">{{
-            currentDetail?.currentModel
+            resolvedDetail?.currentModel
           }}</ElDescriptionsItem>
-          <ElDescriptionsItem label="车龄(年)">{{ currentDetail?.carAge }}</ElDescriptionsItem>
-          <ElDescriptionsItem label="里程(万公里)">{{ currentDetail?.mileage }}</ElDescriptionsItem>
+          <ElDescriptionsItem label="车龄(年)">{{ resolvedDetail?.carAge }}</ElDescriptionsItem>
+          <ElDescriptionsItem label="里程(万公里)">{{ resolvedDetail?.mileage }}</ElDescriptionsItem>
           <ElDescriptionsItem label="居住区域">{{
-            Array.isArray(currentDetail?.livingArea)
-              ? currentDetail?.livingArea.join('/')
-              : currentDetail?.livingArea
+            Array.isArray(resolvedDetail?.livingArea)
+              ? resolvedDetail?.livingArea.join('/')
+              : resolvedDetail?.livingArea
           }}</ElDescriptionsItem>
         </ElDescriptions>
       </div>
@@ -399,6 +399,34 @@
     opportunityLevel?: 'H' | 'A' | 'B' | 'C'
     // 新增：归属门店
     storeId?: number
+    // 新增：快照字段（只读）
+    customerSnapshot?: {
+      id?: number
+      name?: string
+      phone?: string
+      gender?: '男' | '女' | '未知'
+      age?: number
+      buyExperience?: '首购' | '换购' | '增购'
+      phoneModel?: string
+      currentBrand?: string
+      currentModel?: string
+      carAge?: number
+      mileage?: number
+      livingArea?: string
+      storeId?: number
+    }
+    channelSnapshot?: {
+      id?: number
+      category?: string
+      businessSource?: string
+      level1?: string
+      level2?: string
+      compoundKey?: string
+    }
+    productSnapshot?: {
+      focus?: { id?: number; name?: string }
+      deal?: { id?: number; name?: string }
+    }
   }
 
   // 本地新增缓存，避免重置/刷新后丢失
@@ -433,6 +461,42 @@
   const findCategoryName = (id?: number) => {
     const item = (flatList.value || []).find((c: any) => c.id === id)
     return item ? item.name : ''
+  }
+
+  // 统一解析：优先采用快照，再回退到冗余/原字段
+  const resolveClue = (row: ClueItem): ClueItem => {
+    const cs = (row as any).customerSnapshot || {}
+    const chs = (row as any).channelSnapshot || {}
+    const ps = (row as any).productSnapshot || {}
+    const living = (() => {
+      if (Array.isArray(row.livingArea)) return row.livingArea
+      const lv = (row as any).livingArea ?? cs.livingArea
+      if (Array.isArray(lv)) return lv
+      if (typeof lv === 'string' && lv) return lv.split('/')
+      return []
+    })()
+    return {
+      ...row,
+      customerName: cs.name ?? row.customerName,
+      customerPhone: cs.phone ?? row.customerPhone,
+      userGender: cs.gender ?? row.userGender,
+      userAge: typeof cs.age === 'number' ? cs.age : row.userAge,
+      buyExperience: cs.buyExperience ?? row.buyExperience,
+      userPhoneModel: cs.phoneModel ?? row.userPhoneModel,
+      currentBrand: cs.currentBrand ?? row.currentBrand,
+      currentModel: cs.currentModel ?? row.currentModel,
+      carAge: typeof cs.carAge === 'number' ? cs.carAge : row.carAge,
+      mileage: typeof cs.mileage === 'number' ? cs.mileage : row.mileage,
+      livingArea: living,
+      businessSource: chs.businessSource ?? row.businessSource,
+      channelCategory: chs.category ?? row.channelCategory,
+      channelLevel1: chs.level1 ?? row.channelLevel1,
+      channelLevel2: chs.level2 ?? row.channelLevel2,
+      focusModelId: typeof ps?.focus?.id === 'number' ? (ps.focus.id as number) : row.focusModelId,
+      focusModelName: ps?.focus?.name ?? row.focusModelName,
+      dealModelId: typeof ps?.deal?.id === 'number' ? (ps.deal.id as number) : row.dealModelId,
+      dealModelName: ps?.deal?.name ?? row.dealModelName
+    }
   }
 
   const {
@@ -489,7 +553,12 @@
             return name || (Number.isFinite(id) ? String(id) : '-')
           }
         },
-        { prop: 'customerName', label: '客户姓名', width: 120 },
+        {
+          prop: 'customerName',
+          label: '客户姓名',
+          width: 120,
+          formatter: (row: ClueItem) => resolveClue(row).customerName || ''
+        },
         { prop: 'visitPurpose', label: '到店事宜', width: 120 },
         {
           prop: 'isAddWeChat',
@@ -498,12 +567,20 @@
           formatter: (row: any) => ((row as any).isAddWeChat ? '是' : '否')
         },
         { prop: 'visitCategory', label: '到店分类', width: 100 },
-        { prop: 'customerPhone', label: '客户电话', width: 140 },
+        {
+          prop: 'customerPhone',
+          label: '客户电话',
+          width: 140,
+          formatter: (row: ClueItem) => resolveClue(row).customerPhone || ''
+        },
         {
           prop: 'focusModelId',
           label: '关注车型',
           width: 160,
-          formatter: (row: any) => row.focusModelName || findCategoryName(row.focusModelId)
+          formatter: (row: any) => {
+            const r = resolveClue(row)
+            return r.focusModelName || findCategoryName(r.focusModelId)
+          }
         },
         {
           prop: 'testDrive',
@@ -527,30 +604,55 @@
           prop: 'dealModelId',
           label: '成交车型',
           width: 160,
-          formatter: (row: any) => row.dealModelName || findCategoryName(row.dealModelId)
+          formatter: (row: any) => {
+            const r = resolveClue(row)
+            return r.dealModelName || findCategoryName(r.dealModelId)
+          }
         },
-        { prop: 'businessSource', label: '商机来源', width: 120 },
-        { prop: 'channelCategory', label: '渠道分类', width: 120 },
-        { prop: 'channelLevel1', label: '一级渠道', width: 120 },
-        { prop: 'channelLevel2', label: '二级渠道', width: 120 },
+        {
+          prop: 'businessSource',
+          label: '商机来源',
+          width: 120,
+          formatter: (row: ClueItem) => resolveClue(row).businessSource || ''
+        },
+        {
+          prop: 'channelCategory',
+          label: '渠道分类',
+          width: 120,
+          formatter: (row: ClueItem) => resolveClue(row).channelCategory || ''
+        },
+        {
+          prop: 'channelLevel1',
+          label: '一级渠道',
+          width: 120,
+          formatter: (row: ClueItem) => resolveClue(row).channelLevel1 || ''
+        },
+        {
+          prop: 'channelLevel2',
+          label: '二级渠道',
+          width: 120,
+          formatter: (row: ClueItem) => resolveClue(row).channelLevel2 || ''
+        },
         { prop: 'convertOrRetentionModel', label: '转化/保客车型', width: 140 },
         { prop: 'referrer', label: '推荐人', width: 120 },
         { prop: 'contactTimes', label: '接触次数', width: 100 },
         { prop: 'opportunityLevel', label: '商机级别', width: 100 },
-        { prop: 'userGender', label: '使用者性别', width: 100 },
-        { prop: 'userAge', label: '使用者年龄', width: 110 },
-        { prop: 'buyExperience', label: '购车经历', width: 110 },
-        { prop: 'userPhoneModel', label: '使用手机', width: 120 },
-        { prop: 'currentBrand', label: '现用品牌', width: 120 },
-        { prop: 'currentModel', label: '现用车型', width: 120 },
-        { prop: 'carAge', label: '车龄(年)', width: 100 },
-        { prop: 'mileage', label: '里程(万公里)', width: 110 },
+        { prop: 'userGender', label: '使用者性别', width: 100, formatter: (row: ClueItem) => resolveClue(row).userGender || '' },
+        { prop: 'userAge', label: '使用者年龄', width: 110, formatter: (row: ClueItem) => resolveClue(row).userAge ?? '' },
+        { prop: 'buyExperience', label: '购车经历', width: 110, formatter: (row: ClueItem) => resolveClue(row).buyExperience || '' },
+        { prop: 'userPhoneModel', label: '使用手机', width: 120, formatter: (row: ClueItem) => resolveClue(row).userPhoneModel || '' },
+        { prop: 'currentBrand', label: '现用品牌', width: 120, formatter: (row: ClueItem) => resolveClue(row).currentBrand || '' },
+        { prop: 'currentModel', label: '现用车型', width: 120, formatter: (row: ClueItem) => resolveClue(row).currentModel || '' },
+        { prop: 'carAge', label: '车龄(年)', width: 100, formatter: (row: ClueItem) => resolveClue(row).carAge ?? '' },
+        { prop: 'mileage', label: '里程(万公里)', width: 110, formatter: (row: ClueItem) => resolveClue(row).mileage ?? '' },
         {
           prop: 'livingArea',
           label: '居住区域',
           width: 140,
-          formatter: (row: ClueItem) =>
-            Array.isArray(row.livingArea) ? row.livingArea.join('/') : row.livingArea
+          formatter: (row: ClueItem) => {
+            const v = resolveClue(row).livingArea
+            return Array.isArray(v) ? v.join('/') : v
+          }
         },
         { prop: 'operation', label: '操作', width: 220, useSlot: true }
       ]
@@ -566,7 +668,8 @@
   // 构造导出数据：将数组字段转换为字符串以满足 ExportData 类型
   const excelData = computed(() =>
     (filteredData.value || []).map((row: any) => {
-      const obj: Record<string, any> = { ...row }
+      const r = resolveClue(row)
+      const obj: Record<string, any> = { ...r }
       const la = obj.livingArea
       obj.livingArea = Array.isArray(la) ? la.join('/') : la
       return obj
@@ -1280,14 +1383,15 @@
     const toHM = (t: string | undefined) => (t && t.includes(' ') ? t.split(' ')[1] : t || '')
     const toCascader = (v: any) =>
       Array.isArray(v) ? v : typeof v === 'string' && v ? v.split('/') : []
+    const r = resolveClue(row)
     addForm.value = {
       ...initAddForm(),
-      ...row,
-      visitDate: row.visitDate,
-      enterTime: toHM(row.enterTime),
-      leaveTime: toHM(row.leaveTime),
+      ...r,
+      visitDate: r.visitDate,
+      enterTime: toHM(r.enterTime),
+      leaveTime: toHM(r.leaveTime),
       // 居住区域为级联选择器，编辑时需要将字符串拆分为数组
-      livingArea: toCascader((row as any).livingArea)
+      livingArea: toCascader((r as any).livingArea)
     }
   }
   const submitAdd = async () => {
@@ -1322,6 +1426,9 @@
   // 查看详情
   const detailVisible = ref(false)
   const currentDetail = ref<ClueItem | null>(null)
+  const resolvedDetail = computed(() =>
+    currentDetail.value ? resolveClue(currentDetail.value) : null
+  )
   const viewDetail = (row: ClueItem) => {
     currentDetail.value = row
     detailVisible.value = true

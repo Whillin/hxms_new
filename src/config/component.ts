@@ -31,14 +31,7 @@ export const globalComponentsConfig: GlobalComponentConfig[] = [
     enabled: true
   },
   {
-    name: '聊天窗口',
-    key: 'chat-window',
-    component: defineAsyncComponent(
-      () => import('@/components/core/layouts/art-chat-window/index.vue')
-    ),
-    enabled: true
-  },
-  {
+    // 聊天窗口已下线
     name: '礼花效果',
     key: 'fireworks-effect',
     component: defineAsyncComponent(

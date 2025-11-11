@@ -37,45 +37,56 @@ export class ClueController {
 
     const scope = await this.dataScopeService.getScope(req.user)
 
-    // 数据范围过滤
-    const where: any = {}
+    // 数据范围过滤（支持部门范围下“部门 OR 门店”的可见性）
+    const whereClauses: any[] = []
     switch (scope.level) {
       case 'all':
+        whereClauses.push({})
         break
       case 'self':
-        if (typeof scope.employeeId === 'number') where.createdBy = scope.employeeId
+        if (typeof scope.employeeId === 'number') whereClauses.push({ createdBy: scope.employeeId })
+        else whereClauses.push({})
         break
-      case 'department':
-        if (typeof scope.departmentId === 'number') where.departmentId = scope.departmentId
-        if (Array.isArray(scope.storeIds) && scope.storeIds.length)
-          where.storeId = In(scope.storeIds)
+      case 'department': {
+        if (typeof scope.departmentId === 'number') whereClauses.push({ departmentId: scope.departmentId })
+        const ids = Array.isArray(scope.storeIds) ? scope.storeIds : []
+        if (ids.length) whereClauses.push({ storeId: In(ids) })
+        if (!whereClauses.length) whereClauses.push({})
         break
-      case 'store':
-        where.storeId = In(scope.storeIds || [])
+      }
+      case 'store': {
+        whereClauses.push({ storeId: In(scope.storeIds || []) })
         break
+      }
       case 'region':
-        if (typeof scope.regionId === 'number') where.regionId = scope.regionId
+        if (typeof scope.regionId === 'number') whereClauses.push({ regionId: scope.regionId })
+        else whereClauses.push({})
         break
       case 'brand':
-        if (typeof scope.brandId === 'number') where.brandId = scope.brandId
+        if (typeof scope.brandId === 'number') whereClauses.push({ brandId: scope.brandId })
+        else whereClauses.push({})
         break
       default:
+        whereClauses.push({})
         break
     }
 
-    // 搜索过滤
-    if (query.customerName) where.customerName = Like(`%${String(query.customerName)}%`)
-    if (query.customerPhone) where.customerPhone = Like(`%${String(query.customerPhone)}%`)
-    if (query.opportunityLevel) where.opportunityLevel = String(query.opportunityLevel)
-    if (query.dealDone === 'true') where.dealDone = true
-    if (query.dealDone === 'false') where.dealDone = false
+    // 搜索过滤（同时应用到每个 OR 分支）
+    const searchFilters: any = {}
+    if (query.customerName) searchFilters.customerName = Like(`%${String(query.customerName)}%`)
+    if (query.customerPhone) searchFilters.customerPhone = Like(`%${String(query.customerPhone)}%`)
+    if (query.opportunityLevel) searchFilters.opportunityLevel = String(query.opportunityLevel)
+    if (query.dealDone === 'true') searchFilters.dealDone = true
+    if (query.dealDone === 'false') searchFilters.dealDone = false
     if (Array.isArray(query.daterange) && query.daterange.length === 2) {
       const [start, end] = query.daterange
-      where.visitDate = Between(String(start), String(end))
+      searchFilters.visitDate = Between(String(start), String(end))
     }
 
+    const where = whereClauses.map((c) => ({ ...c, ...searchFilters }))
+
     const [records, total] = await this.repo.findAndCount({
-      where,
+      where: where.length === 1 ? where[0] : where,
       order: { createdAt: 'DESC' },
       skip: (current - 1) * size,
       take: size
