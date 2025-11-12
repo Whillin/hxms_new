@@ -50,6 +50,7 @@ services:
     container_name: hxms_api
     env_file:
       - ./server/.env.production
+      - ./server/.env
     environment:
       - NODE_OPTIONS=--max-old-space-size=256
     ports:
