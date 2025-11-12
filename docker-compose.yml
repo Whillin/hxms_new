@@ -55,7 +55,12 @@ services:
       - NODE_OPTIONS=--max-old-space-size=256
       # 显式覆盖容器内的服务主机，避免 .env 中使用 localhost 导致连接失败
       - MYSQL_HOST=mysql
+      - MYSQL_PORT=3306
+      - MYSQL_USER=root
+      - MYSQL_PASSWORD=123456
+      - MYSQL_DB=hxms_dev
       - REDIS_HOST=redis
+      - REDIS_PORT=6379
       # OpenTelemetry/Jaeger 端点（若未启用可忽略）
       - JAEGER_ENDPOINT=http://jaeger:14268/api/traces
     ports:
