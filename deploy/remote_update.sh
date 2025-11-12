@@ -46,12 +46,18 @@ echo "Frontend .env.development:"
 cat .env.development | head -5
 
 # Ensure backend port is 3001
-echo "[+] Ensuring backend port is 3001..."
-if ! grep -q "PORT=3001" server/.env; then
-    echo "Updating PORT to 3001 in server/.env"
-    sed -i 's/PORT=.*/PORT=3001/' server/.env
-    echo "Updated server/.env PORT to 3001"
-fi
+  echo "[+] Ensuring backend port is 3001..."
+  if ! grep -q "PORT=3001" server/.env; then
+      echo "Updating PORT to 3001 in server/.env"
+      sed -i 's/PORT=.*/PORT=3001/' server/.env
+      echo "Updated server/.env PORT to 3001"
+  fi
+
+  # Ensure env_file for docker compose exists (fallback to server/.env)
+  if [ ! -f server/.env.production ]; then
+    echo "[+] server/.env.production missing; creating from server/.env"
+    cp server/.env server/.env.production || true
+  fi
 
 # Check Docker containers
 echo "[+] Checking Docker containers..."
@@ -88,9 +94,9 @@ if [ "$MIGR_OK" -ne 1 ]; then
 fi
 
 # Build and restart API via docker compose to ensure latest code is running
-echo "[+] Building and restarting API via docker compose (with observability profile)..."
-docker compose --profile observability build api
-docker compose --profile observability up -d api
+  echo "[+] Building and restarting API via docker compose (with observability profile)..."
+  docker compose --profile observability build api
+  docker compose --profile observability up -d api
 
 # Show recent logs quickly
 echo "[+] Recent hxms_api logs (last 10s):"
