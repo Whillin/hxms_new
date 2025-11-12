@@ -115,7 +115,7 @@ export class ClueProcessor {
     // 解析车型ID
     let focusModelIdResolved: number | undefined =
       typeof body.focusModelId === 'number' ? Number(body.focusModelId) : undefined
-    let pm: ProductModel | undefined
+    let pm: ProductModel | null | undefined
     if (!focusModelIdResolved && body.focusModelName) {
       pm = await this.productModelRepo.findOne({
         where: { name: String(body.focusModelName) }
@@ -124,7 +124,7 @@ export class ClueProcessor {
     }
     let dealModelIdResolved: number | undefined =
       typeof body.dealModelId === 'number' ? Number(body.dealModelId) : undefined
-    let pm2: ProductModel | undefined
+    let pm2: ProductModel | null | undefined
     if (!dealModelIdResolved && body.dealModelName) {
       pm2 = await this.productModelRepo.findOne({
         where: { name: String(body.dealModelName) }
