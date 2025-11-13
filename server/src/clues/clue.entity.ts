@@ -35,6 +35,11 @@ export class Clue {
   @Column('varchar', { length: 50, nullable: true })
   salesConsultant?: string
 
+  /** 销售顾问员工ID（用于商机归属解析） */
+  @Index('idx_sales_consultant')
+  @Column('int', { nullable: true })
+  salesConsultantId?: number
+
   /** 客户基础信息（冗余，用于列表搜索/展示） */
   @Column('varchar', { length: 50 })
   customerName!: string

@@ -22,6 +22,8 @@ export class ProductController {
     const size = Number(query.size || 10)
     const name = String(query.name || '')
     const brand = String(query.brand || '')
+    // 新增：支持中文品牌名称按分类过滤（根=品牌节点，含子分类）
+    const brandName = String(query.brandName || '')
     const series = String(query.series || '')
     const categoryId = query.categoryId !== undefined ? Number(query.categoryId) : undefined
     const includeChildren = String(query.includeChildren || 'false') === 'true'
@@ -64,9 +66,43 @@ export class ProductController {
       }
     }
 
+    // 若未传入分类ID但传入了中文品牌名，则按“品牌节点 + 子分类”进行过滤
+    if ((!productIdsByCategory || productIdsByCategory.length === 0) && brandName) {
+      // 查找品牌根节点（parentId 为 null）
+      const allCats = await this.catRepo.find()
+      const brandRoots = allCats.filter((c) => (c.parentId ?? null) === null)
+      const targetBrand = brandRoots.find((c) => String(c.name) === String(brandName))
+      if (targetBrand) {
+        const byParent = new Map<number | null | undefined, ProductCategory[]>()
+        allCats.forEach((c) => {
+          const p = c.parentId ?? null
+          const arr = byParent.get(p) || []
+          arr.push(c)
+          byParent.set(p, arr)
+        })
+        const descendants = new Set<number>()
+        const dfs = (pid: number) => {
+          const children = byParent.get(pid) || []
+          children.forEach((c) => {
+            descendants.add(c.id)
+            dfs(c.id)
+          })
+        }
+        dfs(targetBrand.id)
+        const idsToUse = [targetBrand.id, ...Array.from(descendants)]
+        const links = await this.linkRepo.find({ where: { categoryId: In(idsToUse) } })
+        const pidSet = new Set<number>()
+        links.forEach((l) => pidSet.add(l.productId))
+        productIdsByCategory = Array.from(pidSet)
+      }
+    }
+
+    // 品牌过滤回退：若按品牌分类未命中，则回退用 brandName 进行品牌字段过滤
+    const brandFilter = brand || (brandName && (!productIdsByCategory || productIdsByCategory.length === 0) ? brandName : '')
+
     const where: any = {}
     if (name) where.name = Like(`%${name}%`)
-    if (brand) where.brand = Like(`%${brand}%`)
+    if (brandFilter) where.brand = Like(`%${brandFilter}%`)
     if (series) where.series = Like(`%${series}%`)
     if (typeof status === 'number' && !Number.isNaN(status)) where.status = status
     if (productIdsByCategory && productIdsByCategory.length) where.id = In(productIdsByCategory)

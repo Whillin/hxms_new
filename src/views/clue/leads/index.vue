@@ -209,7 +209,9 @@
             resolvedDetail?.currentModel
           }}</ElDescriptionsItem>
           <ElDescriptionsItem label="车龄(年)">{{ resolvedDetail?.carAge }}</ElDescriptionsItem>
-          <ElDescriptionsItem label="里程(万公里)">{{ resolvedDetail?.mileage }}</ElDescriptionsItem>
+          <ElDescriptionsItem label="里程(万公里)">{{
+            resolvedDetail?.mileage
+          }}</ElDescriptionsItem>
           <ElDescriptionsItem label="居住区域">{{
             Array.isArray(resolvedDetail?.livingArea)
               ? resolvedDetail?.livingArea.join('/')
@@ -237,11 +239,13 @@
   import { fetchChannelOptions } from '@/api/channel'
   import { fetchGetDepartmentList, fetchGetEmployeeList } from '@/api/system-manage'
   import { EMPLOYEE_ROLE_LABELS } from '@/utils/employee'
+  
 
   defineOptions({ name: 'ClueLeads' })
 
   const userStore = useUserStore()
   const { info } = storeToRefs(userStore)
+  const categoryStore = useProductCategoryStore()
 
   const channelLevel1Options = ref<{ label: string; value: string }[]>([])
   const channelLevel2MapRef = ref<Record<string, { label: string; value: string }[]>>({})
@@ -256,13 +260,56 @@
     } catch (e: any) {
       console.error('[fetchChannelOptions] failed:', e)
     }
-    // 动态加载关注/成交车型选项（来自商品管理）
+    // 动态加载关注/成交车型选项（来自商品管理，优先按分类ID过滤，失败则按品牌名回退）
     try {
-      await productStore.loadProducts()
+      const brand = (info.value as any)?.brandName || (info.value as any)?.brand || undefined
+      let categoryId: number | undefined
+      if (brand) {
+        try {
+          await categoryStore.loadFromApi()
+        } catch {}
+        const tree: any[] = (categoryStore as any).tree || []
+        const node: any = tree.find((n: any) => n?.level === 1 && String(n?.name) === brand)
+        if (node && typeof node.id === 'number') categoryId = node.id
+      }
+      if (typeof categoryId === 'number') {
+        await productStore.loadProductsByCategoryId(categoryId, true)
+      } else {
+        await productStore.loadProducts(brand)
+      }
     } catch (e: any) {
-      console.error('[productStore.loadProducts] failed:', e)
+      console.error('[productStore.loadProductsByCategoryId] failed:', e)
     }
   })
+
+  // 监听品牌变化（中文brandName或英文brand），实时刷新关注/成交车型选项（按分类ID）
+  watch(
+    [
+      () => (info.value as any)?.brandName,
+      () => (info.value as any)?.brand
+    ],
+    async ([brandName, brand]) => {
+      try {
+        const b = brandName || brand || undefined
+        let categoryId: number | undefined
+        if (b) {
+          try {
+            await categoryStore.loadFromApi()
+          } catch {}
+          const tree: any[] = (categoryStore as any).tree || []
+          const node: any = tree.find((n: any) => n?.level === 1 && String(n?.name) === b)
+          if (node && typeof node.id === 'number') categoryId = node.id
+        }
+        if (typeof categoryId === 'number') {
+          await productStore.loadProductsByCategoryId(categoryId, true)
+        } else {
+          await productStore.loadProducts(b)
+        }
+      } catch (e: any) {
+        console.error('[productStore.loadProductsByCategoryId] failed:', e)
+      }
+    }
+  )
 
   const { hasAuth } = useAuth()
 
@@ -450,7 +497,7 @@
   // 使用项目内的标准分页响应结构，方便 useTable 自动推断泛型
 
   // 商品分类选项（用于关注/成交车型选择）
-  const categoryStore = useProductCategoryStore()
+  // 注意：已在上方创建 categoryStore，这里不再重复声明
   const { flatList } = storeToRefs(categoryStore)
 
   const formatReceptionStatus = (v?: ClueItem['receptionStatus']) => {
@@ -637,14 +684,54 @@
         { prop: 'referrer', label: '推荐人', width: 120 },
         { prop: 'contactTimes', label: '接触次数', width: 100 },
         { prop: 'opportunityLevel', label: '商机级别', width: 100 },
-        { prop: 'userGender', label: '使用者性别', width: 100, formatter: (row: ClueItem) => resolveClue(row).userGender || '' },
-        { prop: 'userAge', label: '使用者年龄', width: 110, formatter: (row: ClueItem) => resolveClue(row).userAge ?? '' },
-        { prop: 'buyExperience', label: '购车经历', width: 110, formatter: (row: ClueItem) => resolveClue(row).buyExperience || '' },
-        { prop: 'userPhoneModel', label: '使用手机', width: 120, formatter: (row: ClueItem) => resolveClue(row).userPhoneModel || '' },
-        { prop: 'currentBrand', label: '现用品牌', width: 120, formatter: (row: ClueItem) => resolveClue(row).currentBrand || '' },
-        { prop: 'currentModel', label: '现用车型', width: 120, formatter: (row: ClueItem) => resolveClue(row).currentModel || '' },
-        { prop: 'carAge', label: '车龄(年)', width: 100, formatter: (row: ClueItem) => resolveClue(row).carAge ?? '' },
-        { prop: 'mileage', label: '里程(万公里)', width: 110, formatter: (row: ClueItem) => resolveClue(row).mileage ?? '' },
+        {
+          prop: 'userGender',
+          label: '使用者性别',
+          width: 100,
+          formatter: (row: ClueItem) => resolveClue(row).userGender || ''
+        },
+        {
+          prop: 'userAge',
+          label: '使用者年龄',
+          width: 110,
+          formatter: (row: ClueItem) => resolveClue(row).userAge ?? ''
+        },
+        {
+          prop: 'buyExperience',
+          label: '购车经历',
+          width: 110,
+          formatter: (row: ClueItem) => resolveClue(row).buyExperience || ''
+        },
+        {
+          prop: 'userPhoneModel',
+          label: '使用手机',
+          width: 120,
+          formatter: (row: ClueItem) => resolveClue(row).userPhoneModel || ''
+        },
+        {
+          prop: 'currentBrand',
+          label: '现用品牌',
+          width: 120,
+          formatter: (row: ClueItem) => resolveClue(row).currentBrand || ''
+        },
+        {
+          prop: 'currentModel',
+          label: '现用车型',
+          width: 120,
+          formatter: (row: ClueItem) => resolveClue(row).currentModel || ''
+        },
+        {
+          prop: 'carAge',
+          label: '车龄(年)',
+          width: 100,
+          formatter: (row: ClueItem) => resolveClue(row).carAge ?? ''
+        },
+        {
+          prop: 'mileage',
+          label: '里程(万公里)',
+          width: 110,
+          formatter: (row: ClueItem) => resolveClue(row).mileage ?? ''
+        },
         {
           prop: 'livingArea',
           label: '居住区域',

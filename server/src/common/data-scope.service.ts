@@ -36,16 +36,19 @@ export class DataScopeService {
     if (!userId || Number.isNaN(userId)) return { level: 'self' }
 
     const record = await this.userService.findById(userId)
+    try {
+      // 仅调试：输出用户与角色
+      // eslint-disable-next-line no-console
+      console.log('[DataScopeService.getScope]', { userId, roles, employeeId: record?.employeeId })
+    } catch {}
     const employeeId = record?.employeeId
     if (!employeeId) return { level: 'self' }
 
     const self = await this.empRepo.findOne({ where: { id: employeeId } })
     if (!self) return { level: 'self', employeeId }
 
-    // 销售顾问：门店层级（支持多门店）；若无门店归属则兜底到“本人”
+    // 销售顾问：严格按“本人”可见，避免门店范围导致越权
     if (roles.includes('R_SALES')) {
-      const storeIds = await this.collectStoreIds(self.id, self.storeId)
-      if (storeIds.length) return { level: 'store', storeIds }
       return { level: 'self', employeeId }
     }
 

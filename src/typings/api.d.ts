@@ -59,6 +59,10 @@ declare namespace Api {
       employeeId?: number
       /** 归属门店ID（用于限制线索门店选择） */
       storeId?: number
+      /** 归属品牌ID（用于品牌范围过滤） */
+      brandId?: number
+      /** 归属品牌名称（商品品牌过滤使用） */
+      brandName?: string
     }
 
     // 新增：注册参数
@@ -232,5 +236,48 @@ declare namespace Api {
 
     /** 角色权限：键列表 */
     type RolePermissionKeys = string[]
+  }
+  
+  /** 商机类型 */
+  namespace Opportunity {
+    /** 商机列表项（与后端 OpportunityController 映射） */
+    interface Item {
+      id: number
+      opportunityCode?: string
+      customerName: string
+      customerPhone: string
+      status: '跟进中' | '已战败' | '已成交'
+      opportunityLevel: 'H' | 'A' | 'B' | 'C'
+      focusModelId?: number | null
+      focusModelName?: string | null
+      testDrive: boolean
+      bargaining: boolean
+      ownerId?: number | null
+      ownerName?: string | null
+      storeId: number
+      regionId?: number | null
+      brandId?: number | null
+      departmentId?: number | null
+      ownerDepartmentId?: number | null
+      openDate?: string
+      latestVisitDate?: string
+      channelCategory?: string
+      businessSource?: string
+      channelLevel1?: string
+      channelLevel2?: string
+      createdAt?: string
+    }
+
+    /** 商机列表（分页） */
+    type List = Api.Common.PaginatedResponse<Item>
+
+    /** 商机搜索参数 */
+    type SearchParams = Partial<
+      Pick<Item, 'customerName' | 'customerPhone' | 'opportunityLevel' | 'status'> &
+        Api.Common.CommonSearchParams
+    > & {
+      /** 最新联系时间范围：YYYY-MM-DD 两端闭区间 */
+      daterange?: string[]
+    }
   }
 }

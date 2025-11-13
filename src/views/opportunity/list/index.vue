@@ -35,18 +35,17 @@
                 @click="switchListMode('today')"
                 >今日跟进商机</ElLink
               >
-              <ElLink
-                :underline="false"
-                :type="listMode === 'all' ? 'primary' : 'default'"
-                @click="switchListMode('all')"
-                >全部</ElLink
-              >
-            </span>
-            <ElButton type="primary" @click="openAddDialog">新增商机</ElButton>
-            <ElButton @click="refreshData">刷新</ElButton>
-          </ElSpace>
-        </template>
-      </ArtTableHeader>
+          <ElLink
+            :underline="false"
+            :type="listMode === 'all' ? 'primary' : 'default'"
+            @click="switchListMode('all')"
+            >全部</ElLink
+          >
+        </span>
+        <ElButton @click="refreshData">刷新</ElButton>
+      </ElSpace>
+    </template>
+  </ArtTableHeader>
 
       <ArtTable
         :loading="loading"
@@ -58,8 +57,14 @@
       >
         <template #operation="{ row }">
           <div style="text-align: right">
-            <ArtButtonTable type="view" @click="openFollowDrawer(row)" />
-            <ArtButtonTable type="edit" @click="editRow(row)" />
+            <!-- 新增：眼睛图标查看详情 -->
+            <ArtButtonTable type="view" @click="openDetailDrawer(row)" />
+            <!-- 跟进记录与操作：更换为“更多”图标 -->
+            <ArtButtonTable type="more" @click="openFollowDrawer(row)" />
+            <!-- 编辑：已战败/已成交不可编辑 -->
+            <template v-if="canEdit(row)">
+              <ArtButtonTable type="edit" @click="editRow(row)" />
+            </template>
             <ElPopconfirm title="确认删除该商机？" @confirm="deleteRow(row)">
               <template #reference>
                 <ArtButtonTable type="delete" />
@@ -71,9 +76,9 @@
     </ElCard>
 
     <!-- 新增/编辑弹窗 -->
-    <ElDialog
+  <ElDialog
       v-model="dialogVisible"
-      :title="editingId ? '编辑商机' : '新增商机'"
+      title="编辑商机"
       width="800px"
       destroy-on-close
     >
@@ -86,22 +91,23 @@
                 type="date"
                 value-format="YYYY-MM-DD"
                 placeholder="请选择留档日期"
+                disabled
               />
             </ElFormItem>
           </ElCol>
           <ElCol :span="12">
             <ElFormItem label="销售顾问" prop="salesConsultant">
-              <ElInput v-model="formModel.salesConsultant" placeholder="请输入销售顾问" />
+              <ElInput v-model="formModel.salesConsultant" placeholder="请输入销售顾问" disabled />
             </ElFormItem>
           </ElCol>
           <ElCol :span="12">
             <ElFormItem label="客户名称" prop="customerName">
-              <ElInput v-model="formModel.customerName" placeholder="请输入客户名称" />
+              <ElInput v-model="formModel.customerName" placeholder="请输入客户名称" disabled />
             </ElFormItem>
           </ElCol>
           <ElCol :span="12">
             <ElFormItem label="电话" prop="customerPhone">
-              <ElInput v-model="formModel.customerPhone" placeholder="请输入客户电话" />
+              <ElInput v-model="formModel.customerPhone" placeholder="请输入客户电话" disabled />
             </ElFormItem>
           </ElCol>
           <ElCol :span="12">
@@ -115,11 +121,40 @@
           </ElCol>
           <ElCol :span="12">
             <ElFormItem label="一级渠道" prop="channelLevel1">
-              <ElSelect v-model="formModel.channelLevel1" placeholder="请选择">
+              <ElSelect v-model="formModel.channelLevel1" placeholder="请选择" disabled>
                 <ElOption v-for="opt in channelLevel1Options" :key="opt.value" v-bind="opt" />
               </ElSelect>
             </ElFormItem>
           </ElCol>
+          <ElCol :span="12">
+            <ElFormItem label="购车经历" prop="buyExperience">
+              <ElSelect v-model="formModel.buyExperience" placeholder="请选择" disabled>
+                <ElOption v-for="opt in buyExperienceOptions" :key="opt.value" v-bind="opt" />
+              </ElSelect>
+            </ElFormItem>
+          </ElCol>
+          <ElCol :span="12">
+            <ElFormItem label="现用车型" prop="currentModel">
+              <ElInput v-model="formModel.currentModel" placeholder="请输入现用车型" disabled />
+            </ElFormItem>
+          </ElCol>
+          <ElCol :span="12">
+            <ElFormItem label="车龄(年)" prop="carAge">
+              <ElInputNumber v-model="formModel.carAge" :min="0" disabled />
+            </ElFormItem>
+          </ElCol>
+          <ElCol :span="12">
+            <ElFormItem label="居住区域" prop="livingArea">
+              <ElCascader
+                v-model="formModel.livingArea"
+                :options="cityCascaderOptionsRef"
+                :props="{ value: 'label', label: 'label', children: 'children' }"
+                placeholder="请选择省/市/区"
+                disabled
+              />
+            </ElFormItem>
+          </ElCol>
+          <!-- 商机字段（关注车型/级别/试驾/议价）置于图二之后 -->
           <ElCol :span="12">
             <ElFormItem label="关注车型" prop="focusModelName">
               <ElSelect v-model="formModel.focusModelName" placeholder="请选择">
@@ -151,43 +186,6 @@
             </ElFormItem>
           </ElCol>
           <ElCol :span="12">
-            <ElFormItem label="购车经历" prop="buyExperience">
-              <ElSelect v-model="formModel.buyExperience" placeholder="请选择">
-                <ElOption v-for="opt in buyExperienceOptions" :key="opt.value" v-bind="opt" />
-              </ElSelect>
-            </ElFormItem>
-          </ElCol>
-          <ElCol :span="12">
-            <ElFormItem label="现用车型" prop="currentModel">
-              <ElInput v-model="formModel.currentModel" placeholder="请输入现用车型" />
-            </ElFormItem>
-          </ElCol>
-          <ElCol :span="12">
-            <ElFormItem label="车龄(年)" prop="carAge">
-              <ElInputNumber v-model="formModel.carAge" :min="0" />
-            </ElFormItem>
-          </ElCol>
-          <ElCol :span="12">
-            <ElFormItem label="居住区域" prop="livingArea">
-              <ElCascader
-                v-model="formModel.livingArea"
-                :options="cityCascaderOptionsRef"
-                :props="{ value: 'label', label: 'label', children: 'children' }"
-                placeholder="请选择省/市/区"
-              />
-            </ElFormItem>
-          </ElCol>
-          <ElCol :span="24">
-            <ElFormItem label="客户描述" prop="customerDesc">
-              <ElInput
-                v-model="formModel.customerDesc"
-                type="textarea"
-                :rows="3"
-                placeholder="请输入客户描述"
-              />
-            </ElFormItem>
-          </ElCol>
-          <ElCol :span="12">
             <ElFormItem label="最新状态" prop="latestStatus">
               <ElSelect v-model="formModel.latestStatus" placeholder="请选择最新状态">
                 <ElOption label="跟进中" value="跟进中" />
@@ -196,9 +194,9 @@
               </ElSelect>
             </ElFormItem>
           </ElCol>
-          <ElCol :span="12">
+          <ElCol :span="24">
             <ElFormItem
-              label="战败/未成交分析"
+              label="战败原因"
               prop="defeatReasons"
               :required="formModel.latestStatus !== '已成交'"
             >
@@ -288,20 +286,58 @@
         </div>
       </div>
     </ElDrawer>
+    <!-- 商机详情抽屉 -->
+    <ElDrawer v-model="detailDrawerVisible" title="商机详情" size="50%" destroy-on-close>
+      <ElDescriptions :column="2" border>
+        <ElDescriptionsItem label="商机编码">{{ detailRow?.opportunityCode }}</ElDescriptionsItem>
+        <ElDescriptionsItem label="商机状态">{{ detailRow?.latestStatus }}</ElDescriptionsItem>
+        <ElDescriptionsItem label="商机级别">{{ detailRow?.opportunityLevel }}</ElDescriptionsItem>
+        <ElDescriptionsItem label="客户姓名">{{ detailRow?.customerName }}</ElDescriptionsItem>
+        <ElDescriptionsItem label="客户电话">{{ detailRow?.customerPhone }}</ElDescriptionsItem>
+        <ElDescriptionsItem label="关注车型">{{ detailRow?.focusModelName }}</ElDescriptionsItem>
+        <ElDescriptionsItem label="是否试驾">{{ detailRow?.testDrive ? '是' : '否' }}</ElDescriptionsItem>
+        <ElDescriptionsItem label="是否议价">{{ detailRow?.bargaining ? '是' : '否' }}</ElDescriptionsItem>
+        <ElDescriptionsItem label="一级渠道">{{ detailRow?.channelLevel1 }}</ElDescriptionsItem>
+        <ElDescriptionsItem label="备注">{{ detailRow?.remark }}</ElDescriptionsItem>
+        <ElDescriptionsItem label="留档日期">{{ detailRow?.visitDate }}</ElDescriptionsItem>
+      </ElDescriptions>
+    </ElDrawer>
+    <!-- 客户选择弹窗：当存在多条匹配时提示选择 -->
+    <ElDialog
+      v-model="customerSelectVisible"
+      title="选择客户"
+      width="600px"
+      destroy-on-close
+    >
+      <ElTable :data="customerCandidates" style="width: 100%">
+        <ElTableColumn prop="userName" label="客户名称" min-width="120" />
+        <ElTableColumn prop="userPhone" label="电话" min-width="130" />
+        <ElTableColumn prop="storeId" label="门店ID" min-width="100" />
+        <ElTableColumn label="操作" min-width="100">
+          <template #default="{ row }">
+            <ElButton type="primary" size="small" @click="chooseCustomer(row)">选择</ElButton>
+          </template>
+        </ElTableColumn>
+      </ElTable>
+    </ElDialog>
   </div>
 </template>
 
 <script setup lang="ts">
-  import { ref, computed, onMounted } from 'vue'
+  import { ref, computed, onMounted, watch } from 'vue'
   import { ElMessage } from 'element-plus'
   import ArtButtonTable from '@/components/core/forms/art-button-table/index.vue'
   import { regionData } from 'element-china-area-data'
   import { useTable } from '@/composables/useTable'
   import type { ColumnOption } from '@/types/component'
   import { useProductStore } from '@/store/modules/product'
+  import { useProductCategoryStore } from '@/store/modules/productCategory'
   import { storeToRefs } from 'pinia'
   import { useOpportunityFollowStore } from '@/store/modules/opportunityFollow'
   import { fetchChannelOptions } from '@/api/channel'
+  import { useUserStore } from '@/store/modules/user'
+  import { fetchGetOpportunityList, fetchSaveOpportunity } from '@/api/opportunity'
+  import { fetchGetCustomerList } from '@/api/customer'
 
   defineOptions({ name: 'OpportunityList' })
 
@@ -321,7 +357,6 @@
     currentModel: string
     carAge: number
     livingArea: string[]
-    customerDesc: string
     latestStatus: '跟进中' | '已战败' | '已成交'
     defeatReasons: string[]
     remark: string
@@ -343,6 +378,13 @@
 
   const productStore = useProductStore()
   const { nameOptions } = storeToRefs(productStore)
+  const categoryStore = useProductCategoryStore()
+  const userStore = useUserStore()
+  const { info } = storeToRefs(userStore)
+
+  // 客户选择对话框（当同门店存在多条姓名+手机号匹配时处理）
+  const customerSelectVisible = ref(false)
+  const customerCandidates = ref<any[]>([])
 
   // 当前用户与下属（演示用）
   const currentUser = '张一'
@@ -363,7 +405,55 @@
     } catch (e: any) {
       console.error('[fetchChannelOptions] failed:', e)
     }
+    // 动态加载关注车型选项（来自商品管理，优先按分类ID过滤，失败则按品牌名回退）
+    try {
+      const brand = (info.value as any)?.brandName || (info.value as any)?.brand || undefined
+      let categoryId: number | undefined
+      if (brand) {
+        try {
+          await categoryStore.loadFromApi()
+        } catch {}
+        const tree: any[] = (categoryStore as any).tree || []
+        const node: any = tree.find((n: any) => n?.level === 1 && String(n?.name) === brand)
+        if (node && typeof node.id === 'number') categoryId = node.id
+      }
+      if (typeof categoryId === 'number') {
+        await productStore.loadProductsByCategoryId(categoryId, true)
+      } else {
+        await productStore.loadProducts(brand)
+      }
+    } catch (e: any) {
+      console.error('[productStore.loadProductsByCategoryId] failed:', e)
+    }
   })
+  // 品牌变化时（中文brandName或英文brand），刷新关注车型选项（按分类ID）
+  watch(
+    [
+      () => (info.value as any)?.brandName,
+      () => (info.value as any)?.brand
+    ],
+    async ([brandName, brand]) => {
+      try {
+        const b = brandName || brand || undefined
+        let categoryId: number | undefined
+        if (b) {
+          try {
+            await categoryStore.loadFromApi()
+          } catch {}
+          const tree: any[] = (categoryStore as any).tree || []
+          const node: any = tree.find((n: any) => n?.level === 1 && String(n?.name) === b)
+          if (node && typeof node.id === 'number') categoryId = node.id
+        }
+        if (typeof categoryId === 'number') {
+          await productStore.loadProductsByCategoryId(categoryId, true)
+        } else {
+          await productStore.loadProducts(b)
+        }
+      } catch (e: any) {
+        console.error('[productStore.loadProductsByCategoryId] failed:', e)
+      }
+    }
+  )
   const opportunityLevelOptions = [
     { label: 'H', value: 'H' },
     { label: 'A', value: 'A' },
@@ -500,33 +590,8 @@
     { label: '备注', key: 'remark', type: 'input' }
   ])
 
-  // 本地数据源
-  const generateMockData = (): OpportunityItem[] => {
-    const models = (nameOptions.value || []).map((o) => o.label)
-    return Array.from({ length: 40 }, (_, i) => ({
-      id: String(i + 1),
-      visitDate: `2024-09-${String((i % 28) + 1).padStart(2, '0')}`,
-      salesConsultant: ['张一', '李二', '王三'][i % 3],
-      customerName: ['赵四', '钱五', '孙六', '周七'][i % 4],
-      customerPhone: `138${String(10000000 + i).slice(0, 8)}`,
-      opportunityCode: `OP-${String(i + 1).padStart(4, '0')}`,
-      channelLevel1:
-        channelLevel1Options.value[i % (channelLevel1Options.value.length || 1)]?.value || '',
-      focusModelName: models[i % (models.length || 1)] || 'A4L',
-      opportunityLevel: (['H', 'A', 'B', 'C'] as const)[i % 4],
-      testDrive: i % 2 === 0,
-      bargaining: i % 3 === 0,
-      buyExperience: (['首购', '换购', '增购'] as const)[i % 3],
-      currentModel: ['A4L', 'Q5', '3系', 'C级'][i % 4],
-      carAge: i % 7,
-      livingArea: ['北京市/朝阳区', '上海市/浦东新区', '广东省/广州市/天河区'][i % 3].split('/'),
-      customerDesc: '客户关注车型配置，后续跟进试驾安排。',
-      latestStatus: (['跟进中', '已战败', '已成交'] as const)[i % 3],
-      defeatReasons: i % 3 === 2 ? [] : ['预算不足'],
-      remark: '备注示例'
-    }))
-  }
-  const mockData = ref<OpportunityItem[]>(generateMockData())
+  // 后端数据源切换：不再生成本地数据
+  const mockData = ref<OpportunityItem[]>([])
 
   // 跟进记录本地数据源
   const formatDateTime = (d: Date) => {
@@ -545,29 +610,7 @@
   }
   const todayStr = () => formatDate(new Date())
 
-  const generateMockFollows = (): FollowUpRecord[] => {
-    const arr: FollowUpRecord[] = []
-    const ids = mockData.value.slice(0, 12).map((o) => o.id)
-    ids.forEach((id, i) => {
-      const created = new Date()
-      created.setDate(created.getDate() - (i % 5))
-      const next = new Date(created)
-      next.setDate(next.getDate() + (i % 3))
-      const code = mockData.value.find((o) => o.id === id)?.opportunityCode || ''
-      arr.push({
-        id: `F${Date.now()}${i}`,
-        opportunityId: id,
-        opportunityName: code,
-        content: '电话沟通客户需求，记录重点关注配置',
-        nextContactTime: formatDateTime(next),
-        status: ['新客', '跟进中', '已战败'][i % 3],
-        method: ['电话', '微信', '到店'][i % 3],
-        createdAt: formatDateTime(created)
-      })
-    })
-    return arr
-  }
-  const followRecords = ref<FollowUpRecord[]>(generateMockFollows())
+  const followRecords = ref<FollowUpRecord[]>([])
   // 全局跟进记录 store（用于二级菜单“跟进记录”页展示）
   const followStore = useOpportunityFollowStore()
   // 首次挂载：如全局为空，则用当前本地示例数据进行一次性初始化
@@ -588,68 +631,47 @@
     return ids
   })
 
-  // 本地分页与筛选
-  const mockApi = async (params: any): Promise<Api.Common.PaginatedResponse<OpportunityItem>> => {
-    let filtered = mockData.value
-    // 顶部筛选：我的/下属/今日跟进
-    if (params.listMode === 'mine') {
-      filtered = filtered.filter((r) => r.salesConsultant === currentUser)
-    } else if (params.listMode === 'sub') {
-      filtered = filtered.filter((r) => subordinates.includes(r.salesConsultant))
-    } else if (params.listMode === 'today') {
-      filtered = filtered.filter((r) => todayOpportunityIds.value.has(r.id))
+  // 构建后端查询参数（仅映射支持的字段）
+  const buildListQuery = (
+    current: number,
+    size: number
+  ): Api.Opportunity.SearchParams => {
+    const q: Api.Opportunity.SearchParams = { current, size }
+    const s = searchForm.value as any
+    if (s.customerName) q.customerName = s.customerName
+    if (s.customerPhone) q.customerPhone = s.customerPhone
+    if (s.opportunityLevel) q.opportunityLevel = s.opportunityLevel
+    if (s.latestStatus) q.status = s.latestStatus
+    if (listMode.value === 'today') {
+      const today = todayStr()
+      q.daterange = [today, today]
     }
-    if (params.visitDate) filtered = filtered.filter((r) => r.visitDate === params.visitDate)
-    if (params.salesConsultant)
-      filtered = filtered.filter((r) => (r.salesConsultant || '').includes(params.salesConsultant))
-    if (params.customerName)
-      filtered = filtered.filter((r) => (r.customerName || '').includes(params.customerName))
-    if (params.customerPhone)
-      filtered = filtered.filter((r) => (r.customerPhone || '').includes(params.customerPhone))
-    if (params.opportunityCode)
-      filtered = filtered.filter((r) => (r.opportunityCode || '').includes(params.opportunityCode))
-    if (params.channelLevel1)
-      filtered = filtered.filter((r) => r.channelLevel1 === params.channelLevel1)
-    if (params.focusModelName)
-      filtered = filtered.filter((r) => r.focusModelName === params.focusModelName)
-    if (params.opportunityLevel)
-      filtered = filtered.filter((r) => r.opportunityLevel === params.opportunityLevel)
-    if (params.testDrive !== undefined && params.testDrive !== null && params.testDrive !== '')
-      filtered = filtered.filter(
-        (r) => r.testDrive === (params.testDrive === true || params.testDrive === 'true')
-      )
-    if (params.bargaining !== undefined && params.bargaining !== null && params.bargaining !== '')
-      filtered = filtered.filter(
-        (r) => r.bargaining === (params.bargaining === true || params.bargaining === 'true')
-      )
-    if (params.buyExperience)
-      filtered = filtered.filter((r) => r.buyExperience === params.buyExperience)
-    if (params.currentModel)
-      filtered = filtered.filter((r) => (r.currentModel || '').includes(params.currentModel))
-    if (params.carAge !== undefined && params.carAge !== null && params.carAge !== '')
-      filtered = filtered.filter((r) => r.carAge === Number(params.carAge))
-    if (Array.isArray(params.livingArea) && params.livingArea.length) {
-      const target = params.livingArea.join('/')
-      filtered = filtered.filter((r) =>
-        (Array.isArray(r.livingArea) ? r.livingArea.join('/') : '').startsWith(target)
-      )
-    }
-    if (params.latestStatus)
-      filtered = filtered.filter((r) => r.latestStatus === params.latestStatus)
-    if (Array.isArray(params.defeatReasons) && params.defeatReasons.length)
-      filtered = filtered.filter((r) =>
-        params.defeatReasons.every((v: string) => r.defeatReasons.includes(v))
-      )
-    if (params.remark) filtered = filtered.filter((r) => (r.remark || '').includes(params.remark))
+    return q
+  }
 
-    const total = filtered.length
-    const start = (params.current - 1) * params.size
-    const end = start + params.size
+  // 适配后端记录到现有UI模型
+  const adaptOpportunity = (item: Api.Opportunity.Item): OpportunityItem => {
+    const dateLike = String(item.openDate || item.latestVisitDate || item.createdAt || '')
+    const visitDate = dateLike ? dateLike.slice(0, 10) : ''
     return {
-      records: filtered.slice(start, end),
-      total,
-      current: params.current,
-      size: params.size
+      id: String(item.id),
+      visitDate,
+      salesConsultant: item.ownerName || '',
+      customerName: item.customerName,
+      customerPhone: item.customerPhone,
+      opportunityCode: item.opportunityCode || '',
+      channelLevel1: item.channelLevel1 || '',
+      focusModelName: item.focusModelName || '',
+      opportunityLevel: item.opportunityLevel as any,
+      testDrive: !!item.testDrive,
+      bargaining: !!item.bargaining,
+      buyExperience: '' as any,
+      currentModel: '',
+      carAge: 0,
+      livingArea: [],
+      latestStatus: item.status as any,
+      defeatReasons: [],
+      remark: ''
     }
   }
 
@@ -665,13 +687,24 @@
     getData
   } = useTable({
     core: {
-      apiFn: async ({
-        current,
-        size
-      }: Api.Common.CommonSearchParams): Promise<Api.Common.PaginatedResponse<OpportunityItem>> => {
-        const params = { current, size, ...searchForm.value, listMode: listMode.value }
-        const res = await mockApi(params)
-        return { records: res.records, total: res.total, current, size }
+      apiFn: async ({ current, size }: Api.Common.CommonSearchParams): Promise<
+        Api.Common.PaginatedResponse<OpportunityItem>
+      > => {
+        const q = buildListQuery(current, size)
+        const page = await fetchGetOpportunityList(q)
+        let list = (page.records || []).map(adaptOpportunity)
+        const myName = info.value.userName || ''
+        if (listMode.value === 'mine' && myName) {
+          list = list.filter((r) => r.salesConsultant === myName)
+        } else if (listMode.value === 'sub' && myName) {
+          list = list.filter((r) => r.salesConsultant && r.salesConsultant !== myName)
+        }
+        return {
+          records: list,
+          total: page.total ?? list.length,
+          current: page.current ?? current,
+          size: page.size ?? size
+        }
       },
       apiParams: { current: 1, size: 10 },
       columnsFactory: (): ColumnOption<OpportunityItem>[] => [
@@ -706,12 +739,11 @@
           formatter: (row: OpportunityItem) =>
             Array.isArray(row.livingArea) ? row.livingArea.join('/') : row.livingArea
         },
-        { prop: 'customerDesc', label: '客户描述', minWidth: 180 },
         { prop: 'latestStatus', label: '最新状态', width: 110 },
         {
           prop: 'defeatReasons',
-          label: '战败/未成交分析',
-          minWidth: 200,
+          label: '战败原因',
+          minWidth: 240,
           formatter: (row: OpportunityItem) =>
             Array.isArray(row.defeatReasons) ? row.defeatReasons.join('、') : row.defeatReasons
         },
@@ -774,7 +806,6 @@
     currentModel: '',
     carAge: 0,
     livingArea: [],
-    customerDesc: '',
     latestStatus: '跟进中',
     defeatReasons: [],
     remark: ''
@@ -798,23 +829,73 @@
             formModel.value.latestStatus !== '已成交' &&
             (!value || (Array.isArray(value) && value.length === 0))
           ) {
-            cb(new Error('请填写战败/未成交分析'))
+            cb(new Error('请填写战败原因'))
           } else cb()
         },
         trigger: 'change'
       }
     ]
   }))
-
-  const openAddDialog = () => {
-    editingId.value = null
-    formModel.value = initForm()
-    dialogVisible.value = true
-  }
-  const editRow = (row: OpportunityItem) => {
+  const editRow = async (row: OpportunityItem) => {
     editingId.value = row.id
     formModel.value = { ...row }
     dialogVisible.value = true
+    // 根据手机号从客户信息表拉取个人信息并填充（禁用字段显示）
+    try {
+      const roles: string[] = Array.isArray((info.value as any)?.roles)
+        ? ((info.value as any).roles as string[])
+        : Array.isArray(userStore.getUserInfo.roles)
+          ? (userStore.getUserInfo.roles as string[])
+          : []
+      const blockedRoles = ['R_SALES', 'R_SALES_MANAGER', 'R_APPOINTMENT', 'R_FRONT_DESK']
+      const isBlocked = roles.some((r) => blockedRoles.includes(String(r)))
+      if (isBlocked) {
+        // 角色无权访问客户列表时不发起请求，直接使用商机内信息
+        return
+      }
+      const q: any = {
+        current: 1,
+        size: 10,
+        userName: row.customerName,
+        userPhone: row.customerPhone
+      }
+      // 仅当用户有有效的门店ID时才传入 storeId，避免 0 导致查询为空
+      const sid = Number((info.value as any)?.storeId)
+      if (!Number.isNaN(sid) && sid > 0) {
+        q.storeId = sid
+      }
+      const resp = await fetchGetCustomerList(q, { showErrorMessage: false })
+      const list = Array.isArray(resp.records) ? resp.records : []
+      if (list.length === 1) {
+        const customer = list[0]
+        applyCustomerToForm(customer)
+      } else if (list.length > 1) {
+        customerCandidates.value = list
+        customerSelectVisible.value = true
+      } else {
+        // 未找到匹配客户，保持商机内信息
+        ElMessage.info('未找到匹配客户，保留商机中的客户信息')
+      }
+    } catch (e) {
+      console.error('[fetchGetCustomerList] failed:', e)
+    }
+  }
+  const applyCustomerToForm = (customer: any) => {
+    formModel.value.customerName = customer.userName
+    formModel.value.customerPhone = customer.userPhone
+    formModel.value.buyExperience = customer.buyExperience as any
+    formModel.value.currentModel = customer.currentModel || ''
+    formModel.value.carAge = Number(customer.carAge || 0)
+    const area = customer.livingArea
+    formModel.value.livingArea = Array.isArray(area)
+      ? (area as string[])
+      : String(area || '')
+          .split('/')
+          .filter(Boolean)
+  }
+  const chooseCustomer = (row: any) => {
+    applyCustomerToForm(row)
+    customerSelectVisible.value = false
   }
   const deleteRow = (row: OpportunityItem) => {
     const idx = mockData.value.findIndex((r) => r.id === row.id)
@@ -838,40 +919,32 @@
     return `OP-${String(next).padStart(4, '0')}`
   }
   const submitForm = async () => {
-    await formRef.value?.validate?.()
-    const payload: OpportunityItem = {
-      ...formModel.value,
-      id: editingId.value ? editingId.value : String(Date.now()),
-      carAge: Number(formModel.value.carAge || 0),
-      livingArea: Array.isArray(formModel.value.livingArea)
-        ? formModel.value.livingArea
-        : String(formModel.value.livingArea || '')
-            .split('/')
-            .filter(Boolean),
-      defeatReasons:
-        formModel.value.latestStatus === '已成交'
-          ? []
-          : Array.isArray(formModel.value.defeatReasons)
-            ? formModel.value.defeatReasons
-            : []
-    }
     if (!editingId.value) {
-      payload.opportunityCode = generateOpportunityCode()
+      ElMessage.error('不支持新增商机，请通过线索转商机或在列表中选择编辑')
+      return
     }
-    if (editingId.value) {
-      const idx = mockData.value.findIndex((r) => r.id === editingId.value)
-      if (idx >= 0) {
-        mockData.value.splice(idx, 1, payload)
-        ElMessage.success('更新成功')
-      } else {
-        ElMessage.error('更新失败，未找到记录')
-      }
-    } else {
-      mockData.value = [payload, ...mockData.value]
-      ElMessage.success('新增成功')
+    await formRef.value?.validate?.()
+    const dataForSave: any = {
+      id: Number(editingId.value),
+      storeId: Number(info.value.storeId || 0),
+      visitDate: formModel.value.visitDate,
+      salesConsultant: formModel.value.salesConsultant,
+      customerName: formModel.value.customerName,
+      customerPhone: formModel.value.customerPhone,
+      opportunityLevel: formModel.value.opportunityLevel,
+      focusModelName: formModel.value.focusModelName,
+      testDrive: !!formModel.value.testDrive,
+      bargaining: !!formModel.value.bargaining,
+      latestStatus: formModel.value.latestStatus,
+      channelLevel1: formModel.value.channelLevel1
     }
-    dialogVisible.value = false
-    refreshData()
+    try {
+      await fetchSaveOpportunity(dataForSave)
+      dialogVisible.value = false
+      refreshData()
+    } catch (e) {
+      console.error('[fetchSaveOpportunity] failed:', e)
+    }
   }
 
   // 跟进抽屉与记录
@@ -996,6 +1069,18 @@
       ]
     }
   })
+  // 操作列编辑禁用逻辑
+  const canEdit = (row: OpportunityItem) => {
+    const s = String(row.latestStatus || '')
+    return s !== '已战败' && s !== '已成交'
+  }
+  // 详情抽屉状态与方法
+  const detailDrawerVisible = ref(false)
+  const detailRow = ref<OpportunityItem | null>(null)
+  const openDetailDrawer = (row: OpportunityItem) => {
+    detailRow.value = row
+    detailDrawerVisible.value = true
+  }
 </script>
 
 <style scoped>

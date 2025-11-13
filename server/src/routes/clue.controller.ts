@@ -13,6 +13,7 @@ import { Employee } from '../employees/employee.entity'
 import { InjectQueue } from '@nestjs/bull'
 import { Queue } from 'bull'
 import { FeatureFlagsService } from '../common/feature-flags.service'
+import { OpportunityService } from '../opportunities/opportunity.service'
 
 @Controller('api/clue')
 export class ClueController {
@@ -26,7 +27,8 @@ export class ClueController {
     @Inject(DataScopeService) private readonly dataScopeService: DataScopeService,
     @Inject(UserService) private readonly userService: UserService,
     @InjectQueue('clue-processing') private clueQueue: Queue,
-    @Inject(FeatureFlagsService) private readonly features: FeatureFlagsService
+    @Inject(FeatureFlagsService) private readonly features: FeatureFlagsService,
+    @Inject(OpportunityService) private readonly oppService: OpportunityService
   ) {}
 
   @UseGuards(JwtGuard)
@@ -200,10 +202,32 @@ export class ClueController {
       }
 
       // 构建线索并保存（确保类型与实体声明匹配）
+      // 解析销售顾问ID（仅当前门店在职员工）
+      const consultantName = String(body.salesConsultant || '').trim()
+      let salesConsultantIdResolved: number | undefined
+      if (consultantName) {
+        const emp = await this.empRepo.findOne({
+          where: { name: consultantName, storeId: Number(storeId), status: '1' as any }
+        })
+        if (emp) salesConsultantIdResolved = emp.id
+      }
+
       const clue = this.repo.create({
         visitDate: String(visitDate),
         customerName: String(customerName),
         customerPhone: String(customerPhone),
+        salesConsultant: consultantName || undefined,
+        salesConsultantId: salesConsultantIdResolved,
+        // 关注/成交相关字段（直存路径补齐，确保商机可根据成交直接闭环）
+        focusModelId:
+          typeof body.focusModelId === 'number' ? Number(body.focusModelId) : undefined,
+        focusModelName: body.focusModelName ? String(body.focusModelName) : undefined,
+        testDrive: !!body.testDrive,
+        bargaining: !!body.bargaining,
+        dealDone: !!body.dealDone,
+        dealModelId:
+          typeof body.dealModelId === 'number' ? Number(body.dealModelId) : undefined,
+        dealModelName: body.dealModelName ? String(body.dealModelName) : undefined,
         businessSource: String(body.businessSource || '自然到店'),
         channelCategory: String(body.channelCategory || '线下'),
         channelLevel1: body.channelLevel1 || undefined,
@@ -221,7 +245,12 @@ export class ClueController {
         createdBy: typeof employeeId === 'number' ? employeeId : undefined
       } as Partial<Clue>)
       const saved = await this.repo.save(clue)
-      return { code: 201, msg: '直存成功', data: { id: saved.id } }
+      // 触发商机生成/更新
+      try {
+        await this.oppService.upsertFromClue(saved)
+      } catch {}
+      // 统一返回码为 200；前端 fetchSaveClue 采用 boolean 作为成功标记
+      return { code: 200, msg: '保存成功', data: true }
     }
 
     // 队列路径：添加到后台处理

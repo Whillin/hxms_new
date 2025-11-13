@@ -37,8 +37,15 @@ export interface PageResult<T> {
   size: number
 }
 
-export function fetchGetCustomerList(params: CustomerListParams) {
-  return request.get<PageResult<CustomerItemDto>>({ url: '/api/customer/list', params })
+export function fetchGetCustomerList(
+  params: CustomerListParams,
+  options?: { showErrorMessage?: boolean }
+) {
+  return request.get<PageResult<CustomerItemDto>>({
+    url: '/api/customer/list',
+    params,
+    showErrorMessage: options?.showErrorMessage
+  })
 }
 
 export function fetchSaveCustomer(

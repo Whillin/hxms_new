@@ -28,6 +28,8 @@ import { SeedService } from '../common/seed.service'
 import { CustomerController } from '../routes/customer.controller'
 import { HealthController } from '../routes/health.controller'
 import { MetricsController } from '../routes/metrics.controller'
+import { OpportunityController } from '../routes/opportunity.controller'
+import { Opportunity } from '../opportunities/opportunity.entity'
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler'
 import { APP_GUARD } from '@nestjs/core'
 import { BullModule } from '@nestjs/bull'
@@ -37,6 +39,7 @@ import { redisStore } from 'cache-manager-redis-store'
 import { DebounceMiddleware } from '../common/debounce.middleware'
 import { FeatureFlagsService } from '../common/feature-flags.service'
 import { MiddlewareConsumer } from '@nestjs/common'
+import { OpportunityService } from '../opportunities/opportunity.service'
 
 @Module({
   imports: [
@@ -56,7 +59,8 @@ import { MiddlewareConsumer } from '@nestjs/common'
             Channel,
             ProductModel,
             ProductCategory,
-            ProductCategoryLink
+            ProductCategoryLink,
+            Opportunity
           ],
           synchronize: String(process.env.TYPEORM_SYNC || '').toLowerCase() === 'true',
           maxQueryExecutionTime: Number(process.env.TYPEORM_MAX_MS || 2000),
@@ -116,7 +120,8 @@ import { MiddlewareConsumer } from '@nestjs/common'
       Channel,
       ProductModel,
       ProductCategory,
-      ProductCategoryLink
+      ProductCategoryLink,
+      Opportunity
     ]),
     AuthModule,
     UserModule,
@@ -156,7 +161,8 @@ import { MiddlewareConsumer } from '@nestjs/common'
     ProductController,
     CustomerController,
     HealthController,
-    MetricsController
+    MetricsController,
+    OpportunityController
   ],
   providers: [
     JwtGuard,
@@ -165,6 +171,7 @@ import { MiddlewareConsumer } from '@nestjs/common'
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     DebounceMiddleware,
     FeatureFlagsService,
+    OpportunityService,
     // 注册队列处理器
     ClueProcessor
   ]

@@ -18,6 +18,7 @@ export interface ProductListParams {
   size: number
   name?: string
   brand?: string
+  brandName?: string
   series?: string
   status?: number
   categoryId?: number

@@ -10,6 +10,7 @@ import { Employee } from '../employees/employee.entity'
 import { Department } from '../departments/department.entity'
 import { DataScopeService } from '../common/data-scope.service'
 import { UserService } from '../users/user.service'
+import { OpportunityService } from '../opportunities/opportunity.service'
 
 @Processor('clue-processing')
 export class ClueProcessor {
@@ -21,7 +22,8 @@ export class ClueProcessor {
     @InjectRepository(ProductModel) private readonly productModelRepo: Repository<ProductModel>,
     @InjectRepository(Employee) private readonly empRepo: Repository<Employee>,
     private readonly dataScopeService: DataScopeService,
-    private readonly userService: UserService
+    private readonly userService: UserService,
+    private readonly opportunityService: OpportunityService
   ) {}
 
   @Process('save-clue')
@@ -63,6 +65,16 @@ export class ClueProcessor {
     // const livingArea = Array.isArray(body.livingArea)
     //   ? body.livingArea.join('/')
     //   : body.livingArea || ''
+
+    // 解析销售顾问员工ID（仅限当前门店在职员工）
+    const consultantName = String(body.salesConsultant || '').trim()
+    let salesConsultantIdResolved: number | undefined
+    if (consultantName) {
+      const emp = await this.empRepo.findOne({
+        where: { name: consultantName, storeId, status: '1' as any }
+      })
+      if (emp) salesConsultantIdResolved = emp.id
+    }
 
     // 规范化客户
     let customerId: number | undefined
@@ -145,6 +157,7 @@ export class ClueProcessor {
       visitorCount: Number(body.visitorCount || 1),
       receptionStatus: (body.receptionStatus as any) || 'sales',
       salesConsultant: body.salesConsultant || undefined,
+      salesConsultantId: salesConsultantIdResolved,
 
       // 客户基础信息与画像（冗余）
       customerName: name,
@@ -248,6 +261,13 @@ export class ClueProcessor {
 
     const clue = this.repo.create(incoming)
     const savedClue = await this.repo.save(clue)
+
+    // 触发商机生成/更新（满足：首次到店创建；跟进中不重复创建；成交/战败后下次到店新建）
+    try {
+      await this.opportunityService.upsertFromClue(savedClue)
+    } catch (e) {
+      // 吞错以避免影响线索落库
+    }
 
     return savedClue.id // 或其他结果
   }

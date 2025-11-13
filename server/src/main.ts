@@ -81,6 +81,32 @@ async function bootstrap() {
   const port = Number(process.env.PORT || 3001)
   await app.listen(port)
   console.log(`Nest server is running at http://localhost:${port}`)
+  // Debug: print registered routes (Express adapter)
+  try {
+    const instance = app.getHttpAdapter().getInstance?.()
+    const router = instance?._router
+    if (router && Array.isArray(router.stack)) {
+      const lines: string[] = []
+      for (const layer of router.stack) {
+        const route = (layer as any).route
+        if (!route) continue
+        const path = route.path
+        const methods = Object.keys(route.methods || {})
+          .filter((m) => (route.methods as any)[m])
+          .map((m) => m.toUpperCase())
+          .join(',')
+        lines.push(`${methods.padEnd(6)} ${path}`)
+      }
+      if (lines.length) {
+        console.log('[RouteMap] Registered routes:')
+        console.log(lines.join('\n'))
+      } else {
+        console.log('[RouteMap] No routes found on adapter stack.')
+      }
+    }
+  } catch (e) {
+    console.error('[RouteMap] Failed to list routes:', e)
+  }
 }
 
 bootstrap()

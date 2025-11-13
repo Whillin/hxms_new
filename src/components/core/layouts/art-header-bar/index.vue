@@ -73,7 +73,7 @@
             <span class="count notice-btn"></span>
           </div>
         </div>
-        
+
         <!-- 语言 -->
         <div class="btn-box" v-if="shouldShowLanguage">
           <ElDropdown @command="changeLanguage" popper-class="langDropDownStyle">
@@ -365,8 +365,6 @@
   const visibleNotice = (): void => {
     showNotice.value = !showNotice.value
   }
-
-  
 
   /**
    * 打开锁屏功能

@@ -28,8 +28,8 @@ export default ({ mode }: { mode: string }) => {
   } = env
   // mock 开关（显式开启才启用）：仅当设置为 'true' 时启用本地 mock
   const useMock = VITE_USE_MOCK === 'true'
-  // 默认本地后端端口为 3002；如需改端口请在 .env.development 设置 VITE_API_PROXY_URL
-  const devApiTarget = VITE_API_PROXY_URL || 'http://localhost:3002'
+  // 默认本地后端端口为 3001；如需改端口请在 .env.development 设置 VITE_API_PROXY_URL
+  const devApiTarget = VITE_API_PROXY_URL || 'http://localhost:3001'
   // 使用代理的条件：显式关闭 mock 时启用代理到后端
   const useProxy = !useMock
 

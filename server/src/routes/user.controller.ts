@@ -62,6 +62,8 @@ export class UserController {
     let employeeId: number | undefined
     let storeId: number | undefined
     let email: string | undefined
+    let brandId: number | undefined
+    let brandName: string | undefined
     try {
       const user = await this.userService.findById(Number(userId))
       employeeId = user?.employeeId
@@ -69,6 +71,11 @@ export class UserController {
       if (typeof employeeId === 'number') {
         const emp = await this.empRepo.findOne({ where: { id: employeeId } })
         storeId = emp?.storeId
+        brandId = (emp as any)?.brandId
+        if (typeof brandId === 'number') {
+          const brandDept = await this.deptRepo.findOne({ where: { id: brandId } })
+          brandName = brandDept?.name
+        }
       }
     } catch (err) {
       // log and continue with undefined employee/store
@@ -85,7 +92,9 @@ export class UserController {
         userName,
         email,
         employeeId,
-        storeId
+        storeId,
+        brandId,
+        brandName
       }
     }
   }
