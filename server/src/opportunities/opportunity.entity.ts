@@ -37,7 +37,7 @@ export class Opportunity {
 
   @Index('idx_level')
   @Column('varchar', { length: 2, default: 'C' })
-  opportunityLevel!: 'H' | 'A' | 'B' | 'C'
+  opportunityLevel!: 'H' | 'A' | 'B' | 'C' | 'O'
 
   /** 关注车型与行为标记（冗余） */
   @Column('int', { nullable: true })

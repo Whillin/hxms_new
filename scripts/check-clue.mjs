@@ -50,7 +50,10 @@ async function login(base, username, password) {
     method: 'POST',
     body: JSON.stringify({ username, password })
   })
-  assert(status >= 200 && status < 300 && (json?.data?.token || json?.token), `登录失败: ${status} ${JSON.stringify(json)}`)
+  assert(
+    status >= 200 && status < 300 && (json?.data?.token || json?.token),
+    `登录失败: ${status} ${JSON.stringify(json)}`
+  )
   return json?.data?.token || json?.token
 }
 
@@ -102,7 +105,10 @@ async function main() {
     headers: { Authorization: `Bearer ${token}` },
     body: JSON.stringify(body)
   })
-  assert(saveRes.status >= 200 && saveRes.status < 300, `提交线索失败: ${saveRes.status} ${JSON.stringify(saveRes.json)}`)
+  assert(
+    saveRes.status >= 200 && saveRes.status < 300,
+    `提交线索失败: ${saveRes.status} ${JSON.stringify(saveRes.json)}`
+  )
   log('线索保存任务已提交，开始轮询列表...')
 
   const maxTries = 30
@@ -110,10 +116,13 @@ async function main() {
   for (let i = 0; i < maxTries; i++) {
     await new Promise((r) => setTimeout(r, 500))
     const nonce = Date.now() + '_' + i
-    const listRes = await fetchJson(`${BASE}/clue/list?size=5&current=1&customerPhone=${encodeURIComponent(phone)}&nonce=${encodeURIComponent(nonce)}`, {
-      method: 'GET',
-      headers: { Authorization: `Bearer ${token}` }
-    })
+    const listRes = await fetchJson(
+      `${BASE}/clue/list?size=5&current=1&customerPhone=${encodeURIComponent(phone)}&nonce=${encodeURIComponent(nonce)}`,
+      {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${token}` }
+      }
+    )
     if (listRes.status === 200) {
       const records = listRes.json?.data?.records || []
       found = records.find((r) => r.customerPhone?.includes(phone))
@@ -122,7 +131,11 @@ async function main() {
   }
 
   assert(found, '轮询超时，列表中未找到新线索')
-  log('已在列表中找到线索记录:', { id: found.id, customerName: found.customerName, storeId: found.storeId })
+  log('已在列表中找到线索记录:', {
+    id: found.id,
+    customerName: found.customerName,
+    storeId: found.storeId
+  })
   console.log(JSON.stringify({ ok: true, phone, clueId: found.id }, null, 2))
 }
 

@@ -43,7 +43,8 @@ export class OpportunityController {
           whereBranches.push({})
           break
         case 'self':
-          if (typeof scope.employeeId === 'number') whereBranches.push({ ownerId: scope.employeeId })
+          if (typeof scope.employeeId === 'number')
+            whereBranches.push({ ownerId: scope.employeeId })
           else whereBranches.push({})
           break
         case 'department': {
@@ -137,8 +138,7 @@ export class OpportunityController {
       qb.andWhere('o.opportunityLevel = :oppLevel', {
         oppLevel: String(query.opportunityLevel)
       })
-    if (query.status)
-      qb.andWhere('o.status = :status', { status: String(query.status) })
+    if (query.status) qb.andWhere('o.status = :status', { status: String(query.status) })
     if (Array.isArray(query.daterange) && query.daterange.length === 2) {
       const [start, end] = query.daterange
       qb.andWhere('o.latestVisitDate BETWEEN :start AND :end', {
@@ -199,5 +199,24 @@ export class OpportunityController {
     }
     const saved = await this.opportunityService.upsertDirect(body)
     return { code: saved ? 200 : 404, msg: saved ? '保存成功' : '未找到该商机', data: !!saved }
+  }
+
+  /** 删除商机（仅管理员/超级管理员） */
+  @UseGuards(JwtGuard)
+  @Post('delete')
+  async delete(@Req() req: any, @Body() body: { id?: number }) {
+    const roles: string[] = Array.isArray(req?.user?.roles) ? req.user.roles : []
+    const isAdmin = roles.includes('R_ADMIN') || roles.includes('R_SUPER')
+    if (!isAdmin) {
+      return { code: 403, msg: '无权限：仅管理员可删除商机', data: false }
+    }
+    const id = Number(body?.id)
+    if (!id || Number.isNaN(id)) {
+      return { code: 400, msg: '缺少有效的ID', data: false }
+    }
+    const res = await this.repo.delete(id)
+    const ok = !!res.affected && res.affected > 0
+    if (!ok) return { code: 404, msg: '未找到商机', data: false }
+    return { code: 200, msg: '删除成功', data: true }
   }
 }

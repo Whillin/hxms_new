@@ -46,7 +46,7 @@ async function listUsers(token) {
   return json
 }
 
-(async () => {
+;(async () => {
   try {
     console.log(`[Dump] Base: ${BASE}`)
     const token = await login(USER, PASS)

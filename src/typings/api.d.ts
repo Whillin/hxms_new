@@ -237,7 +237,7 @@ declare namespace Api {
     /** 角色权限：键列表 */
     type RolePermissionKeys = string[]
   }
-  
+
   /** 商机类型 */
   namespace Opportunity {
     /** 商机列表项（与后端 OpportunityController 映射） */
@@ -247,7 +247,7 @@ declare namespace Api {
       customerName: string
       customerPhone: string
       status: '跟进中' | '已战败' | '已成交'
-      opportunityLevel: 'H' | 'A' | 'B' | 'C'
+      opportunityLevel: 'H' | 'A' | 'B' | 'C' | 'O'
       focusModelId?: number | null
       focusModelName?: string | null
       testDrive: boolean

@@ -35,17 +35,17 @@
                 @click="switchListMode('today')"
                 >今日跟进商机</ElLink
               >
-          <ElLink
-            :underline="false"
-            :type="listMode === 'all' ? 'primary' : 'default'"
-            @click="switchListMode('all')"
-            >全部</ElLink
-          >
-        </span>
-        <ElButton @click="refreshData">刷新</ElButton>
-      </ElSpace>
-    </template>
-  </ArtTableHeader>
+              <ElLink
+                :underline="false"
+                :type="listMode === 'all' ? 'primary' : 'default'"
+                @click="switchListMode('all')"
+                >全部</ElLink
+              >
+            </span>
+            <ElButton @click="refreshData">刷新</ElButton>
+          </ElSpace>
+        </template>
+      </ArtTableHeader>
 
       <ArtTable
         :loading="loading"
@@ -67,7 +67,7 @@
             </template>
             <ElPopconfirm title="确认删除该商机？" @confirm="deleteRow(row)">
               <template #reference>
-                <ArtButtonTable type="delete" />
+                <ArtButtonTable type="delete" v-roles="['R_SUPER', 'R_ADMIN']" />
               </template>
             </ElPopconfirm>
           </div>
@@ -76,12 +76,7 @@
     </ElCard>
 
     <!-- 新增/编辑弹窗 -->
-  <ElDialog
-      v-model="dialogVisible"
-      title="编辑商机"
-      width="800px"
-      destroy-on-close
-    >
+    <ElDialog v-model="dialogVisible" title="编辑商机" width="800px" destroy-on-close>
       <ElForm ref="formRef" :model="formModel" :rules="formRules" label-width="110px">
         <ElRow :gutter="12">
           <ElCol :span="12">
@@ -295,20 +290,19 @@
         <ElDescriptionsItem label="客户姓名">{{ detailRow?.customerName }}</ElDescriptionsItem>
         <ElDescriptionsItem label="客户电话">{{ detailRow?.customerPhone }}</ElDescriptionsItem>
         <ElDescriptionsItem label="关注车型">{{ detailRow?.focusModelName }}</ElDescriptionsItem>
-        <ElDescriptionsItem label="是否试驾">{{ detailRow?.testDrive ? '是' : '否' }}</ElDescriptionsItem>
-        <ElDescriptionsItem label="是否议价">{{ detailRow?.bargaining ? '是' : '否' }}</ElDescriptionsItem>
+        <ElDescriptionsItem label="是否试驾">{{
+          detailRow?.testDrive ? '是' : '否'
+        }}</ElDescriptionsItem>
+        <ElDescriptionsItem label="是否议价">{{
+          detailRow?.bargaining ? '是' : '否'
+        }}</ElDescriptionsItem>
         <ElDescriptionsItem label="一级渠道">{{ detailRow?.channelLevel1 }}</ElDescriptionsItem>
         <ElDescriptionsItem label="备注">{{ detailRow?.remark }}</ElDescriptionsItem>
         <ElDescriptionsItem label="留档日期">{{ detailRow?.visitDate }}</ElDescriptionsItem>
       </ElDescriptions>
     </ElDrawer>
     <!-- 客户选择弹窗：当存在多条匹配时提示选择 -->
-    <ElDialog
-      v-model="customerSelectVisible"
-      title="选择客户"
-      width="600px"
-      destroy-on-close
-    >
+    <ElDialog v-model="customerSelectVisible" title="选择客户" width="600px" destroy-on-close>
       <ElTable :data="customerCandidates" style="width: 100%">
         <ElTableColumn prop="userName" label="客户名称" min-width="120" />
         <ElTableColumn prop="userPhone" label="电话" min-width="130" />
@@ -336,7 +330,11 @@
   import { useOpportunityFollowStore } from '@/store/modules/opportunityFollow'
   import { fetchChannelOptions } from '@/api/channel'
   import { useUserStore } from '@/store/modules/user'
-  import { fetchGetOpportunityList, fetchSaveOpportunity } from '@/api/opportunity'
+  import {
+    fetchGetOpportunityList,
+    fetchSaveOpportunity,
+    fetchDeleteOpportunity
+  } from '@/api/opportunity'
   import { fetchGetCustomerList } from '@/api/customer'
 
   defineOptions({ name: 'OpportunityList' })
@@ -350,7 +348,7 @@
     opportunityCode: string
     channelLevel1: string
     focusModelName: string
-    opportunityLevel: 'H' | 'A' | 'B' | 'C'
+    opportunityLevel: 'H' | 'A' | 'B' | 'C' | 'O'
     testDrive: boolean
     bargaining: boolean
     buyExperience: '首购' | '换购' | '增购'
@@ -386,9 +384,6 @@
   const customerSelectVisible = ref(false)
   const customerCandidates = ref<any[]>([])
 
-  // 当前用户与下属（演示用）
-  const currentUser = '张一'
-  const subordinates = ['李二']
   const listMode = ref<'all' | 'mine' | 'sub' | 'today'>('all')
   const switchListMode = (mode: 'all' | 'mine' | 'sub' | 'today') => {
     listMode.value = mode
@@ -412,7 +407,9 @@
       if (brand) {
         try {
           await categoryStore.loadFromApi()
-        } catch {}
+        } catch (err) {
+          console.warn('[categoryStore.loadFromApi] failed (onMounted):', err)
+        }
         const tree: any[] = (categoryStore as any).tree || []
         const node: any = tree.find((n: any) => n?.level === 1 && String(n?.name) === brand)
         if (node && typeof node.id === 'number') categoryId = node.id
@@ -428,10 +425,7 @@
   })
   // 品牌变化时（中文brandName或英文brand），刷新关注车型选项（按分类ID）
   watch(
-    [
-      () => (info.value as any)?.brandName,
-      () => (info.value as any)?.brand
-    ],
+    [() => (info.value as any)?.brandName, () => (info.value as any)?.brand],
     async ([brandName, brand]) => {
       try {
         const b = brandName || brand || undefined
@@ -439,7 +433,9 @@
         if (b) {
           try {
             await categoryStore.loadFromApi()
-          } catch {}
+          } catch (err) {
+            console.warn('[categoryStore.loadFromApi] failed (watch brand):', err)
+          }
           const tree: any[] = (categoryStore as any).tree || []
           const node: any = tree.find((n: any) => n?.level === 1 && String(n?.name) === b)
           if (node && typeof node.id === 'number') categoryId = node.id
@@ -458,7 +454,8 @@
     { label: 'H', value: 'H' },
     { label: 'A', value: 'A' },
     { label: 'B', value: 'B' },
-    { label: 'C', value: 'C' }
+    { label: 'C', value: 'C' },
+    { label: 'O', value: 'O' }
   ]
   const buyExperienceOptions = [
     { label: '首购', value: '首购' },
@@ -590,8 +587,7 @@
     { label: '备注', key: 'remark', type: 'input' }
   ])
 
-  // 后端数据源切换：不再生成本地数据
-  const mockData = ref<OpportunityItem[]>([])
+  // 后端数据源切换：不再生成本地数据（移除 mockData）
 
   // 跟进记录本地数据源
   const formatDateTime = (d: Date) => {
@@ -630,12 +626,11 @@
     })
     return ids
   })
+  // 读取一次以避免未使用的变量报错（模板可能使用）
+  void todayOpportunityIds.value
 
   // 构建后端查询参数（仅映射支持的字段）
-  const buildListQuery = (
-    current: number,
-    size: number
-  ): Api.Opportunity.SearchParams => {
+  const buildListQuery = (current: number, size: number): Api.Opportunity.SearchParams => {
     const q: Api.Opportunity.SearchParams = { current, size }
     const s = searchForm.value as any
     if (s.customerName) q.customerName = s.customerName
@@ -687,9 +682,10 @@
     getData
   } = useTable({
     core: {
-      apiFn: async ({ current, size }: Api.Common.CommonSearchParams): Promise<
-        Api.Common.PaginatedResponse<OpportunityItem>
-      > => {
+      apiFn: async ({
+        current,
+        size
+      }: Api.Common.CommonSearchParams): Promise<Api.Common.PaginatedResponse<OpportunityItem>> => {
         const q = buildListQuery(current, size)
         const page = await fetchGetOpportunityList(q)
         let list = (page.records || []).map(adaptOpportunity)
@@ -897,27 +893,17 @@
     applyCustomerToForm(row)
     customerSelectVisible.value = false
   }
-  const deleteRow = (row: OpportunityItem) => {
-    const idx = mockData.value.findIndex((r) => r.id === row.id)
-    if (idx >= 0) {
-      mockData.value.splice(idx, 1)
+  const deleteRow = async (row: OpportunityItem) => {
+    try {
+      await fetchDeleteOpportunity(Number(row.id))
       ElMessage.success('删除成功')
       refreshData()
-    } else {
-      ElMessage.error('删除失败，未找到该记录')
+    } catch (e) {
+      console.error('[fetchDeleteOpportunity] failed:', e)
+      ElMessage.error('删除失败')
     }
   }
-  const generateOpportunityCode = (): string => {
-    const nums = mockData.value
-      .map((r) => String(r.opportunityCode || ''))
-      .map((code) => {
-        const m = code.match(/^OP-(\d+)$/)
-        return m ? Number(m[1]) : NaN
-      })
-      .filter((n) => !Number.isNaN(n))
-    const next = nums.length ? Math.max(...nums) + 1 : 1
-    return `OP-${String(next).padStart(4, '0')}`
-  }
+  // generateOpportunityCode 已不再使用，移除以避免未使用的变量报错
   const submitForm = async () => {
     if (!editingId.value) {
       ElMessage.error('不支持新增商机，请通过线索转商机或在列表中选择编辑')

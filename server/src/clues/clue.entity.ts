@@ -93,9 +93,9 @@ export class Clue {
   @Column('int', { default: 1 })
   contactTimes!: number
 
-  /** 商机级别：H/A/B/C */
+  /** 商机级别：H/A/B/C/O */
   @Column('varchar', { length: 5 })
-  opportunityLevel!: 'H' | 'A' | 'B' | 'C'
+  opportunityLevel!: 'H' | 'A' | 'B' | 'C' | 'O'
 
   /** 客户画像 */
   @Column('varchar', { length: 10, default: '未知' })

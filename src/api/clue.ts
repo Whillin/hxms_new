@@ -28,7 +28,7 @@ export interface ClueItem {
   convertOrRetentionModel?: string
   referrer?: string
   contactTimes?: number
-  opportunityLevel?: 'H' | 'A' | 'B' | 'C'
+  opportunityLevel?: 'H' | 'A' | 'B' | 'C' | 'O'
   userGender?: '男' | '女' | '未知'
   userAge?: number
   buyExperience?: '首购' | '换购' | '增购'

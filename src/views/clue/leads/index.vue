@@ -239,7 +239,6 @@
   import { fetchChannelOptions } from '@/api/channel'
   import { fetchGetDepartmentList, fetchGetEmployeeList } from '@/api/system-manage'
   import { EMPLOYEE_ROLE_LABELS } from '@/utils/employee'
-  
 
   defineOptions({ name: 'ClueLeads' })
 
@@ -267,7 +266,9 @@
       if (brand) {
         try {
           await categoryStore.loadFromApi()
-        } catch {}
+        } catch (err) {
+          console.warn('[categoryStore.loadFromApi] failed (onMounted):', err)
+        }
         const tree: any[] = (categoryStore as any).tree || []
         const node: any = tree.find((n: any) => n?.level === 1 && String(n?.name) === brand)
         if (node && typeof node.id === 'number') categoryId = node.id
@@ -284,10 +285,7 @@
 
   // 监听品牌变化（中文brandName或英文brand），实时刷新关注/成交车型选项（按分类ID）
   watch(
-    [
-      () => (info.value as any)?.brandName,
-      () => (info.value as any)?.brand
-    ],
+    [() => (info.value as any)?.brandName, () => (info.value as any)?.brand],
     async ([brandName, brand]) => {
       try {
         const b = brandName || brand || undefined
@@ -295,7 +293,9 @@
         if (b) {
           try {
             await categoryStore.loadFromApi()
-          } catch {}
+          } catch (err) {
+            console.warn('[categoryStore.loadFromApi] failed (watch brand):', err)
+          }
           const tree: any[] = (categoryStore as any).tree || []
           const node: any = tree.find((n: any) => n?.level === 1 && String(n?.name) === b)
           if (node && typeof node.id === 'number') categoryId = node.id
@@ -1226,8 +1226,10 @@
           { label: 'H', value: 'H' },
           { label: 'A', value: 'A' },
           { label: 'B', value: 'B' },
-          { label: 'C', value: 'C' }
-        ]
+          { label: 'C', value: 'C' },
+          { label: 'O', value: 'O' }
+        ],
+        disabled: addForm.value.dealDone === true
       }
     },
     {
@@ -1257,8 +1259,11 @@
     {
       label: '转化/保客车型',
       key: 'convertOrRetentionModel',
-      type: 'input',
-      props: { disabled: !ALLOWED_PRIMARY_REFERRER.includes(String(addForm.value.channelLevel1)) }
+      type: 'select',
+      props: {
+        options: nameOptions.value,
+        disabled: !ALLOWED_PRIMARY_REFERRER.includes(String(addForm.value.channelLevel1))
+      }
     },
     {
       label: '推荐人',
@@ -1645,13 +1650,75 @@
     { immediate: true }
   )
 
+  // 是否成交联动：选择“是”则自动将商机级别设为 O，并禁用商机级别；选择“否”恢复可编辑
+  watch(
+    () => addForm.value.dealDone,
+    (v) => {
+      if (v === true) {
+        addForm.value.opportunityLevel = 'O' as any
+      }
+    },
+    { immediate: true }
+  )
+
   // 门店变化时刷新员工选项
   watch(
     () => addForm.value.storeId,
-    () => {
+    async () => {
       loadSalesConsultants()
       // 切换门店后清空已选销售顾问，以避免跨店误选
       addForm.value.salesConsultant = ''
+
+      // 依据门店所属品牌，限定“转化/保客车型”的数据源
+      const storeIdNum = Number(
+        typeof addForm.value.storeId === 'number'
+          ? addForm.value.storeId
+          : typeof info.value?.storeId === 'number'
+            ? (info.value!.storeId as number)
+            : 0
+      )
+      if (!Number.isFinite(storeIdNum) || storeIdNum <= 0) return
+
+      // 在部门树中定位该门店的所属品牌名称
+      const findBrandNameOfStore = (roots: any[], sid: number): string | undefined => {
+        const dfs = (node: any, brandName?: string): string | undefined => {
+          const curBrand = node?.type === 'brand' ? String(node?.name || '') : brandName
+          if (node?.type === 'store' && Number(node?.id) === sid) return curBrand
+          const children = Array.isArray(node?.children) ? node.children : []
+          for (const c of children) {
+            const r = dfs(c, curBrand)
+            if (r) return r
+          }
+          return undefined
+        }
+        for (const root of roots) {
+          const got = dfs(root, undefined)
+          if (got) return got
+        }
+        return undefined
+      }
+
+      const brandName = findBrandNameOfStore(deptTree.value, storeIdNum)
+      try {
+        let categoryId: number | undefined
+        if (brandName) {
+          try {
+            await categoryStore.loadFromApi()
+          } catch (err) {
+            console.warn('[categoryStore.loadFromApi] failed (dept store brand):', err)
+          }
+          const tree: any[] = (categoryStore as any).tree || []
+          const node: any = tree.find((n: any) => n?.level === 1 && String(n?.name) === brandName)
+          if (node && typeof node.id === 'number') categoryId = node.id
+        }
+        if (typeof categoryId === 'number') {
+          await productStore.loadProductsByCategoryId(categoryId, true)
+        } else if (brandName) {
+          await productStore.loadProducts(brandName)
+        }
+      } catch (e: any) {
+        console.error('[convertOrRetentionModel] load by store brand failed:', e)
+      }
     }
   )
 
