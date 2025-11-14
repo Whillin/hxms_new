@@ -40,6 +40,7 @@ import { DebounceMiddleware } from '../common/debounce.middleware'
 import { FeatureFlagsService } from '../common/feature-flags.service'
 import { MiddlewareConsumer } from '@nestjs/common'
 import { OpportunityService } from '../opportunities/opportunity.service'
+import { DbEnsureService } from '../common/db-ensure.service'
 
 @Module({
   imports: [
@@ -125,30 +126,40 @@ import { OpportunityService } from '../opportunities/opportunity.service'
     ]),
     AuthModule,
     UserModule,
-    CacheModule.registerAsync({
-      isGlobal: true,
-      useFactory: async () => ({
-        store: (await redisStore({
-          socket: {
-            host: process.env.REDIS_HOST || 'redis',
-            port: Number(process.env.REDIS_PORT || 6379)
-          },
-          ttl: Number(process.env.CACHE_TTL_MS || 10000)
-        })) as unknown as CacheStore
-      })
-    }),
+    // 允许在本地没有 Redis 的情况下运行：当 NO_REDIS=true 时改用内存缓存并禁用队列
+    ...(String(process.env.NO_REDIS || '').toLowerCase() === 'true'
+      ? [
+          CacheModule.register({
+            isGlobal: true,
+            ttl: Number(process.env.CACHE_TTL_MS || 10000)
+          })
+        ]
+      : [
+          CacheModule.registerAsync({
+            isGlobal: true,
+            useFactory: async () => ({
+              store: (await redisStore({
+                socket: {
+                  host: process.env.REDIS_HOST || 'redis',
+                  port: Number(process.env.REDIS_PORT || 6379)
+                },
+                ttl: Number(process.env.CACHE_TTL_MS || 10000)
+              })) as unknown as CacheStore
+            })
+          }),
+          BullModule.forRoot({
+            redis: {
+              host: process.env.REDIS_HOST || '127.0.0.1',
+              port: Number(process.env.REDIS_PORT || 6379)
+            }
+          }),
+          BullModule.registerQueue({
+            name: 'clue-processing'
+          })
+        ]),
     // 全局限流（v5+ 采用数组定义；ttl 单位毫秒）
-    ThrottlerModule.forRoot([{ ttl: 60000, limit: 60 }]),
-    // Bull 队列全局连接：使用环境变量的 Redis 主机与端口
-    BullModule.forRoot({
-      redis: {
-        host: process.env.REDIS_HOST || '127.0.0.1',
-        port: Number(process.env.REDIS_PORT || 6379)
-      }
-    }),
-    BullModule.registerQueue({
-      name: 'clue-processing'
-    })
+    ThrottlerModule.forRoot([{ ttl: 60000, limit: 60 }])
+    // 上方已根据 NO_REDIS 开关动态注入了 Cache 与 Bull 模块
   ],
   controllers: [
     UserController,
@@ -167,6 +178,7 @@ import { OpportunityService } from '../opportunities/opportunity.service'
   providers: [
     JwtGuard,
     DataScopeService,
+    DbEnsureService,
     SeedService,
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     DebounceMiddleware,
