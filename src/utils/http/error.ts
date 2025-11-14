@@ -122,8 +122,24 @@ export function handleError(error: AxiosError<ErrorResponse>): never {
  * @param showMessage 是否显示错误消息
  */
 export function showError(error: HttpError, showMessage: boolean = true): void {
-  if (showMessage) {
-    ElMessage.error(error.message)
+  // 错误提示节流：对于 5xx 服务器错误，在 8 秒内仅提示一次，避免弹窗轰炸
+  const now = Date.now()
+  const isServerError = [500, 502, 503, 504].includes(error.code)
+  const key = `${error.code}|${error.url || ''}`
+  if (!globalThis.__HTTP_ERROR_CACHE__) {
+    ;(globalThis as any).__HTTP_ERROR_CACHE__ = new Map<string, number>()
+  }
+  const cache: Map<string, number> = (globalThis as any).__HTTP_ERROR_CACHE__
+  const last = cache.get(key) || 0
+  const throttleMs = isServerError ? 8000 : 1500
+
+  if (showMessage && now - last >= throttleMs) {
+    cache.set(key, now)
+    if (isServerError) {
+      ElMessage.error($t('httpMsg.internalServerError'))
+    } else {
+      ElMessage.error(error.message)
+    }
   }
   // 记录错误日志
   console.error('[HTTP Error]', error.toLogData())

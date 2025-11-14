@@ -30,12 +30,13 @@
   })
 
   const getArticleDetail = async () => {
+    // 后端暂未接入文章详情接口，使用占位数据以保持页面可用
     if (articleId.value) {
-      const res = await axios.get('/mock/article/blog_detail.json')
-      if (res.data.code === 200) {
-        articleTitle.value = res.data.data.title
-        articleHtml.value = res.data.data.html_content
-      }
+      articleTitle.value = `文章 #${articleId.value}`
+      articleHtml.value = ''
+    } else {
+      articleTitle.value = '未找到文章'
+      articleHtml.value = ''
     }
   }
 </script>

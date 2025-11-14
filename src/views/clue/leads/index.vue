@@ -1488,9 +1488,10 @@
   }
   const submitAdd = async () => {
     await addFormRef.value?.validate?.()
+    // 保留已有的 id，避免被 undefined 覆盖导致后端走“新增”路径
     const payload = {
       ...(addForm.value as any),
-      id: editingId.value || undefined
+      ...(editingId.value ? { id: Number(editingId.value) } : {})
     } as any
     await fetchSaveClue(payload)
     ElMessage.success(editingId.value ? '更新线索成功' : '新增线索成功')
@@ -1664,10 +1665,30 @@
   // 门店变化时刷新员工选项
   watch(
     () => addForm.value.storeId,
-    async () => {
-      loadSalesConsultants()
-      // 切换门店后清空已选销售顾问，以避免跨店误选
-      addForm.value.salesConsultant = ''
+    async (newId, oldId) => {
+      // 记录当前所选销售顾问，便于在编辑时保留
+      const prevConsultant = addForm.value.salesConsultant
+      await loadSalesConsultants()
+      // 仅当门店发生变化且非编辑初始化时清空；编辑时尽量保留已选值
+      const changed = Number(newId as any) !== Number(oldId as any)
+      const isEditing = Boolean(editingId.value)
+      if (changed) {
+        if (isEditing && prevConsultant) {
+          const exists = salesConsultantOptions.value.some(
+            (o) => String(o.value) === String(prevConsultant)
+          )
+          addForm.value.salesConsultant = exists ? prevConsultant : ''
+        } else {
+          // 非编辑或无已选值，切换门店后清空，避免跨店误选
+          addForm.value.salesConsultant = ''
+        }
+      } else if (isEditing && prevConsultant) {
+        // 门店未变更但选项刚刷新时，若当前值仍在可选项中则保留
+        const exists = salesConsultantOptions.value.some(
+          (o) => String(o.value) === String(prevConsultant)
+        )
+        addForm.value.salesConsultant = exists ? prevConsultant : ''
+      }
 
       // 依据门店所属品牌，限定“转化/保客车型”的数据源
       const storeIdNum = Number(

@@ -133,14 +133,8 @@
 
   // 获取文章类型
   const getArticleTypes = async () => {
-    try {
-      const response = await axios.get('/mock/article/classify.json')
-      if (response.data.code === 200) {
-        articleTypes.value = response.data.data
-      }
-    } catch (error) {
-      console.error('Error fetching JSON data:', error)
-    }
+    // 已移除本地 mock 数据源，暂不请求分类
+    articleTypes.value = []
     // try {
     //   const res = await ArticleService.getArticleTypes({})
     //   if (res.code === ApiStatus.success) {
@@ -150,14 +144,10 @@
   }
 
   const getArticleDetail = async () => {
-    const res = await axios.get('/mock/article/blog_list.json')
-
-    if (res.data.code === ApiStatus.success) {
-      let { title, blog_class, html_content } = res.data.data
-      articleName.value = title
-      articleType.value = Number(blog_class)
-      editorHtml.value = html_content
-    }
+    // 已移除本地 mock 数据源，编辑模式下暂不加载远端文章详情
+    articleName.value = ''
+    articleType.value = undefined as any
+    editorHtml.value = ''
   }
 
   // const getOutline = (content: string) => {

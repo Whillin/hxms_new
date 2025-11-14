@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Query, Req, UseGuards, Inject } from '@nestjs/common'
+import { Body, Controller, Get, Post, Query, Req, UseGuards, Inject, Optional } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository, Like, Between, In } from 'typeorm'
 import { JwtGuard } from '../auth/jwt.guard'
@@ -26,7 +26,7 @@ export class ClueController {
     @InjectRepository(Employee) private readonly empRepo: Repository<Employee>,
     @Inject(DataScopeService) private readonly dataScopeService: DataScopeService,
     @Inject(UserService) private readonly userService: UserService,
-    @InjectQueue('clue-processing') private clueQueue: Queue,
+    @Optional() @InjectQueue('clue-processing') private clueQueue: Queue | undefined,
     @Inject(FeatureFlagsService) private readonly features: FeatureFlagsService,
     @Inject(OpportunityService) private readonly oppService: OpportunityService
   ) {}
@@ -157,17 +157,123 @@ export class ClueController {
   @UseGuards(JwtGuard)
   @Post('save')
   async save(@Req() req: any, @Body() body: any) {
+    // 统一布尔解析，避免字符串 "false" 被误判为 true
+    const toBool = (v: any): boolean => {
+      if (typeof v === 'boolean') return v
+      const s = String(v ?? '').trim().toLowerCase()
+      return ['1', 'true', 'yes', 'on'].includes(s)
+    }
     // 后端功能开关：QUEUE_SAVE_CLUE（默认启用）。
     // 当开关关闭时，走本地直存逻辑，便于本地开发无需 Redis。
     const useQueue = this.features.isEnabled('QUEUE_SAVE_CLUE', true)
     if (!useQueue) {
-      // ===== 直存逻辑（最小必填字段） =====
+      // ===== 直存逻辑（严格校验 + 支持编辑更新） =====
       const userId = Number(req?.user?.sub)
       const currentUser = userId ? await this.userService.findById(userId) : null
       const employeeId = currentUser?.employeeId
+
+      const id = Number(body?.id || 0) || undefined
       const { customerName, customerPhone, storeId, visitDate } = body || {}
-      if (!customerName || !customerPhone || !storeId || !visitDate) {
+
+      // 基础必填校验（新增必须；编辑建议也携带）
+      if (!id && (!customerName || !customerPhone || !storeId || !visitDate)) {
         return { code: 400, msg: '缺少必填字段', data: false }
+      }
+
+      // 编辑更新：带 id 时走更新路径（包含范围校验）
+      if (id) {
+        const existing = await this.repo.findOne({ where: { id } })
+        if (!existing) return { code: 404, msg: '线索不存在', data: false }
+
+        const scope = await this.dataScopeService.getScope(req.user)
+        if (!this.isInScope(existing, scope, employeeId)) {
+          return { code: 403, msg: '无权编辑该线索', data: false }
+        }
+
+        // 若变更门店，重新解析归属品牌/大区
+        const targetStoreId = typeof storeId === 'number' ? Number(storeId) : existing.storeId
+        const ancestors = await this.findAncestors(Number(targetStoreId))
+
+        // 解析销售顾问ID（仅当前门店在职员工）
+        const consultantName = String(body.salesConsultant || '').trim()
+        let salesConsultantIdResolved: number | undefined
+        if (consultantName) {
+          const emp = await this.empRepo.findOne({
+            where: { name: consultantName, storeId: Number(targetStoreId), status: '1' as any }
+          })
+          if (emp) salesConsultantIdResolved = emp.id
+        }
+
+        // 合并可编辑字段（保留 createdBy）
+        Object.assign(existing, {
+          visitDate: visitDate ? String(visitDate) : existing.visitDate,
+          enterTime: body.enterTime ?? existing.enterTime,
+          leaveTime: body.leaveTime ?? existing.leaveTime,
+          receptionDuration:
+            typeof body.receptionDuration === 'number'
+              ? Number(body.receptionDuration)
+              : existing.receptionDuration,
+          visitorCount:
+            typeof body.visitorCount === 'number' ? Number(body.visitorCount) : existing.visitorCount,
+          receptionStatus: (body.receptionStatus as any) ?? existing.receptionStatus,
+          salesConsultant: consultantName || existing.salesConsultant,
+          salesConsultantId: salesConsultantIdResolved ?? existing.salesConsultantId,
+          customerName: customerName ? String(customerName) : existing.customerName,
+          customerPhone: customerPhone ? String(customerPhone) : existing.customerPhone,
+          focusModelId:
+            typeof body.focusModelId === 'number'
+              ? Number(body.focusModelId)
+              : existing.focusModelId,
+          focusModelName: body.focusModelName ?? existing.focusModelName,
+          testDrive: body.testDrive !== undefined ? toBool(body.testDrive) : existing.testDrive,
+          bargaining: body.bargaining !== undefined ? toBool(body.bargaining) : existing.bargaining,
+          dealDone: body.dealDone !== undefined ? toBool(body.dealDone) : existing.dealDone,
+          dealModelId:
+            typeof body.dealModelId === 'number' ? Number(body.dealModelId) : existing.dealModelId,
+          dealModelName: body.dealModelName ?? existing.dealModelName,
+          businessSource: String(body.businessSource || existing.businessSource || '自然到店'),
+          channelCategory: String(body.channelCategory || existing.channelCategory || '线下'),
+          channelLevel1: body.channelLevel1 ?? existing.channelLevel1,
+          channelLevel2: body.channelLevel2 ?? existing.channelLevel2,
+          opportunityLevel: (body.opportunityLevel as any) ?? existing.opportunityLevel,
+          userGender: (body.userGender as any) ?? existing.userGender,
+          userAge: typeof body.userAge === 'number' ? Number(body.userAge) : existing.userAge,
+          buyExperience: (body.buyExperience as any) ?? existing.buyExperience,
+          // 客户画像与附加字段
+          userPhoneModel: body.userPhoneModel ?? existing.userPhoneModel,
+          currentBrand: body.currentBrand ?? existing.currentBrand,
+          currentModel: body.currentModel ?? existing.currentModel,
+          carAge:
+            body.carAge !== undefined
+              ? Number(body.carAge || 0)
+              : existing.carAge,
+          mileage:
+            body.mileage !== undefined
+              ? Number(body.mileage || 0)
+              : existing.mileage,
+          livingArea:
+            body.livingArea !== undefined
+              ? (Array.isArray(body.livingArea)
+                  ? (body.livingArea as any[]).join('/')
+                  : String(body.livingArea))
+              : existing.livingArea,
+          convertOrRetentionModel: body.convertOrRetentionModel ?? existing.convertOrRetentionModel,
+          referrer: body.referrer ?? existing.referrer,
+          contactTimes:
+            body.contactTimes !== undefined
+              ? Number(body.contactTimes || 1)
+              : existing.contactTimes,
+          // 归属维度（门店变动时更新 brand/region）
+          storeId: Number(targetStoreId),
+          regionId: ancestors.regionId,
+          brandId: ancestors.brandId
+        })
+
+        const saved = await this.repo.save(existing)
+        try {
+          await this.oppService.upsertFromClue(saved)
+        } catch {}
+        return { code: 200, msg: '更新成功', data: true }
       }
 
       // 部门层级解析：获取品牌/大区
@@ -218,13 +324,20 @@ export class ClueController {
         customerPhone: String(customerPhone),
         salesConsultant: consultantName || undefined,
         salesConsultantId: salesConsultantIdResolved,
+        // 门店接待与到店信息
+        enterTime: body.enterTime ? String(body.enterTime) : undefined,
+        leaveTime: body.leaveTime ? String(body.leaveTime) : undefined,
+        receptionDuration:
+          body.receptionDuration !== undefined ? Number(body.receptionDuration || 0) : undefined,
+        visitorCount: body.visitorCount !== undefined ? Number(body.visitorCount || 1) : undefined,
+        receptionStatus: (body.receptionStatus as any) || 'sales',
         // 关注/成交相关字段（直存路径补齐，确保商机可根据成交直接闭环）
         focusModelId:
           typeof body.focusModelId === 'number' ? Number(body.focusModelId) : undefined,
         focusModelName: body.focusModelName ? String(body.focusModelName) : undefined,
-        testDrive: !!body.testDrive,
-        bargaining: !!body.bargaining,
-        dealDone: !!body.dealDone,
+        testDrive: toBool(body.testDrive),
+        bargaining: toBool(body.bargaining),
+        dealDone: toBool(body.dealDone),
         dealModelId:
           typeof body.dealModelId === 'number' ? Number(body.dealModelId) : undefined,
         dealModelName: body.dealModelName ? String(body.dealModelName) : undefined,
@@ -238,10 +351,25 @@ export class ClueController {
         // 若无明确部门，小组可为空
         departmentId: undefined,
         customerId: customer?.id,
-        opportunityLevel: (body.opportunityLevel || 'B') as 'H' | 'A' | 'B' | 'C',
+        opportunityLevel: (body.opportunityLevel || 'B') as 'H' | 'A' | 'B' | 'C' | 'O',
         userGender: (body.userGender || '未知') as '男' | '女' | '未知',
         userAge: Number(body.userAge || 0),
         buyExperience: (body.buyExperience || '首购') as '首购' | '换购' | '增购',
+        // 客户画像与附加字段
+        userPhoneModel: body.userPhoneModel || undefined,
+        currentBrand: body.currentBrand || undefined,
+        currentModel: body.currentModel || undefined,
+        carAge: body.carAge !== undefined ? Number(body.carAge || 0) : undefined,
+        mileage: body.mileage !== undefined ? Number(body.mileage || 0) : undefined,
+        livingArea:
+          body.livingArea !== undefined
+            ? Array.isArray(body.livingArea)
+              ? (body.livingArea as any[]).join('/')
+              : String(body.livingArea)
+            : undefined,
+        convertOrRetentionModel: body.convertOrRetentionModel || undefined,
+        referrer: body.referrer || undefined,
+        contactTimes: body.contactTimes !== undefined ? Number(body.contactTimes || 1) : undefined,
         createdBy: typeof employeeId === 'number' ? employeeId : undefined
       } as Partial<Clue>)
       const saved = await this.repo.save(clue)

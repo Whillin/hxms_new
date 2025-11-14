@@ -68,7 +68,7 @@
 </template>
 
 <script setup lang="ts">
-  import { commentList } from '@/mock/temp/commentList'
+  const commentList = ref<any[]>([])
   const showDrawer = ref(false)
 
   defineOptions({ name: 'ArticleComment' })

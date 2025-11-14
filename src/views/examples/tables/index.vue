@@ -402,7 +402,6 @@
   import { Plus, Delete, Edit, Search, Refresh, QuestionFilled } from '@element-plus/icons-vue'
   import { useTable, CacheInvalidationStrategy } from '@/composables/useTable'
   import { fetchGetUserList } from '@/api/system-manage'
-  import { ACCOUNT_TABLE_DATA } from '@/mock/temp/formData'
   import { getColumnKey } from '@/composables/useTableColumns'
   import { ElMessageBox, ElMessage, ElTag } from 'element-plus'
 
@@ -745,7 +744,10 @@
 
         return records.map((item: any, index: number) => ({
           ...item,
-          avatar: ACCOUNT_TABLE_DATA[index % ACCOUNT_TABLE_DATA.length].avatar,
+          avatar:
+            `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURIComponent(
+              String(row.userName || `user-${index}`)
+            )}`,
           department: ['技术部', '产品部', '运营部', '市场部', '设计部'][
             Math.floor(Math.random() * 5)
           ],

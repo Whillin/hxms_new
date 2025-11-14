@@ -138,6 +138,9 @@ function build_frontend() {
   else
     npm run build
   fi
+  # 清理不必要的文档以减小体积并避免部署到目标目录
+  echo "[+] Pruning unused docs from dist (mock, stats.html*)"
+  rm -rf "$APP_DIR/dist/mock" "$APP_DIR/dist/stats.html" "$APP_DIR/dist/stats.html.gz" || true
 }
 
 function deploy_frontend() {
@@ -150,6 +153,8 @@ function deploy_frontend() {
   # 优先使用容器 hxms_web
   if docker ps -a --format '{{.Names}}' | grep -qx "hxms_web"; then
     echo "[+] Detected container hxms_web, copying dist to /usr/share/nginx/html"
+    # 在容器中预清理无用文档，防止历史文件残留
+    docker exec hxms_web sh -lc 'rm -rf /usr/share/nginx/html/mock /usr/share/nginx/html/stats.html /usr/share/nginx/html/stats.html.gz' || true
     docker cp "$dist_dir/." hxms_web:/usr/share/nginx/html/
     # 同步 Nginx 配置并重载，确保最新的缓存/安全/代理设置生效
     if [ -f "deploy/nginx.conf" ]; then

@@ -57,7 +57,8 @@
 </template>
 
 <script setup lang="ts">
-  import { upgradeLogList } from '@/mock/upgrade/changeLog'
+  import { ref } from 'vue'
+  const upgradeLogList = ref<any[]>([])
 
   defineOptions({ name: 'ChangeLog' })
 </script>

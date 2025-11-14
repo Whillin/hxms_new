@@ -97,7 +97,6 @@
   import { useDateFormat } from '@vueuse/core'
   import { Search } from '@element-plus/icons-vue'
   import EmojiText from '@/utils/ui/emojo'
-  import { ArticleList } from '@/mock/temp/articleList'
   import { useCommon } from '@/composables/useCommon'
   import { RoutesAlias } from '@/router/routesAlias'
 
@@ -152,7 +151,8 @@
     //   year
     // }
 
-    articleList.value = ArticleList
+    // 后端尚未接入，暂时清空列表以去除 mock 依赖
+    articleList.value = []
     isLoading.value = false
 
     if (backTop) {

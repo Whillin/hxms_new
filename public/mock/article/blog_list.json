@@ -1,8 +1,0 @@
-{
-  "code": 200,
-  "data": {
-    "title": "示例文章",
-    "blog_class": "1",
-    "html_content": "<p>这是示例文章内容</p>"
-  }
-}

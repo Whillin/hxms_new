@@ -48,7 +48,6 @@
 
 <script setup lang="ts">
   import ArtButtonTable from '@/components/core/forms/art-button-table/index.vue'
-  import { ACCOUNT_TABLE_DATA } from '@/mock/temp/formData'
   import { useTable } from '@/composables/useTable'
   import { fetchGetUserList, fetchGetRoleList, fetchDeleteUser } from '@/api/system-manage'
   import UserSearch from './modules/user-search.vue'
@@ -305,7 +304,10 @@
         return records.map((item, index: number) => {
           return {
             ...item,
-            avatar: ACCOUNT_TABLE_DATA[index % ACCOUNT_TABLE_DATA.length].avatar
+            avatar:
+              `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURIComponent(
+                String(item.userName || `user-${index}`)
+              )}`
           }
         })
       }

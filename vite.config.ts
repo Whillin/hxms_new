@@ -11,8 +11,6 @@ import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
 import type { IncomingMessage, ServerResponse } from 'http'
 import { URL } from 'url'
 import type { Plugin } from 'vite'
-import { DEPARTMENT_TREE_DATA } from './src/mock/temp/departmentData'
-import { USER_LIST_DATA } from './src/mock/temp/userData'
 import { visualizer } from 'rollup-plugin-visualizer'
 
 export default ({ mode }: { mode: string }) => {
@@ -23,19 +21,19 @@ export default ({ mode }: { mode: string }) => {
     VITE_PORT,
     VITE_BASE_URL,
     VITE_API_URL,
-    VITE_API_PROXY_URL,
-    VITE_USE_MOCK
+    VITE_API_PROXY_URL
   } = env
-  // mock 开关（显式开启才启用）：仅当设置为 'true' 时启用本地 mock
-  const useMock = VITE_USE_MOCK === 'true'
-  // 默认本地后端端口为 3001；如需改端口请在 .env.development 设置 VITE_API_PROXY_URL
-  const devApiTarget = VITE_API_PROXY_URL || 'http://localhost:3001'
-  // 使用代理的条件：显式关闭 mock 时启用代理到后端
-  const useProxy = !useMock
-
+  // 移除 mock 开关和相关逻辑，直接启用代理
+  const useProxy = true
+  // 优先从 VITE_API_URL 计算代理目标（取其 origin），否则回退到 VITE_API_PROXY_URL 或默认 3001
+  const devApiTarget = VITE_API_URL
+    ? new URL(VITE_API_URL).origin
+    : (VITE_API_PROXY_URL || 'http://localhost:3001')
+  
+  // 移除 mock 相关的日志
   console.log(`🚀 API_URL = ${VITE_API_URL}`)
   console.log(`🚀 VERSION = ${VITE_VERSION}`)
-  console.log(`[proxy] useMock=${useMock} useProxy=${useProxy} target=${devApiTarget}`)
+  console.log(`[proxy] useProxy=${useProxy} target=${devApiTarget}`)
 
   return defineConfig({
     define: {
@@ -129,8 +127,8 @@ export default ({ mode }: { mode: string }) => {
           })
         }
       },
-      // 根据开关启用/禁用本地 mock 插件
-      ...(useMock ? [departmentMockPlugin(), authMockPlugin(), employeeMockPlugin()] : []),
+      // 开发自检插件：已禁用，避免在后端未准备时产生不必要的请求与错误日志
+      
       // 自动按需导入 API
       AutoImport({
         imports: ['vue', 'vue-router', '@vueuse/core', 'pinia'],
@@ -180,223 +178,82 @@ function resolvePath(paths: string) {
 }
 
 /**
- * 部门接口开发中间件插件
- * 拦截 /api/department/list 和 /api/department/save
+ * 开发自检插件：在 dev 服务启动后，自动对线索接口执行一次端到端校验
+ * 步骤：
+ *  A. 初始列表
+ *  B. 缺少手机号的必填校验
+ *  C. 完整必填新增
+ *  D. 手机号过滤列表
+ *  E. 编辑更改销售顾问
+ *  F. 再次列表确认不新增且字段更新
  */
-function departmentMockPlugin(): Plugin {
-  // 复制一份可变的部门数据
-  const departmentData: typeof DEPARTMENT_TREE_DATA = JSON.parse(
-    JSON.stringify(DEPARTMENT_TREE_DATA)
-  )
-  const now = new Date().toISOString()
-
-  const parseBody = async (req: IncomingMessage): Promise<any> => {
-    return new Promise((resolve) => {
-      let body = ''
-      req.on('data', (chunk) => (body += chunk))
-      req.on('end', () => {
-        try {
-          resolve(body ? JSON.parse(body) : {})
-        } catch {
-          resolve({})
-        }
-      })
-    })
-  }
-
-  const sendJson = (res: ServerResponse, data: any) => {
-    res.statusCode = 200
-    res.setHeader('Content-Type', 'application/json')
-    res.end(JSON.stringify(data))
-  }
-
+function clueSelfCheckPlugin(): Plugin {
   return {
-    name: 'department-mock-plugin',
+    name: 'clue-self-check-plugin',
     apply: 'serve',
     configureServer(server) {
-      server.middlewares.use(async (req: IncomingMessage, res: ServerResponse, next) => {
-        if (!req.url) return next()
-        const url = new URL(req.url, 'http://localhost')
-        const pathname = url.pathname
+      const run = async () => {
+        const port = Number(server.config.server.port || 5173)
+        const baseUrl = `http://localhost:${port}`
+        const log = (...args: any[]) => console.log('[clue-self-check]', ...args)
 
-        if (pathname === '/api/department/list') {
-          // 解析查询参数
-          const name = url.searchParams.get('name') || undefined
-          const type = url.searchParams.get('type') || undefined
-          const brand = url.searchParams.get('brand') || undefined
-          const region = url.searchParams.get('region') || undefined
-          const store = url.searchParams.get('store') || undefined
-          const enabledParam = url.searchParams.get('enabled')
-          const enabled =
-            enabledParam === null ? undefined : enabledParam === 'true' || enabledParam === '1'
-
-          const predicate = (node: any) => {
-            const nameOk = name ? String(node.name).includes(name) : true
-            const typeOk = type ? String(node.type) === String(type) : true
-            const brandOk = brand ? String(node.brand || '') === String(brand) : true
-            const regionOk = region ? String(node.region || '') === String(region) : true
-            const storeOk = store ? String(node.store || '') === String(store) : true
-            const enabledOk = typeof enabled === 'boolean' ? node.enabled === enabled : true
-            return nameOk && typeOk && brandOk && regionOk && storeOk && enabledOk
-          }
-
-          const filterTree = (nodes: any[], predicate: (node: any) => boolean) => {
-            return nodes
-              .map((node) => ({ ...node }))
-              .filter((node) => {
-                if (predicate(node)) return true
-                if (Array.isArray(node.children)) {
-                  node.children = filterTree(node.children, predicate)
-                  return node.children.length > 0
-                }
-                return false
-              })
-          }
-
-          const tree = filterTree(departmentData as any, predicate)
-          return sendJson(res, { code: 200, msg: '获取成功', data: tree })
+        const get = async (url: string) => {
+          const res = await fetch(baseUrl + url)
+          const text = await res.text()
+          log('GET', url, res.status, text)
+          return text
         }
-
-        if (pathname === '/api/department/save' && req.method === 'POST') {
-          const body = await parseBody(req)
-          const incoming = body || {}
-
-          // 查找父节点
-          const findNode = (nodes: any[], id: number): any | null => {
-            for (const n of nodes) {
-              if (n.id === id) return n
-              if (Array.isArray(n.children)) {
-                const found = findNode(n.children, id)
-                if (found) return found
-              }
-            }
-            return null
-          }
-
-          // 更新或新增
-          if (incoming && typeof incoming === 'object') {
-            if (incoming.id) {
-              // 更新
-              const target = findNode(departmentData as any, Number(incoming.id))
-              if (target) {
-                Object.assign(target, {
-                  name: incoming.name ?? target.name,
-                  type: incoming.type ?? target.type,
-                  brand: incoming.brand ?? target.brand,
-                  region: incoming.region ?? target.region,
-                  store: incoming.store ?? target.store,
-                  enabled:
-                    typeof incoming.enabled === 'boolean' ? incoming.enabled : target.enabled,
-                  parentId: incoming.parentId ?? target.parentId,
-                  createTime: target.createTime || now
-                })
-              }
-            } else {
-              // 新增
-              const maxId = (() => {
-                let m = 0
-                const walk = (nodes: any[]) => {
-                  for (const n of nodes) {
-                    m = Math.max(m, Number(n.id) || 0)
-                    if (Array.isArray(n.children)) walk(n.children)
-                  }
-                }
-                walk(departmentData as any)
-                return m
-              })()
-
-              const newNode = {
-                id: maxId + 1,
-                name: String(incoming.name || '未命名部门'),
-                type: String(incoming.type || '0'),
-                brand: String(incoming.brand || ''),
-                region: String(incoming.region || ''),
-                store: String(incoming.store || ''),
-                enabled: typeof incoming.enabled === 'boolean' ? incoming.enabled : true,
-                parentId: Number(incoming.parentId || 0),
-                createTime: now,
-                children: []
-              }
-
-              if (newNode.parentId) {
-                const parent = findNode(departmentData as any, newNode.parentId)
-                if (parent) {
-                  parent.children = parent.children || []
-                  parent.children.push(newNode)
-                }
-              } else {
-                ;(departmentData as any[]).push(newNode)
-              }
-            }
-
-            return sendJson(res, { code: 200, msg: '保存成功' })
-          }
-
-          return sendJson(res, { code: 200, msg: '参数错误' })
-        }
-
-        next()
-      })
-    }
-  }
-}
-
-function authMockPlugin(): Plugin {
-  return {
-    name: 'auth-mock-plugin',
-    apply: 'serve',
-    configureServer(server) {
-      server.middlewares.use(async (req: IncomingMessage, res: ServerResponse, next) => {
-        if (!req.url) return next()
-        const url = new URL(req.url, 'http://localhost')
-        const pathname = url.pathname
-
-        if (pathname === '/api/auth/login' && req.method === 'POST') {
-          const body = await new Promise<string>((resolve) => {
-            let data = ''
-            req.on('data', (chunk) => (data += chunk))
-            req.on('end', () => resolve(data))
+        const post = async (url: string, body: any) => {
+          const res = await fetch(baseUrl + url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
           })
-          const json = body ? JSON.parse(body) : {}
-
-          if (json.username && json.password) {
-            const token = 'dev-token-' + Math.random().toString(36).slice(2)
-            res.statusCode = 200
-            res.setHeader('Content-Type', 'application/json')
-            return res.end(
-              JSON.stringify({ code: 200, msg: '登录成功', data: { token, refreshToken: token } })
-            )
-          }
-
-          res.statusCode = 200
-          res.setHeader('Content-Type', 'application/json')
-          return res.end(JSON.stringify({ code: 400, msg: '用户名或密码错误' }))
+          const text = await res.text()
+          log('POST', url, res.status, text)
+          return text
         }
 
-        next()
-      })
+        try {
+          log('start', baseUrl)
+          await get('/api/clue/list?current=1&size=5')
+          await post('/api/clue/save', {
+            customerName: '王五',
+            storeId: 11,
+            visitDate: '2025-11-14'
+          })
+          await post('/api/clue/save', {
+            id: 900001,
+            customerName: '王五',
+            customerPhone: '13900001111',
+            storeId: 11,
+            visitDate: '2025-11-14',
+            receptionStatus: 'sales',
+            salesConsultant: '张三',
+            enterTime: '2025-11-14 10:00:00',
+            leaveTime: '2025-11-14 12:00:00'
+          })
+          await get('/api/clue/list?current=1&size=10&customerPhone=13900001111')
+          await post('/api/clue/save', {
+            id: 900001,
+            customerName: '王五',
+            customerPhone: '13900001111',
+            storeId: 11,
+            visitDate: '2025-11-14',
+            receptionStatus: 'sales',
+            salesConsultant: '李四'
+          })
+          await get('/api/clue/list?current=1&size=10&customerPhone=13900001111')
+          log('done')
+        } catch (e: any) {
+          log('error', e?.message || e)
+        }
+      }
+
+      // 延迟触发，确保 dev 服务端口就绪
+      setTimeout(run, 1500)
     }
   }
 }
 
-function employeeMockPlugin(): Plugin {
-  return {
-    name: 'employee-mock-plugin',
-    apply: 'serve',
-    configureServer(server) {
-      server.middlewares.use(async (req: IncomingMessage, res: ServerResponse, next) => {
-        if (!req.url) return next()
-        const url = new URL(req.url, 'http://localhost')
-        const pathname = url.pathname
-
-        if (pathname === '/api/user/list') {
-          res.statusCode = 200
-          res.setHeader('Content-Type', 'application/json')
-          return res.end(JSON.stringify({ code: 200, msg: '获取成功', data: USER_LIST_DATA }))
-        }
-
-        next()
-      })
-    }
-  }
-}
+// 已移除所有基于本地数据的 mock 插件定义，统一走真实后端或代理

@@ -3,7 +3,6 @@
     <h2>云端连通性调试</h2>
     <div class="info">
       <p>版本：{{ appVersion || '未设置' }}</p>
-      <p>Mock 开关：{{ useMock }}</p>
       <p>API 代理：{{ apiProxyUrl || '未设置' }}</p>
     </div>
 
@@ -25,7 +24,6 @@
   defineOptions({ name: 'DebugConnectivity' })
 
   const appVersion = (typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '') as string
-  const useMock = import.meta.env.VITE_USE_MOCK
   const apiProxyUrl = import.meta.env.VITE_API_PROXY_URL
 
   const lastResult = ref('')

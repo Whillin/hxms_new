@@ -12,13 +12,13 @@
 <script setup lang="ts">
   import { echarts } from '@/utils/echarts'
   import { useSettingStore } from '@/store/modules/setting'
-  import chinaMapJson from '@/mock/json/chinaMap.json'
   import type { MapChartProps } from '@/types/component/chart'
 
   defineOptions({ name: 'ArtMapChart' })
 
   const chinaMapRef = ref<HTMLElement | null>(null)
   const chartInstance = shallowRef<echarts.ECharts | null>(null)
+  const chinaGeoJson = ref<any | null>(null)
   const settingStore = useSettingStore()
   const { isDark } = storeToRefs(settingStore)
 
@@ -38,7 +38,7 @@
 
   // 检查是否为空数据
   const isEmpty = computed(() => {
-    return props.isEmpty || (!props.mapData?.length && !chinaMapJson)
+    return props.isEmpty || (!props.mapData?.length && !chinaGeoJson.value)
   })
 
   // 根据 geoJson 数据准备地图数据
@@ -194,14 +194,39 @@
     }
   }
 
+  // 动态加载中国地图 GeoJSON（优先使用远程备选）
+  const loadChinaGeoJson = async (): Promise<any | null> => {
+    try {
+      // 远程公共数据源（阿里云数据可视化）
+      const url = 'https://geo.datav.aliyun.com/areas_v3/bound/100000_full.json'
+      const res = await fetch(url)
+      if (res.ok) {
+        const json = await res.json()
+        return json
+      }
+    } catch (e) {
+      console.warn('[ArtMapChart] 加载远程 GeoJSON 失败:', e)
+    }
+    return null
+  }
+
   // 初始化并渲染地图
   const initMap = async (): Promise<void> => {
     if (!chinaMapRef.value) return
 
     chartInstance.value = echarts.init(chinaMapRef.value)
 
-    echarts.registerMap('china', chinaMapJson as any)
-    const mapData = props.mapData.length > 0 ? props.mapData : prepareMapData(chinaMapJson)
+    if (!chinaGeoJson.value) {
+      chinaGeoJson.value = await loadChinaGeoJson()
+    }
+
+    if (!chinaGeoJson.value) {
+      // 没有地图数据则直接显示空状态
+      return
+    }
+
+    echarts.registerMap('china', chinaGeoJson.value as any)
+    const mapData = props.mapData.length > 0 ? props.mapData : prepareMapData(chinaGeoJson.value)
     const option = createChartOption(mapData)
 
     chartInstance.value.setOption(option)

@@ -39,7 +39,6 @@ cd hxms_new
 - 前端：复制 `env.production.example` 为 `.env.production` 并按需修改
 
 ```
-VITE_USE_MOCK=false
 VITE_API_PROXY_URL=/api
 ```
 

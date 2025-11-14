@@ -184,8 +184,10 @@ import { DbEnsureService } from '../common/db-ensure.service'
     DebounceMiddleware,
     FeatureFlagsService,
     OpportunityService,
-    // 注册队列处理器
-    ClueProcessor
+    // 注册队列处理器（当启用 Redis 与 Bull 时）
+    ...(
+      String(process.env.NO_REDIS || '').toLowerCase() === 'true' ? [] : [ClueProcessor]
+    )
   ]
 })
 export class AppModule {

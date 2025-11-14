@@ -18,6 +18,8 @@ if [[ "${1:-}" == "build" ]]; then
   echo "[+] Building frontend in $APP_DIR";
   cd "$APP_DIR";
   npm run build;
+  echo "[+] Pruning unused docs from dist (mock, stats.html*)";
+  rm -rf "$SRC_DIR/mock" "$SRC_DIR/stats.html" "$SRC_DIR/stats.html.gz" || true;
 fi
 
 if [[ ! -d "$SRC_DIR" ]]; then

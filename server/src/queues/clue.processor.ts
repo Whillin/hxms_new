@@ -29,6 +29,12 @@ export class ClueProcessor {
   @Process('save-clue')
   async processSaveClue(job: Job<any>) {
     const { user, body } = job.data
+    // 统一布尔解析，避免字符串 "false" 被误判为 true
+    const toBool = (v: any): boolean => {
+      if (typeof v === 'boolean') return v
+      const s = String(v ?? '').trim().toLowerCase()
+      return ['1', 'true', 'yes', 'on'].includes(s)
+    }
 
     // 这里复制并调整原save方法的逻辑
     const scope = await this.dataScopeService.getScope(user)
@@ -60,6 +66,13 @@ export class ClueProcessor {
     }
 
     const { regionId, brandId } = await this.findAncestors(storeId)
+
+    // 严格校验最小必填（新增时必须携带）
+    const id = Number(body?.id || 0) || undefined
+    const requiredMissing = !id && (!body.customerName || !body.customerPhone || !body.visitDate)
+    if (requiredMissing) {
+      throw new Error('缺少必填字段：客户姓名、客户电话、到店日期')
+    }
 
     // 移除未使用的 livingArea
     // const livingArea = Array.isArray(body.livingArea)
@@ -175,9 +188,9 @@ export class ClueProcessor {
       // 车型与成交标记（冗余 + 外键）
       focusModelId: focusModelIdResolved || undefined,
       focusModelName: body.focusModelName || pm?.name || undefined,
-      testDrive: !!body.testDrive,
-      bargaining: !!body.bargaining,
-      dealDone: !!body.dealDone,
+      testDrive: toBool(body.testDrive),
+      bargaining: toBool(body.bargaining),
+      dealDone: toBool(body.dealDone),
       dealModelId: dealModelIdResolved || undefined,
       dealModelName: body.dealModelName || pm2?.name || undefined,
 
@@ -259,8 +272,25 @@ export class ClueProcessor {
       }
     }
 
-    const clue = this.repo.create(incoming)
-    const savedClue = await this.repo.save(clue)
+    // 更新或新增
+    let savedClue: Clue
+    if (id) {
+      const existing = await this.repo.findOne({ where: { id } })
+      if (!existing) throw new Error('线索不存在')
+      // 范围校验：复用 controller 的策略
+      const inScope = this.isInScope(existing, scope, employeeId)
+      if (!inScope) throw new Error('无权编辑该线索')
+      Object.assign(existing, {
+        ...incoming,
+        // 保留创建人与创建时间
+        createdBy: existing.createdBy,
+        createdAt: existing.createdAt
+      })
+      savedClue = await this.repo.save(existing)
+    } else {
+      const clue = this.repo.create(incoming)
+      savedClue = await this.repo.save(clue)
+    }
 
     // 触发商机生成/更新（满足：首次到店创建；跟进中不重复创建；成交/战败后下次到店新建）
     try {
@@ -283,5 +313,27 @@ export class ClueProcessor {
       current = parent
     }
     return ancestors
+  }
+
+  private isInScope(record: Clue, scope: any, employeeId?: number | null): boolean {
+    switch (scope.level) {
+      case 'all':
+        return true
+      case 'self':
+        return typeof employeeId === 'number' && record.createdBy === employeeId
+      case 'department':
+        return (
+          (typeof scope.departmentId === 'number' && record.departmentId === scope.departmentId) ||
+          (Array.isArray(scope.storeIds) && scope.storeIds.includes(record.storeId))
+        )
+      case 'store':
+        return Array.isArray(scope.storeIds) && scope.storeIds.includes(record.storeId)
+      case 'region':
+        return typeof scope.regionId === 'number' && record.regionId === scope.regionId
+      case 'brand':
+        return typeof scope.brandId === 'number' && record.brandId === scope.brandId
+      default:
+        return false
+    }
   }
 }

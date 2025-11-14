@@ -1,4 +1,5 @@
-import { upgradeLogList } from '@/mock/upgrade/changeLog'
+import { ref } from 'vue'
+const upgradeLogList = ref<Array<{ version: string; title: string; detail?: string[]; date?: string; remark?: string; requireReLogin?: boolean }>>([])
 import { ElNotification } from 'element-plus'
 import { useUserStore } from '@/store/modules/user'
 import { StorageConfig } from '@/utils/storage/storage-config'
