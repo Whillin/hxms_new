@@ -88,6 +88,27 @@ if [ "$MIGR_OK" -ne 1 ]; then
     else
       echo "[-] Column isReserved not found; skip rename"
     fi
+
+    # 新增缺失列：enterTime/leaveTime/receptionDuration/visitorCount（幂等）
+    echo "[+] Fallback: ensuring visit time and counts columns exist on clues"
+    for COL in enterTime leaveTime receptionDuration visitorCount; do
+      COUNT=$(docker exec hxms_new-mysql-1 sh -lc "mysql -uroot -p\$MYSQL_ROOT_PASSWORD -N -e \"SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=\\\"hxms_dev\\\" AND table_name=\\\"clues\\\" AND column_name=\\\"${COL}\\\";\"" 2>/dev/null || echo 0)
+      if [ "${COUNT}" = "0" ]; then
+        echo "[+] Adding column ${COL} to hxms_dev.clues"
+        case "$COL" in
+          enterTime)
+            docker exec hxms_new-mysql-1 sh -lc "mysql -uroot -p\$MYSQL_ROOT_PASSWORD -e \"ALTER TABLE hxms_dev.clues ADD COLUMN enterTime VARCHAR(10) NULL AFTER visitDate;\"" ;;
+          leaveTime)
+            docker exec hxms_new-mysql-1 sh -lc "mysql -uroot -p\$MYSQL_ROOT_PASSWORD -e \"ALTER TABLE hxms_dev.clues ADD COLUMN leaveTime VARCHAR(10) NULL AFTER enterTime;\"" ;;
+          receptionDuration)
+            docker exec hxms_new-mysql-1 sh -lc "mysql -uroot -p\$MYSQL_ROOT_PASSWORD -e \"ALTER TABLE hxms_dev.clues ADD COLUMN receptionDuration INT NOT NULL DEFAULT 0;\"" ;;
+          visitorCount)
+            docker exec hxms_new-mysql-1 sh -lc "mysql -uroot -p\$MYSQL_ROOT_PASSWORD -e \"ALTER TABLE hxms_dev.clues ADD COLUMN visitorCount INT NOT NULL DEFAULT 1;\"" ;;
+        esac
+      else
+        echo "[-] Column ${COL} already exists; skip"
+      fi
+    done
   else
     echo "[!] MySQL container hxms_new-mysql-1 not running; skip DB migration fallback"
   fi
