@@ -178,9 +178,18 @@ async function mig005_clues_snapshots(conn, db) {
 
   // 添加 JSON 列（如缺失）
   const additions = [
-    { name: 'customerSnapshot', ddl: `ALTER TABLE \`${db}\`.clues ADD COLUMN customerSnapshot JSON NULL` },
-    { name: 'channelSnapshot', ddl: `ALTER TABLE \`${db}\`.clues ADD COLUMN channelSnapshot JSON NULL` },
-    { name: 'productSnapshot', ddl: `ALTER TABLE \`${db}\`.clues ADD COLUMN productSnapshot JSON NULL` }
+    {
+      name: 'customerSnapshot',
+      ddl: `ALTER TABLE \`${db}\`.clues ADD COLUMN customerSnapshot JSON NULL`
+    },
+    {
+      name: 'channelSnapshot',
+      ddl: `ALTER TABLE \`${db}\`.clues ADD COLUMN channelSnapshot JSON NULL`
+    },
+    {
+      name: 'productSnapshot',
+      ddl: `ALTER TABLE \`${db}\`.clues ADD COLUMN productSnapshot JSON NULL`
+    }
   ]
   for (const add of additions) {
     if (!(await hasColumn(conn, db, 'clues', add.name))) {
@@ -237,6 +246,39 @@ async function mig005_clues_snapshots(conn, db) {
   await markApplied(conn, db, version)
 }
 
+async function mig006_clues_visit_times_and_counts(conn, db) {
+  const version = '006_clues_visit_times_and_counts'
+  if (await wasApplied(conn, db, version)) return
+
+  // enterTime/leaveTime: 新增到店时间字段（HH:mm），可空
+  if (!(await hasColumn(conn, db, 'clues', 'enterTime'))) {
+    await conn.query(
+      `ALTER TABLE \`${db}\`.clues ADD COLUMN enterTime VARCHAR(10) NULL AFTER visitDate`
+    )
+    console.log('[migrate] clues: added column enterTime')
+  }
+  if (!(await hasColumn(conn, db, 'clues', 'leaveTime'))) {
+    await conn.query(
+      `ALTER TABLE \`${db}\`.clues ADD COLUMN leaveTime VARCHAR(10) NULL AFTER enterTime`
+    )
+    console.log('[migrate] clues: added column leaveTime')
+  }
+
+  // 接待时长与到店人数：若缺失则补充（默认 0 / 1）
+  if (!(await hasColumn(conn, db, 'clues', 'receptionDuration'))) {
+    await conn.query(
+      `ALTER TABLE \`${db}\`.clues ADD COLUMN receptionDuration INT NOT NULL DEFAULT 0`
+    )
+    console.log('[migrate] clues: added column receptionDuration')
+  }
+  if (!(await hasColumn(conn, db, 'clues', 'visitorCount'))) {
+    await conn.query(`ALTER TABLE \`${db}\`.clues ADD COLUMN visitorCount INT NOT NULL DEFAULT 1`)
+    console.log('[migrate] clues: added column visitorCount')
+  }
+
+  await markApplied(conn, db, version)
+}
+
 async function main() {
   const root = path.resolve(process.cwd(), 'server')
   parseEnvFile(path.join(root, '.env.production'))
@@ -250,6 +292,7 @@ async function main() {
     await mig003_clues_rename(conn, db)
     await mig004_users_profile_fields(conn, db)
     await mig005_clues_snapshots(conn, db)
+    await mig006_clues_visit_times_and_counts(conn, db)
     console.log('[OK] migrations applied')
   } finally {
     await conn.end()
