@@ -3,6 +3,32 @@ import { AppRouteRecord } from '@/types/router'
 import { asyncRoutes } from '@/router/routes/asyncRoutes'
 import { menuDataToRouter } from '@/router/utils/menuToRouter'
 import type { ApiResponse } from '@/utils/table/tableCache'
+import {
+  getCache,
+  setCache,
+  clearStore,
+  stableParamsKey,
+  DEFAULT_TTL_MS
+} from '@/utils/storage/ttl-cache'
+
+// 缓存命名空间
+const DEPT_CACHE_ID = 'department:list'
+const EMP_CACHE_ID = 'employee:list'
+
+// 判断是否有除分页外的筛选条件
+function hasNonPaginationFilters(params: Record<string, unknown> = {}): boolean {
+  const omitKeys = new Set(['current', 'size'])
+  return Object.entries(params).some(([k, v]) => !omitKeys.has(k) && v !== undefined && v !== '')
+}
+
+// 是否使用缓存：options 优先；默认仅在无筛选条件时使用
+function shouldUseCache(
+  params: Record<string, unknown> | undefined,
+  options?: { useCache?: boolean }
+): boolean {
+  if (options?.useCache !== undefined) return !!options.useCache
+  return !hasNonPaginationFilters(params || {})
+}
 
 // 获取用户列表
 export function fetchGetUserList(params: Api.SystemManage.UserSearchParams) {
@@ -30,13 +56,32 @@ export function fetchGetRoleList(params: Api.SystemManage.RoleSearchParams) {
 }
 
 // 获取部门列表（树或分页列表皆可，由响应适配器处理）
-export function fetchGetDepartmentList(params: Api.SystemManage.DepartmentSearchParams) {
-  return request.get<
-    Api.SystemManage.DepartmentList | ApiResponse<Api.SystemManage.DepartmentItem>
-  >({
-    url: '/api/department/list',
-    params
-  })
+export function fetchGetDepartmentList(
+  params: Api.SystemManage.DepartmentSearchParams,
+  options?: { useCache?: boolean; ttlHours?: number }
+) {
+  const useCache = shouldUseCache(params, options)
+  if (useCache) {
+    const key = stableParamsKey(params as unknown as Record<string, unknown>)
+    const cached = getCache<
+      Api.SystemManage.DepartmentList | ApiResponse<Api.SystemManage.DepartmentItem>
+    >(DEPT_CACHE_ID, key)
+    if (cached) return Promise.resolve(cached)
+  }
+
+  return request
+    .get<Api.SystemManage.DepartmentList | ApiResponse<Api.SystemManage.DepartmentItem>>({
+      url: '/api/department/list',
+      params
+    })
+    .then((res) => {
+      if (useCache) {
+        const ttlMs = (options?.ttlHours || DEFAULT_TTL_MS / 3600000) * 3600000
+        const key = stableParamsKey(params as unknown as Record<string, unknown>)
+        setCache(DEPT_CACHE_ID, key, res, ttlMs)
+      }
+      return res
+    })
 }
 
 // 保存部门（新增/编辑）
@@ -44,46 +89,86 @@ export function fetchSaveDepartment(
   data: Partial<Api.SystemManage.DepartmentItem>,
   options?: { showSuccessMessage?: boolean }
 ) {
-  return request.post<{ success: boolean }>({
-    url: '/api/department/save',
-    data,
-    showSuccessMessage: options?.showSuccessMessage ?? true
-  })
+  return request
+    .post<{ success: boolean }>({
+      url: '/api/department/save',
+      data,
+      showSuccessMessage: options?.showSuccessMessage ?? true
+    })
+    .then((res) => {
+      // 数据变更后清理列表缓存
+      clearStore(DEPT_CACHE_ID)
+      return res
+    })
 }
 
 // 删除部门
 export function fetchDeleteDepartment(id: number) {
-  return request.post<boolean>({
-    url: '/api/department/delete',
-    data: { id },
-    showSuccessMessage: true
-  })
+  return request
+    .post<boolean>({
+      url: '/api/department/delete',
+      data: { id },
+      showSuccessMessage: true
+    })
+    .then((res) => {
+      clearStore(DEPT_CACHE_ID)
+      return res
+    })
 }
 
 // 获取员工列表
-export function fetchGetEmployeeList(params: Api.SystemManage.EmployeeSearchParams) {
-  return request.get<Api.SystemManage.EmployeeList>({
-    url: '/api/employee/list',
-    params
-  })
+export function fetchGetEmployeeList(
+  params: Api.SystemManage.EmployeeSearchParams,
+  options?: { useCache?: boolean; ttlHours?: number }
+) {
+  const useCache = shouldUseCache(params, options)
+  if (useCache) {
+    const key = stableParamsKey(params as unknown as Record<string, unknown>)
+    const cached = getCache<Api.SystemManage.EmployeeList>(EMP_CACHE_ID, key)
+    if (cached) return Promise.resolve(cached)
+  }
+
+  return request
+    .get<Api.SystemManage.EmployeeList>({
+      url: '/api/employee/list',
+      params
+    })
+    .then((res) => {
+      if (useCache) {
+        const ttlMs = (options?.ttlHours || DEFAULT_TTL_MS / 3600000) * 3600000
+        const key = stableParamsKey(params as unknown as Record<string, unknown>)
+        setCache(EMP_CACHE_ID, key, res, ttlMs)
+      }
+      return res
+    })
 }
 
 // 保存员工（新增/编辑）
 export function fetchSaveEmployee(data: Partial<Api.SystemManage.EmployeeItem>) {
-  return request.post<boolean>({
-    url: '/api/employee/save',
-    data,
-    showSuccessMessage: true
-  })
+  return request
+    .post<boolean>({
+      url: '/api/employee/save',
+      data,
+      showSuccessMessage: true
+    })
+    .then((res) => {
+      clearStore(EMP_CACHE_ID)
+      return res
+    })
 }
 
 // 删除员工
 export function fetchDeleteEmployee(id: number) {
-  return request.post<boolean>({
-    url: '/api/employee/delete',
-    data: { id },
-    showSuccessMessage: true
-  })
+  return request
+    .post<boolean>({
+      url: '/api/employee/delete',
+      data: { id },
+      showSuccessMessage: true
+    })
+    .then((res) => {
+      clearStore(EMP_CACHE_ID)
+      return res
+    })
 }
 
 // 角色权限：获取键列表
