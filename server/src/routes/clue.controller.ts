@@ -381,7 +381,10 @@ export class ClueController {
       return { code: 200, msg: '保存成功', data: true }
     }
 
-    // 队列路径：添加到后台处理
+    // 队列路径：添加到后台处理（队列可能未初始化，需保护性检查）
+    if (!this.clueQueue) {
+      return { code: 500, msg: '后台队列未初始化', data: false }
+    }
     await this.clueQueue.add('save-clue', { user: req.user, body })
     return { code: 200, msg: '线索保存任务已提交到后台处理', data: true }
   }

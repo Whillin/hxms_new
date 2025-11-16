@@ -74,6 +74,87 @@ export class ClueProcessor {
       throw new Error('缺少必填字段：客户姓名、客户电话、到店日期')
     }
 
+    // ===== 编辑更新：带 id 时进行更新，保持与直存路径一致 =====
+    if (id) {
+      const existing = await this.repo.findOne({ where: { id } })
+      if (!existing) throw new Error('线索不存在')
+
+      // 范围校验
+      if (!this.isInScope(existing, scope, employeeId)) {
+        throw new Error('无权编辑该线索')
+      }
+
+      // 若门店变更，重新解析归属品牌/大区
+      const targetStoreId = typeof body.storeId === 'number' ? Number(body.storeId) : existing.storeId
+      const ancestors = await this.findAncestors(Number(targetStoreId))
+
+      // 解析销售顾问ID（仅当前门店在职员工）
+      const consultantName = String(body.salesConsultant || '').trim()
+      let salesConsultantIdResolved: number | undefined
+      if (consultantName) {
+        const emp = await this.empRepo.findOne({
+          where: { name: consultantName, storeId: Number(targetStoreId), status: '1' as any }
+        })
+        if (emp) salesConsultantIdResolved = emp.id
+      }
+
+      Object.assign(existing, {
+        visitDate: body.visitDate ? String(body.visitDate) : existing.visitDate,
+        enterTime: body.enterTime ?? existing.enterTime,
+        leaveTime: body.leaveTime ?? existing.leaveTime,
+        receptionDuration:
+          typeof body.receptionDuration === 'number' ? Number(body.receptionDuration) : existing.receptionDuration,
+        visitorCount:
+          typeof body.visitorCount === 'number' ? Number(body.visitorCount) : existing.visitorCount,
+        receptionStatus: (body.receptionStatus as any) ?? existing.receptionStatus,
+        salesConsultant: consultantName || existing.salesConsultant,
+        salesConsultantId: salesConsultantIdResolved ?? existing.salesConsultantId,
+        customerName: body.customerName ? String(body.customerName) : existing.customerName,
+        customerPhone: body.customerPhone ? String(body.customerPhone) : existing.customerPhone,
+        focusModelId:
+          typeof body.focusModelId === 'number' ? Number(body.focusModelId) : existing.focusModelId,
+        focusModelName: body.focusModelName ?? existing.focusModelName,
+        testDrive: body.testDrive !== undefined ? toBool(body.testDrive) : existing.testDrive,
+        bargaining: body.bargaining !== undefined ? toBool(body.bargaining) : existing.bargaining,
+        dealDone: body.dealDone !== undefined ? toBool(body.dealDone) : existing.dealDone,
+        dealModelId:
+          typeof body.dealModelId === 'number' ? Number(body.dealModelId) : existing.dealModelId,
+        dealModelName: body.dealModelName ?? existing.dealModelName,
+        businessSource: String(body.businessSource || existing.businessSource || '自然到店'),
+        channelCategory: String(body.channelCategory || existing.channelCategory || '线下'),
+        channelLevel1: body.channelLevel1 ?? existing.channelLevel1,
+        channelLevel2: body.channelLevel2 ?? existing.channelLevel2,
+        opportunityLevel: (body.opportunityLevel as any) ?? existing.opportunityLevel,
+        userGender: (body.userGender as any) ?? existing.userGender,
+        userAge: typeof body.userAge === 'number' ? Number(body.userAge) : existing.userAge,
+        buyExperience: (body.buyExperience as any) ?? existing.buyExperience,
+        userPhoneModel: body.userPhoneModel ?? existing.userPhoneModel,
+        currentBrand: body.currentBrand ?? existing.currentBrand,
+        currentModel: body.currentModel ?? existing.currentModel,
+        carAge: body.carAge !== undefined ? Number(body.carAge || 0) : existing.carAge,
+        mileage: body.mileage !== undefined ? Number(body.mileage || 0) : existing.mileage,
+        livingArea:
+          body.livingArea !== undefined
+            ? Array.isArray(body.livingArea)
+              ? (body.livingArea as any[]).join('/')
+              : String(body.livingArea)
+            : existing.livingArea,
+        convertOrRetentionModel: body.convertOrRetentionModel ?? existing.convertOrRetentionModel,
+        referrer: body.referrer ?? existing.referrer,
+        contactTimes: body.contactTimes !== undefined ? Number(body.contactTimes || 1) : existing.contactTimes,
+        // 归属维度（门店变动时更新 brand/region）
+        storeId: Number(targetStoreId),
+        regionId: ancestors.regionId,
+        brandId: ancestors.brandId
+      })
+
+      const saved = await this.repo.save(existing)
+      try {
+        await this.opportunityService.upsertFromClue(saved)
+      } catch {}
+      return
+    }
+
     // 移除未使用的 livingArea
     // const livingArea = Array.isArray(body.livingArea)
     //   ? body.livingArea.join('/')
