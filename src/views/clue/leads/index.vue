@@ -1674,19 +1674,34 @@
       const isEditing = Boolean(editingId.value)
       if (changed) {
         if (isEditing && prevConsultant) {
-          const exists = salesConsultantOptions.value.some(
+          let exists = salesConsultantOptions.value.some(
             (o) => String(o.value) === String(prevConsultant)
           )
+          // 编辑时若历史值不在当前选项中，动态补充该选项以保证显示
+          if (!exists) {
+            salesConsultantOptions.value.unshift({
+              label: String(prevConsultant),
+              value: String(prevConsultant)
+            })
+            exists = true
+          }
           addForm.value.salesConsultant = exists ? prevConsultant : ''
         } else {
           // 非编辑或无已选值，切换门店后清空，避免跨店误选
           addForm.value.salesConsultant = ''
         }
       } else if (isEditing && prevConsultant) {
-        // 门店未变更但选项刚刷新时，若当前值仍在可选项中则保留
-        const exists = salesConsultantOptions.value.some(
+        // 门店未变更但选项刚刷新时，若当前值未在可选项，则补充后保留
+        let exists = salesConsultantOptions.value.some(
           (o) => String(o.value) === String(prevConsultant)
         )
+        if (!exists) {
+          salesConsultantOptions.value.unshift({
+            label: String(prevConsultant),
+            value: String(prevConsultant)
+          })
+          exists = true
+        }
         addForm.value.salesConsultant = exists ? prevConsultant : ''
       }
 
