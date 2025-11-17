@@ -65,6 +65,8 @@ export class DepartmentController {
    */
   private async generateCode(type: DeptType, parentId?: number): Promise<string | undefined> {
     if (type === 'group') return undefined
+    // 销售小组不生成编号
+    if (type === 'team') return undefined
     if (!parentId) return undefined
 
     // 品牌：在同一集团下按出现顺序编号
@@ -222,6 +224,20 @@ export class DepartmentController {
         updates.push({ id: r.id, type: 'department', code: bb })
         r.type = 'department'
         r.code = bb
+      }
+    }
+
+    // 3) 门店（store）之下的旧数据若为 department，应统一改为 team
+    for (const r of rows) {
+      const p = getParent(r)
+      if (r.type === 'department' && p && p.type === 'store') {
+        updates.push({ id: r.id, type: 'team' as DeptType })
+        r.type = 'team' as DeptType
+        // 小组不生成编码，清空旧编码以免混淆
+        if (r.code) {
+          updates.push({ id: r.id, code: undefined as any })
+          r.code = undefined
+        }
       }
     }
 

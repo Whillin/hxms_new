@@ -1,6 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm'
 
-export type DeptType = 'group' | 'brand' | 'region' | 'store' | 'department'
+export type DeptType = 'group' | 'brand' | 'region' | 'store' | 'department' | 'team'
 
 @Entity('departments')
 export class Department {

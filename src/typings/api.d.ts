@@ -159,7 +159,7 @@ declare namespace Api {
       /** 部门名称 */
       name: string
       /** 部门类型 */
-      type: 'group' | 'brand' | 'region' | 'store' | 'department'
+      type: 'group' | 'brand' | 'region' | 'store' | 'department' | 'team'
       /** 上级ID */
       parentId?: number
       /** 部门编号（层级编码） */

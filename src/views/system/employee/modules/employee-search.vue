@@ -55,7 +55,7 @@
     const mapNode = (n: any): any => ({
       value: n.id,
       label: n.name,
-      // 只禁用 department 类型，允许选择 group（小组）
+      // 禁用“销售部门”节点，允许选择门店与小组（team）
       disabled: n.type === 'department',
       children: Array.isArray(n.children) ? n.children.map(mapNode) : undefined
     })
@@ -149,7 +149,7 @@
         if (node.type === 'brand') payload.brandId = id
         if (node.type === 'region') payload.regionId = id
         if (node.type === 'store') payload.storeId = id
-        if (node.type === 'group') payload.departmentId = id // 小组ID映射到departmentId
+        if (node.type === 'team') payload.departmentId = id // 小组ID映射到departmentId
       }
     }
     emit('search', payload)

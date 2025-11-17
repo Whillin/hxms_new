@@ -258,7 +258,7 @@ export class EmployeeController {
       if (typeof (incoming as any).departmentId === 'number') {
         const deptId = Number((incoming as any).departmentId)
         const dept = await this.deptRepo.findOne({ where: { id: deptId } })
-        if (!dept || dept.type !== 'department') {
+        if (!dept || dept.type !== 'team') {
           return { code: 400, msg: '请选择有效的小组节点', data: false }
         }
         const getById2 = async (id: number) => await this.deptRepo.findOne({ where: { id } })

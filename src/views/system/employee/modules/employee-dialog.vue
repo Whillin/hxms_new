@@ -173,7 +173,7 @@
       const paths = normalizePaths()
       if (!paths.length) return
       const expectType = isDepartmentRole.value
-        ? 'department'
+        ? 'team'
         : level === 'brand'
           ? 'brand'
           : level === 'region'
@@ -203,7 +203,7 @@
       label: n.name,
       disabled:
         n.type === 'group' ||
-        (!isDepartmentRole.value && n.type === 'department') ||
+        (!isDepartmentRole.value && n.type === 'team') ||
         (!allowTypes.includes(n.type) && ['brand', 'region', 'store'].includes(n.type)),
       children: Array.isArray(n.children) ? n.children.map(mapNode) : undefined
     })
@@ -266,7 +266,7 @@
           }
           if (isDepartmentRole.value) {
             const type = lastNodeType(paths[0])
-            if (type !== 'department') return cb(new Error('该岗位需选择门店下的小组'))
+            if (type !== 'team') return cb(new Error('该岗位需选择门店下的小组'))
             return cb()
           }
           if (level === 'store') {
@@ -386,8 +386,8 @@
         if (node.type === 'brand') formModel.value.brandId = id
         if (node.type === 'region') formModel.value.regionId = id
         if (node.type === 'store') formModel.value.storeId = id
-        // 仅当岗位需要选择小组且最后一级为 department 时，才映射 departmentId
-        if (node.type === 'department' && isDepartmentRole.value) {
+        // 仅当岗位需要选择小组且最后一级为 team 时，才映射 departmentId
+        if (node.type === 'team' && isDepartmentRole.value) {
           const lastId = paths[0][paths[0].length - 1]
           if (id === lastId) formModel.value.departmentId = id
         }

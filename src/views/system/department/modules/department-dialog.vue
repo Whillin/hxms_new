@@ -12,6 +12,9 @@
             check-strictly
             style="width: 100%"
           />
+          <div v-if="isDev" style="margin-top: 6px; font-size: 12px; color: var(--el-color-info)">
+            父级：{{ parentTypeText }} → 新增类型预览：{{ nextTypePreviewText }}
+          </div>
         </template>
         <template v-else>
           <ElInput :model-value="parentName" disabled />
@@ -97,7 +100,7 @@
     })
   }
 
-  // 新层级规则：集团 -> 品牌 -> 销售部门(department) -> 区域(region) -> 门店(store)
+  // 新层级规则：集团 -> 品牌 -> 销售部门(department) -> 区域(region) -> 门店(store) -> 销售小组(team)
   const nextTypeMap: Record<
     Api.SystemManage.DepartmentItem['type'],
     Api.SystemManage.DepartmentItem['type']
@@ -106,7 +109,7 @@
     brand: 'department',
     department: 'region',
     region: 'store',
-    store: 'department'
+    store: 'team'
   }
 
   const findNodeById = (nodes: any[] = [], id?: number): any | undefined => {
@@ -123,6 +126,24 @@
   const parentName = computed(() => {
     const parent = findNodeById(deptTree.value as any, formData.parentId as number)
     return parent ? parent.name : '无（顶级）'
+  })
+
+  // 开发环境调试信息
+  const isDev = import.meta.env.DEV
+  const parentTypeText = computed(() => {
+    const parent = findNodeById(deptTree.value as any, formData.parentId as number)
+    return parent ? parent.type : 'group(顶级)'
+  })
+  const nextTypePreviewText = computed(() => {
+    const parent = findNodeById(deptTree.value as any, formData.parentId as number)
+    if (!parent) return 'group'
+    if (parent.type === 'store') return 'team(门店下新增销售小组)'
+    if (parent.type === 'department') {
+      const parentOfDept = findNodeById(deptTree.value as any, parent.parentId as number)
+      if (parentOfDept && parentOfDept.type === 'store') return '不可新增（销售小组为最低层级）'
+      return 'region'
+    }
+    return nextTypeMap[parent.type as Api.SystemManage.DepartmentItem['type']] || 'group'
   })
 
   // 收集某节点下的所有子节点（含多级）
@@ -158,12 +179,12 @@
           // 新增：根据选择的父级推断类型；未选择则创建集团
           const parent = findNodeById(deptTree.value as any, formData.parentId as number)
           // 规则：
-          // - 门店下可新增“销售小组”（department）
+          // - 门店下可新增“销售小组”（team）
           // - 若父级为“销售小组”且其父级是门店，则视为最低层，不允许再新增
           let nextType: Api.SystemManage.DepartmentItem['type'] = 'group'
           if (parent) {
             if (parent.type === 'store') {
-              nextType = 'department'
+              nextType = 'team'
             } else if (parent.type === 'department') {
               // 查找该 department 的父级
               const parentOfDept = findNodeById(deptTree.value as any, parent.parentId as number)
