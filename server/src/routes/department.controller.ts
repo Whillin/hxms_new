@@ -190,7 +190,7 @@ export class DepartmentController {
    * - 将 brand 之下直接的 store 统一改为 department，并令其编码与品牌一致
    */
   @Post('normalize-types')
-  async normalizeTypes() {
+  async normalizeTypes(@Body() body?: { clearAllTeamCodes?: boolean }) {
     const rows = await this.repo.find({ order: { id: 'ASC' } })
     const byId = new Map<number, Department>()
     rows.forEach((r) => byId.set(r.id, r))
@@ -241,6 +241,17 @@ export class DepartmentController {
       }
     }
 
+    // 4) 可选：清理所有 team 的编码（包括历史上已是 team 的节点）
+    const clearAllTeamCodes = !!(body && body.clearAllTeamCodes)
+    if (clearAllTeamCodes) {
+      for (const r of rows) {
+        if (r.type === 'team' && r.code !== null) {
+          updates.push({ id: r.id, code: null })
+          r.code = undefined
+        }
+      }
+    }
+
     for (const u of updates) {
       const payload: Partial<Department> = {}
       if (typeof u.type === 'string' && u.type) payload.type = u.type as any
@@ -253,7 +264,11 @@ export class DepartmentController {
         await this.repo.update(u.id, payload)
       }
     }
-    return { code: 200, msg: '类型已规范化', data: { updated: updates.length } }
+    return {
+      code: 200,
+      msg: '类型已规范化',
+      data: { updated: updates.length, clearAllTeamCodes }
+    }
   }
   /**
    * 获取部门列表：返回树或分页，当前返回树结构，由前端适配器处理
