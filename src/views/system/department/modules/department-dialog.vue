@@ -61,13 +61,13 @@
   const isEdit = computed(() => dialogType.value === 'edit')
   const dialogTitle = computed(() => (dialogType.value === 'add' ? '新增节点' : '编辑节点'))
   const deptTree = computed(() => props.deptTree || [])
-  // 父级选择：允许选择除了门店以外的任意节点；门店为最低层级，禁用为父级
+  // 父级选择：允许选择任意节点作为父级（门店下可建销售小组）
   const parentAllTree = computed(() => {
     const enrich = (nodes: any[] = []): any[] =>
       nodes.map((n: any) => ({
         id: n.id,
         name: n.name,
-        disabled: n.type === 'department',
+        disabled: false,
         children: Array.isArray(n.children) ? enrich(n.children) : []
       }))
     return enrich(deptTree.value as any)
@@ -103,8 +103,8 @@
     Api.SystemManage.DepartmentItem['type']
   > = {
     group: 'brand',
-    brand: 'region',
-    department: 'department',
+    brand: 'department',
+    department: 'region',
     region: 'store',
     store: 'department'
   }
@@ -157,13 +157,25 @@
         if (!isEdit.value) {
           // 新增：根据选择的父级推断类型；未选择则创建集团
           const parent = findNodeById(deptTree.value as any, formData.parentId as number)
-          if (parent && parent.type === 'department') {
-            ElMessage.warning('小组为最低层级，不能新增子级')
-            return
+          // 规则：
+          // - 门店下可新增“销售小组”（department）
+          // - 若父级为“销售小组”且其父级是门店，则视为最低层，不允许再新增
+          let nextType: Api.SystemManage.DepartmentItem['type'] = 'group'
+          if (parent) {
+            if (parent.type === 'store') {
+              nextType = 'department'
+            } else if (parent.type === 'department') {
+              // 查找该 department 的父级
+              const parentOfDept = findNodeById(deptTree.value as any, parent.parentId as number)
+              if (parentOfDept && parentOfDept.type === 'store') {
+                ElMessage.warning('销售小组为最低层级，不能新增子级')
+                return
+              }
+              nextType = 'region'
+            } else {
+              nextType = nextTypeMap[parent.type as Api.SystemManage.DepartmentItem['type']]
+            }
           }
-          const nextType = parent
-            ? nextTypeMap[parent.type as Api.SystemManage.DepartmentItem['type']]
-            : 'group'
           formData.type = nextType
         }
         const originalEnabled = (props.deptData?.enabled ?? true) as boolean
