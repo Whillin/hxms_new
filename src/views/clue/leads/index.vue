@@ -235,7 +235,12 @@
   import { storeToRefs } from 'pinia'
   import { useUserStore } from '@/store/modules/user'
   import { useAuth } from '@/composables/useAuth'
-  import { fetchGetClueList, fetchSaveClue, fetchDeleteClue } from '@/api/clue'
+  import {
+    fetchGetClueList,
+    fetchSaveClue,
+    fetchDeleteClue,
+    fetchGetClueInviterOptions
+  } from '@/api/clue'
   import { fetchChannelOptions } from '@/api/channel'
   import { fetchGetDepartmentList, fetchGetEmployeeList } from '@/api/system-manage'
   import { EMPLOYEE_ROLE_LABELS } from '@/utils/employee'
@@ -422,6 +427,7 @@
     visitorCount?: number
     receptionStatus?: 'sales' | 'none' | 'noNeed'
     salesConsultant?: string
+    inviter?: string
     customerName?: string
     visitPurpose?: '看车' | '维保' | '提车' | '续保' | '咨询' | '拜访'
     isAddWeChat?: boolean
@@ -589,6 +595,7 @@
           formatter: (row: ClueItem) => formatReceptionStatus(row.receptionStatus)
         },
         { prop: 'salesConsultant', label: '销售顾问', width: 120 },
+        { prop: 'inviter', label: '邀约专员', width: 120 },
         // 新增：归属门店列
         {
           prop: 'storeId',
@@ -773,6 +780,7 @@
     visitorCount: '到店人数',
     receptionStatus: '接待情况',
     salesConsultant: '销售顾问',
+    inviter: '邀约专员',
     customerName: '客户姓名',
     visitPurpose: '到店事宜',
     isAddWeChat: '是否加微',
@@ -815,6 +823,7 @@
       formatter: (v: any) => formatReceptionStatus(v)
     },
     salesConsultant: { title: '销售顾问', width: 14 },
+    inviter: { title: '邀约专员', width: 14 },
     customerName: { title: '客户姓名', width: 14 },
     visitPurpose: { title: '到店事宜', width: 14 },
     isAddWeChat: { title: '是否加微', width: 12, formatter: (v: any) => (v ? '是' : '否') },
@@ -869,6 +878,7 @@
     visitorCount: 1,
     receptionStatus: 'sales',
     salesConsultant: '',
+    inviter: '',
     customerName: '',
     visitPurpose: '看车',
     isAddWeChat: false,
@@ -935,6 +945,64 @@
       salesConsultantOptions.value = []
     } finally {
       loadingSales.value = false
+    }
+  }
+  // 邀约专员下拉选项（按门店加载，仅显示邀约专员角色）
+  const inviterOptions = ref<{ label: string; value: string }[]>([])
+  const loadingInviter = ref(false)
+  const loadInviters = async () => {
+    const storeId =
+      typeof addForm.value.storeId === 'number'
+        ? addForm.value.storeId
+        : typeof info.value?.storeId === 'number'
+          ? (info.value!.storeId as number)
+          : undefined
+    const storeIdNum = Number(storeId)
+    if (!Number.isFinite(storeIdNum) || storeIdNum <= 0) {
+      inviterOptions.value = []
+      return
+    }
+    loadingInviter.value = true
+    try {
+      // 优先调用线索专用接口，保证销售顾问账号也能看到本门店邀约专员
+      const resp: any = await fetchGetClueInviterOptions({ storeId: storeIdNum })
+      const raw: Array<{ label: string; value: string } | string> =
+        (resp as any)?.data || resp || []
+      inviterOptions.value = Array.isArray(raw)
+        ? raw.map((o: any) => (typeof o === 'string' ? { label: o, value: o } : o))
+        : []
+      console.debug('[inviter-options]', {
+        storeId: storeIdNum,
+        count: inviterOptions.value.length,
+        via: 'clue.inviter-options'
+      })
+
+      // 后备方案：若专用接口未返回数据，则从员工列表中按角色筛选邀约专员
+      if (!inviterOptions.value.length) {
+        const empResp: any = await fetchGetEmployeeList({
+          storeId: storeIdNum,
+          role: 'R_APPOINTMENT',
+          status: '1',
+          current: 1,
+          size: 50
+        })
+        const list: Api.SystemManage.EmployeeItem[] =
+          (empResp?.data?.records as any) || (empResp?.records as any) || []
+        inviterOptions.value = (Array.isArray(list) ? list : []).map((e) => ({
+          label: `${e.name}（邀约专员）`,
+          value: e.name
+        }))
+        console.debug('[inviter-options-fallback]', {
+          storeId: storeIdNum,
+          count: inviterOptions.value.length,
+          via: 'employee.list'
+        })
+      }
+    } catch {
+      inviterOptions.value = []
+      console.debug('[inviter-options] error, set empty', { storeId: storeIdNum })
+    } finally {
+      loadingInviter.value = false
     }
   }
   const cityCascaderOptionsRef = ref<any[]>(regionData as any)
@@ -1095,6 +1163,17 @@
       }
     },
     {
+      label: '邀约专员',
+      key: 'inviter',
+      type: 'select',
+      hidden: !isInviterRequiredRef.value,
+      props: {
+        placeholder: '请选择邀约专员',
+        options: inviterOptions.value,
+        loading: loadingInviter.value
+      }
+    },
+    {
       label: '客户姓名',
       key: 'customerName',
       type: 'input',
@@ -1199,7 +1278,8 @@
       props: {
         options: storeOptions.value,
         placeholder: '请选择归属门店',
-        disabled: typeof info.value?.storeId === 'number'
+        // 管理类角色可自由选择门店；非管理类角色且绑定了门店则禁用
+        disabled: !isAdminLike.value && typeof info.value?.storeId === 'number'
       }
     },
     {
@@ -1407,6 +1487,17 @@
         validator: (_rule: any, value: any, callback: any) => {
           if (addForm.value.receptionStatus === 'sales' && !value)
             callback(new Error('请选择销售顾问'))
+          else callback()
+        },
+        trigger: 'change'
+      }
+    ]
+
+    // 邀约专员：仅在满足品牌与一级渠道条件时必填
+    rules.inviter = [
+      {
+        validator: (_rule: any, value: any, callback: any) => {
+          if (isInviterRequiredRef.value && !value) callback(new Error('请选择邀约专员'))
           else callback()
         },
         trigger: 'change'
@@ -1651,6 +1742,99 @@
     { immediate: true }
   )
 
+  // 门店树与邀约必填逻辑（前置初始化，避免后续 watch 访问未初始化变量）
+  // 加载门店树（用于选择归属门店）
+  const loadDeptTree = async () => {
+    try {
+      const res = await fetchGetDepartmentList({})
+      const tree = Array.isArray(res as any) ? (res as any as any[]) : (res as any)?.data || []
+      deptTree.value = Array.isArray(tree) ? tree : []
+    } catch {
+      deptTree.value = []
+    }
+  }
+  onMounted(loadDeptTree)
+  const deptTree = ref<any[]>([])
+  // Admin/Super/Info 视为不受门店绑定限制的管理类角色
+  const isAdminLike = computed(() => {
+    const roles: string[] = Array.isArray((info.value as any)?.roles)
+      ? ((info.value as any).roles as string[])
+      : []
+    return roles.some((r) => ['R_ADMIN', 'R_SUPER', 'R_INFO'].includes(String(r)))
+  })
+  const storeOptions = computed(() => {
+    const res: { label: string; value: number }[] = []
+    const walk = (n: any) => {
+      if (n.type === 'store') res.push({ label: n.name, value: n.id })
+      if (Array.isArray(n.children)) n.children.forEach(walk)
+    }
+    deptTree.value.forEach(walk)
+    // 统一为数字判断，避免后端返回字符串导致未过滤
+    const myStoreIdNum = Number(info.value?.storeId as any)
+    // 非管理类角色，若绑定了门店，则只显示该门店；管理类角色不做过滤
+    if (!isAdminLike.value && Number.isFinite(myStoreIdNum) && myStoreIdNum > 0) {
+      return res.filter((o) => Number(o.value) === myStoreIdNum)
+    }
+    return res
+  })
+  const storeNameById = computed(() => {
+    const map: Record<number, string> = {}
+    for (const o of storeOptions.value) map[o.value] = o.label
+    return map
+  })
+  // 根据门店在部门树中的祖先品牌，判定是否需要邀约专员
+  const findBrandNameOfStoreTop = (roots: any[], sid: number): string | undefined => {
+    const dfs = (node: any, brandName?: string): string | undefined => {
+      const curBrand = node?.type === 'brand' ? String(node?.name || '') : brandName
+      if (node?.type === 'store' && Number(node?.id) === sid) return curBrand
+      const children = Array.isArray(node?.children) ? node.children : []
+      for (const c of children) {
+        const r = dfs(c, curBrand)
+        if (r) return r
+      }
+      return undefined
+    }
+    for (const root of roots) {
+      const got = dfs(root, undefined)
+      if (got) return got
+    }
+    return undefined
+  }
+  const AUDI_BRANDS = ['上汽奥迪', '一汽奥迪']
+  const INVITER_CHANNELS = ['DCC/ADC到店', '新媒体开发']
+  const isInviterRequiredRef = computed(() => {
+    const sid = Number(
+      typeof addForm.value.storeId === 'number'
+        ? addForm.value.storeId
+        : typeof info.value?.storeId === 'number'
+          ? (info.value!.storeId as number)
+          : 0
+    )
+    const brandName = findBrandNameOfStoreTop(deptTree.value, sid) || ''
+    const l1 = String(addForm.value.channelLevel1 || '')
+    return AUDI_BRANDS.includes(brandName) && INVITER_CHANNELS.includes(l1)
+  })
+
+  // 邀约专员联动：不满足条件时清空
+  watch(
+    () => [addForm.value.storeId, addForm.value.channelLevel1],
+    () => {
+      if (!isInviterRequiredRef.value) addForm.value.inviter = ''
+    },
+    { immediate: true, deep: true }
+  )
+
+  // 邀约专员必填触发时，主动加载邀约专员选项（避免出现“无数据”）
+  watch(
+    () => isInviterRequiredRef.value,
+    (required) => {
+      if (required && inviterOptions.value.length === 0) {
+        loadInviters()
+      }
+    },
+    { immediate: true }
+  )
+
   // 是否成交联动：选择“是”则自动将商机级别设为 O，并禁用商机级别；选择“否”恢复可编辑
   watch(
     () => addForm.value.dealDone,
@@ -1669,6 +1853,9 @@
       // 记录当前所选销售顾问，便于在编辑时保留
       const prevConsultant = addForm.value.salesConsultant
       await loadSalesConsultants()
+      // 同步加载邀约专员
+      const prevInviter = addForm.value.inviter
+      await loadInviters()
       // 仅当门店发生变化且非编辑初始化时清空；编辑时尽量保留已选值
       const changed = Number(newId as any) !== Number(oldId as any)
       const isEditing = Boolean(editingId.value)
@@ -1690,6 +1877,17 @@
           // 非编辑或无已选值，切换门店后清空，避免跨店误选
           addForm.value.salesConsultant = ''
         }
+        // 邀约专员同样按门店切换处理
+        if (isEditing && prevInviter) {
+          let exists2 = inviterOptions.value.some((o) => String(o.value) === String(prevInviter))
+          if (!exists2) {
+            inviterOptions.value.unshift({ label: String(prevInviter), value: String(prevInviter) })
+            exists2 = true
+          }
+          addForm.value.inviter = exists2 ? prevInviter : ''
+        } else {
+          addForm.value.inviter = ''
+        }
       } else if (isEditing && prevConsultant) {
         // 门店未变更但选项刚刷新时，若当前值未在可选项，则补充后保留
         let exists = salesConsultantOptions.value.some(
@@ -1703,6 +1901,15 @@
           exists = true
         }
         addForm.value.salesConsultant = exists ? prevConsultant : ''
+      }
+      // 邀约专员：门店未变更但刷新选项时，保留旧值
+      if (isEditing && prevInviter) {
+        let exists2 = inviterOptions.value.some((o) => String(o.value) === String(prevInviter))
+        if (!exists2) {
+          inviterOptions.value.unshift({ label: String(prevInviter), value: String(prevInviter) })
+          exists2 = true
+        }
+        addForm.value.inviter = exists2 ? prevInviter : ''
       }
 
       // 依据门店所属品牌，限定“转化/保客车型”的数据源
@@ -1782,37 +1989,6 @@
   // 表格引用
   const tableRef = ref()
 
-  // 加载门店树（用于选择归属门店）
-  const loadDeptTree = async () => {
-    try {
-      const res = await fetchGetDepartmentList({})
-      const tree = Array.isArray(res as any) ? (res as any as any[]) : (res as any)?.data || []
-      deptTree.value = Array.isArray(tree) ? tree : []
-    } catch {
-      deptTree.value = []
-    }
-  }
-  onMounted(loadDeptTree)
-  const deptTree = ref<any[]>([])
-  const storeOptions = computed(() => {
-    const res: { label: string; value: number }[] = []
-    const walk = (n: any) => {
-      if (n.type === 'store') res.push({ label: n.name, value: n.id })
-      if (Array.isArray(n.children)) n.children.forEach(walk)
-    }
-    deptTree.value.forEach(walk)
-    // 统一为数字判断，避免后端返回字符串导致未过滤
-    const myStoreIdNum = Number(info.value?.storeId as any)
-    if (Number.isFinite(myStoreIdNum) && myStoreIdNum > 0) {
-      return res.filter((o) => Number(o.value) === myStoreIdNum)
-    }
-    return res
-  })
-  const storeNameById = computed(() => {
-    const map: Record<number, string> = {}
-    for (const o of storeOptions.value) map[o.value] = o.label
-    return map
-  })
   // 搜索参数变化时，触发防抖的服务端分页搜索（保持页码重置为第1页）
   watch(
     () => searchForm.value,
@@ -1833,12 +2009,13 @@
       const myStoreId = info.value?.storeId
       if (typeof myStoreId === 'number') {
         const hit = opts.find((o) => o.value === myStoreId)
-        if (hit) addForm.value.storeId = myStoreId
+        if (hit) addForm.value.storeId = Number(myStoreId)
       } else if (Array.isArray(opts) && opts.length === 1) {
         addForm.value.storeId = opts[0].value
       }
       // 门店选项初始化后也尝试加载员工列表
       loadSalesConsultants()
+      loadInviters()
     },
     { immediate: true, deep: true }
   )
