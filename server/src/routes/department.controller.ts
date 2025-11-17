@@ -191,8 +191,8 @@ export class DepartmentController {
    */
   @Post('normalize-types')
   async normalizeTypes(
-    @Body() body?: { clearAllTeamCodes?: boolean },
-    @Query() query?: { clearAllTeamCodes?: string | boolean }
+    @Body() body?: { clearAllTeamCodes?: boolean; fixByName?: boolean },
+    @Query() query?: { clearAllTeamCodes?: string | boolean; fixByName?: string | boolean }
   ) {
     const rows = await this.repo.find({ order: { id: 'ASC' } })
     const byId = new Map<number, Department>()
@@ -261,6 +261,64 @@ export class DepartmentController {
       }
     }
 
+    // 5) 可选：按命名进行纠偏（用于修复“销售部门/区域/门店”被误标的层级）
+    const fixByName = (() => {
+      if (body && typeof body.fixByName === 'boolean') return body.fixByName
+      const q = query && (query.fixByName as any)
+      if (typeof q === 'string') return ['true', '1', 'yes', 'on'].includes(q.toLowerCase())
+      if (typeof q === 'boolean') return q
+      return false
+    })()
+    if (fixByName) {
+      const includesAny = (name: string, keywords: string[]) =>
+        keywords.some((k) => name.includes(k))
+
+      // 5.1 将品牌下名称含“销售部门/部门”的 region 纠正为 department（编码与品牌一致）
+      for (const r of rows) {
+        const p = getParent(r)
+        if (
+          r.type === 'region' &&
+          p &&
+          p.type === 'brand' &&
+          includesAny(r.name, ['销售部门', '部门'])
+        ) {
+          const bb = p.code || (await this.generateCode('brand', p.parentId))
+          updates.push({ id: r.id, type: 'department', code: bb })
+          r.type = 'department'
+          r.code = bb
+        }
+      }
+
+      // 5.2 将名称含“区域”的 store 纠正为 region（编码 <bb><rr>）
+      for (const r of rows) {
+        const p = getParent(r)
+        if (r.type === 'store' && includesAny(r.name, ['区域'])) {
+          // 区域父级应为 department 或 brand
+          const parentType = p?.type
+          if (parentType === 'department' || parentType === 'brand') {
+            const code = await this.generateCode('region', r.parentId)
+            updates.push({ id: r.id, type: 'region', code: code || (undefined as any) })
+            r.type = 'region'
+            r.code = code
+          }
+        }
+      }
+
+      // 5.3 将名称含“店/中心店/门店”的 team 纠正为 store（编码 <bb><rr><ss>）
+      for (const r of rows) {
+        const p = getParent(r)
+        if (r.type === 'team' && includesAny(r.name, ['中心店', '门店', '店'])) {
+          // 门店父级必须为区域
+          if (p && p.type === 'region') {
+            const code = await this.generateCode('store', r.parentId)
+            updates.push({ id: r.id, type: 'store', code: code || (undefined as any) })
+            r.type = 'store'
+            r.code = code
+          }
+        }
+      }
+    }
+
     for (const u of updates) {
       const payload: Partial<Department> = {}
       if (typeof u.type === 'string' && u.type) payload.type = u.type as any
@@ -276,7 +334,7 @@ export class DepartmentController {
     return {
       code: 200,
       msg: '类型已规范化',
-      data: { updated: updates.length, clearAllTeamCodes }
+      data: { updated: updates.length, clearAllTeamCodes, fixByName }
     }
   }
   /**
