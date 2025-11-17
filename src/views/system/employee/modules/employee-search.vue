@@ -55,8 +55,8 @@
     const mapNode = (n: any): any => ({
       value: n.id,
       label: n.name,
-      // 禁用“销售部门”节点，允许选择门店与小组（team）
-      disabled: n.type === 'department',
+      // 允许选择品牌下“销售部门”节点，以及门店与小组
+      disabled: false,
       children: Array.isArray(n.children) ? n.children.map(mapNode) : undefined
     })
     return nodes.map(mapNode)
@@ -149,7 +149,8 @@
         if (node.type === 'brand') payload.brandId = id
         if (node.type === 'region') payload.regionId = id
         if (node.type === 'store') payload.storeId = id
-        if (node.type === 'team') payload.departmentId = id // 小组ID映射到departmentId
+        if (node.type === 'department') payload.departmentId = id // 部门节点映射到 departmentId
+        if (node.type === 'team') payload.departmentId = id // 小组ID同样映射到 departmentId
       }
     }
     emit('search', payload)
