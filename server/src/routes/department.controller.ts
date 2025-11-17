@@ -195,7 +195,7 @@ export class DepartmentController {
     const byId = new Map<number, Department>()
     rows.forEach((r) => byId.set(r.id, r))
 
-    const updates: { id: number; type?: DeptType; code?: string }[] = []
+    const updates: { id: number; type?: DeptType; code?: string | null }[] = []
 
     const getParent = (r: Department) =>
       typeof r.parentId === 'number' ? byId.get(r.parentId!) : undefined
@@ -233,19 +233,25 @@ export class DepartmentController {
       if (r.type === 'department' && p && p.type === 'store') {
         updates.push({ id: r.id, type: 'team' as DeptType })
         r.type = 'team' as DeptType
-        // 小组不生成编码，清空旧编码以免混淆
+        // 小组不生成编码，清空旧编码以免混淆（使用 null 以避免 TypeORM 空更新集错误）
         if (r.code) {
-          updates.push({ id: r.id, code: undefined as any })
+          updates.push({ id: r.id, code: null })
           r.code = undefined
         }
       }
     }
 
     for (const u of updates) {
-      await this.repo.update(u.id, {
-        type: u.type as any,
-        code: typeof u.code === 'string' ? u.code : undefined
-      })
+      const payload: Partial<Department> = {}
+      if (typeof u.type === 'string' && u.type) payload.type = u.type as any
+      if (typeof u.code !== 'undefined') {
+        // 允许将 code 置为 null 以清空旧值
+        payload.code = u.code as any
+      }
+      // 仅当存在有效字段时才执行更新，避免 TypeORM 空更新错误
+      if (Object.keys(payload).length > 0) {
+        await this.repo.update(u.id, payload)
+      }
     }
     return { code: 200, msg: '类型已规范化', data: { updated: updates.length } }
   }
