@@ -1,4 +1,4 @@
-import { echarts, type EChartsOption } from '@/utils/echarts'
+import type { ECharts as EChartsInstance, EChartsOption } from 'echarts'
 import { storeToRefs } from 'pinia'
 import { useSettingStore } from '@/store/modules/setting'
 import { getCssVar } from '@/utils/ui'
@@ -38,7 +38,49 @@ export function useChart(options: UseChartOptions = {}) {
   const { isDark, menuOpen, menuType } = storeToRefs(settingStore)
 
   const chartRef = ref<HTMLElement>()
-  let chart: echarts.ECharts | null = null
+  let chart: EChartsInstance | null = null
+  let echartsRuntime: any | null = null
+  let echartsLoadingPromise: Promise<any> | null = null
+
+  const ensureEcharts = async () => {
+    if (echartsRuntime) return echartsRuntime
+    if (echartsLoadingPromise) return echartsLoadingPromise
+
+    echartsLoadingPromise = (async () => {
+      const core = await import('echarts/core')
+      const charts = await import('echarts/charts')
+      const comps = await import('echarts/components')
+      const renderers = await import('echarts/renderers')
+
+      core.use([
+        charts.BarChart,
+        charts.LineChart,
+        charts.PieChart,
+        charts.ScatterChart,
+        charts.RadarChart,
+        charts.MapChart,
+        charts.CandlestickChart,
+        comps.TitleComponent,
+        comps.TooltipComponent,
+        comps.GridComponent,
+        comps.LegendComponent,
+        comps.DataZoomComponent,
+        comps.MarkPointComponent,
+        comps.MarkLineComponent,
+        comps.ToolboxComponent,
+        comps.BrushComponent,
+        comps.GeoComponent,
+        comps.VisualMapComponent,
+        renderers.CanvasRenderer
+      ])
+
+      echartsRuntime = core
+      echartsLoadingPromise = null
+      return echartsRuntime
+    })()
+
+    return echartsLoadingPromise
+  }
   let intersectionObserver: IntersectionObserver | null = null
   let pendingOptions: EChartsOption | null = null
   let resizeTimeoutId: number | null = null
@@ -287,7 +329,11 @@ export function useChart(options: UseChartOptions = {}) {
                 try {
                   // 元素变为可见，初始化图表
                   if (!chart) {
-                    chart = echarts.init(entry.target as HTMLElement)
+                    void ensureEcharts().then((ec) => {
+                      if (!isDestroyed && !chart) {
+                        chart = (ec as any).init(entry.target as HTMLElement)
+                      }
+                    })
                   }
 
                   // 触发自定义事件，让组件处理动画逻辑
@@ -327,9 +373,10 @@ export function useChart(options: UseChartOptions = {}) {
   }
 
   // 图表初始化核心逻辑
-  const performChartInit = (options: EChartsOption) => {
+  const performChartInit = async (options: EChartsOption) => {
+    const ec = await ensureEcharts()
     if (!chart && chartRef.value && !isDestroyed) {
-      chart = echarts.init(chartRef.value)
+      chart = (ec as any).init(chartRef.value)
     }
     if (chart && !isDestroyed) {
       chart.setOption(options)
@@ -415,9 +462,11 @@ export function useChart(options: UseChartOptions = {}) {
       if (isContainerVisible(chartRef.value)) {
         // 容器可见，正常初始化
         if (initDelay > 0) {
-          setTimeout(() => performChartInit(mergedOptions), initDelay)
+          setTimeout(() => {
+            void performChartInit(mergedOptions)
+          }, initDelay)
         } else {
-          performChartInit(mergedOptions)
+          void performChartInit(mergedOptions)
         }
       } else {
         // 容器不可见，保存选项并设置监听器

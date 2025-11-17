@@ -105,6 +105,19 @@ export default ({ mode }: { mode: string }) => {
               if (id.includes('echarts')) {
                 return 'echarts'
               }
+              // 额外拆分常见重量依赖，提升并行加载与缓存收益
+              if (id.includes('/xlsx') || id.includes('node_modules/xlsx')) {
+                return 'xlsx'
+              }
+              if (id.includes('/lodash') || id.includes('lodash-es')) {
+                return 'lodash'
+              }
+              if (id.includes('/dayjs') || id.includes('node_modules/dayjs')) {
+                return 'dayjs'
+              }
+              if (id.includes('/axios') || id.includes('node_modules/axios')) {
+                return 'axios'
+              }
               return 'vendor'
             }
           }
