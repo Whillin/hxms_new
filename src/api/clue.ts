@@ -107,3 +107,11 @@ export function fetchDeleteClue(id: number | string) {
     showSuccessMessage: true
   })
 }
+
+// 获取邀约专员选项（按门店）
+export function fetchGetClueInviterOptions(params: { storeId: number }) {
+  return request.get<Array<{ label: string; value: string } | string>>({
+    url: '/api/clue/inviter-options',
+    params
+  })
+}
