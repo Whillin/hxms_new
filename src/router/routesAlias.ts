@@ -56,6 +56,8 @@ export enum RoutesAlias {
   CustomerList = '/customer/list', // 客户列表
   OpportunityList = '/opportunity/list', // 商机列表
   OpportunityFollow = '/opportunity/follow', // 跟进记录
+  // 渠道模块
+  ChannelOnlineDaily = '/channel/online/daily', // 线上渠道每日填报
   // 产品模块（补齐缺失别名）
   ProductCategory = '/product/category', // 产品分类
   ProductManagement = '/product/management', // 产品管理

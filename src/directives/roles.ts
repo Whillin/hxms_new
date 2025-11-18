@@ -17,6 +17,11 @@ function checkRolePermission(el: HTMLElement, binding: RolesBinding): void {
   const userStore = useUserStore()
   const userRoles = userStore.getUserInfo.roles
 
+  // 超级管理员 / 管理员全局放行
+  if (userRoles?.includes('R_SUPER') || userRoles?.includes('R_ADMIN')) {
+    return
+  }
+
   // 如果用户角色为空或未定义，移除元素
   if (!userRoles?.length) {
     removeElement(el)

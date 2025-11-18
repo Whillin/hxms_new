@@ -19,7 +19,12 @@ import { DataScopeService } from '../common/data-scope.service'
 import { Customer } from '../customers/customer.entity'
 import { Channel } from '../channels/channel.entity'
 import { ProductModel } from '../products/product-model.entity'
+import { OnlineChannel } from '../channels/online-channel.entity'
 import { ChannelsController } from '../routes/channel.controller'
+import { ChannelOnlineController } from '../routes/channel-online.controller'
+import { OnlineChannelDaily } from '../channels/online-channel-daily.entity'
+import { OnlineChannelDailyAllocation } from '../channels/online-channel-daily-allocation.entity'
+import { ChannelOnlineDailyController } from '../routes/channel-online-daily.controller'
 import { ProductCategory } from '../products/product-category.entity'
 import { ProductCategoryLink } from '../products/product-category-link.entity'
 import { CategoryController } from '../routes/category.controller'
@@ -58,6 +63,9 @@ import { DbEnsureService } from '../common/db-ensure.service'
             Clue,
             Customer,
             Channel,
+            OnlineChannel,
+            OnlineChannelDaily,
+            OnlineChannelDailyAllocation,
             ProductModel,
             ProductCategory,
             ProductCategoryLink,
@@ -119,6 +127,9 @@ import { DbEnsureService } from '../common/db-ensure.service'
       Clue,
       Customer,
       Channel,
+      OnlineChannel,
+      OnlineChannelDaily,
+      OnlineChannelDailyAllocation,
       ProductModel,
       ProductCategory,
       ProductCategoryLink,
@@ -168,6 +179,8 @@ import { DbEnsureService } from '../common/db-ensure.service'
     RoleController,
     ClueController,
     ChannelsController,
+    ChannelOnlineController,
+    ChannelOnlineDailyController,
     CategoryController,
     ProductController,
     CustomerController,
@@ -185,9 +198,7 @@ import { DbEnsureService } from '../common/db-ensure.service'
     FeatureFlagsService,
     OpportunityService,
     // 注册队列处理器（当启用 Redis 与 Bull 时）
-    ...(
-      String(process.env.NO_REDIS || '').toLowerCase() === 'true' ? [] : [ClueProcessor]
-    )
+    ...(String(process.env.NO_REDIS || '').toLowerCase() === 'true' ? [] : [ClueProcessor])
   ]
 })
 export class AppModule {

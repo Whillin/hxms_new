@@ -38,9 +38,12 @@ export class DataScopeService {
     const record = await this.userService.findById(userId)
     try {
       // 仅调试：输出用户与角色
-      // eslint-disable-next-line no-console
+
       console.log('[DataScopeService.getScope]', { userId, roles, employeeId: record?.employeeId })
-    } catch {}
+    } catch (e) {
+      // swallow non-fatal logging errors
+      void e
+    }
     const employeeId = record?.employeeId
     if (!employeeId) return { level: 'self' }
 
@@ -103,7 +106,10 @@ export class DataScopeService {
     if (scope.level === 'brand' && typeof scope.brandId === 'number') {
       return await this.collectStoresUnder(scope.brandId!)
     }
-    // self 或 all 默认返回空，由调用方根据业务决定是否放行
+    if (scope.level === 'all') {
+      return await this.collectAllStoreIds()
+    }
+    // self 默认返回空，由调用方根据业务决定是否放行
     return []
   }
 
@@ -135,6 +141,13 @@ export class DataScopeService {
       children.forEach((c) => stack.push(c))
     }
     return Array.from(stores)
+  }
+
+  /** 收集系统中所有门店ID（管理员/超管使用） */
+  private async collectAllStoreIds(): Promise<number[]> {
+    const all = await this.deptRepo.find()
+    const stores = all.filter((d) => (d as any).type === 'store').map((d) => d.id)
+    return stores
   }
 
   private async collectStoreIds(

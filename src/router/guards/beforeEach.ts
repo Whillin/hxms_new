@@ -18,6 +18,7 @@ import { useCommon } from '@/composables/useCommon'
 import { useWorktabStore } from '@/store/modules/worktab'
 import { fetchGetUserInfo } from '@/api/auth'
 import { fetchRefresh } from '@/api/auth'
+import { fetchOnlineDailyTodayCompletion } from '@/api/channel'
 
 // 本地预览降级：当访问模式为前端或显式开启跳过鉴权时，不触发后端鉴权相关请求
 const DEV_SKIP_AUTH =
@@ -387,6 +388,36 @@ async function registerAndStoreMenu(router: Router, menuList: AppRouteRecord[]):
   const menuStore = useMenuStore()
   // 递归过滤掉为空的菜单项
   const list = filterEmptyMenus(menuList)
+
+  // 动态设置“线索管理”红点提示：店长/总监（含管理员）且当日未完成填报
+  try {
+    const userStore = useUserStore()
+    const roles = Array.isArray(userStore.info?.roles) ? userStore.info!.roles : []
+    const isMgr =
+      roles.includes('R_STORE_MANAGER') ||
+      roles.includes('R_STORE_DIRECTOR') ||
+      roles.includes('R_ADMIN') ||
+      roles.includes('R_SUPER')
+    const storeIdNum = Number(userStore.info?.storeId || 0)
+    if (isMgr && storeIdNum > 0) {
+      const res = await fetchOnlineDailyTodayCompletion({ storeId: storeIdNum })
+      const incomplete = !!(res as any)?.data?.incomplete
+      if (incomplete) {
+        const markBadge = (nodes: AppRouteRecord[]) => {
+          nodes.forEach((it) => {
+            if (String(it.path || '').startsWith('/clue')) {
+              it.meta = { ...it.meta, showBadge: true }
+            }
+            if (Array.isArray(it.children) && it.children.length) markBadge(it.children)
+          })
+        }
+        markBadge(list)
+      }
+    }
+  } catch (e) {
+    console.error('菜单红点处理失败:', e)
+  }
+
   menuStore.setMenuList(list)
   registerDynamicRoutes(router, list)
   isRouteRegistered.value = true
@@ -406,6 +437,16 @@ function handleMenuError(error: unknown): void {
  * 根据角色过滤菜单
  */
 const filterMenuByRoles = (menu: AppRouteRecord[], roles: string[]): AppRouteRecord[] => {
+  // 超级管理员 / 管理员全局放行：直接返回原菜单（仅保留空项过滤在后续步骤）
+  if (roles?.includes('R_SUPER') || roles?.includes('R_ADMIN')) {
+    return menu.map((item) => {
+      const cloned = { ...item }
+      if (cloned.children?.length) {
+        cloned.children = filterMenuByRoles(cloned.children, roles)
+      }
+      return cloned
+    })
+  }
   return menu.reduce((acc: AppRouteRecord[], item) => {
     const itemRoles = item.meta?.roles
     const hasPermission = !itemRoles || itemRoles.some((role) => roles?.includes(role))

@@ -164,6 +164,7 @@ async function ensureRefreshed(): Promise<void> {
     refreshPromise = api.post<{ token: string; refreshToken: string }>({
       url: '/api/auth/refresh',
       params: { refreshToken: rt },
+      headers: { 'X-Refresh-Token': rt },
       showErrorMessage: false
     })
   }

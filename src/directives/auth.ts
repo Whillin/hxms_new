@@ -18,13 +18,16 @@ function checkAuthPermission(el: HTMLElement, binding: AuthBinding): void {
   // 优先使用用户信息中的按钮权限（后端返回）
   const userStore = useUserStore()
   const { info } = storeToRefs(userStore)
+  const roles: string[] = Array.isArray(info.value?.roles) ? (info.value?.roles as string[]) : []
   const buttons: string[] = Array.isArray(info.value?.buttons)
     ? (info.value?.buttons as string[])
     : []
 
   // 统一匹配逻辑已抽取到 utils/auth/permission.ts
 
-  let hasPermission = false
+  // 超级管理员 / 管理员全局放行
+  const isAdmin = roles.includes('R_SUPER') || roles.includes('R_ADMIN')
+  let hasPermission = isAdmin
   if (buttons.length) {
     hasPermission = buttons.some((mark) => matchPermission(String(mark), binding.value))
   } else {

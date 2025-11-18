@@ -231,6 +231,32 @@ export const asyncRoutes: AppRouteRecord[] = [
             { title: '删除', authMark: 'delete' }
           ]
         }
+      },
+      {
+        path: 'online-channel-info',
+        name: 'ClueOnlineChannelInfo',
+        component: RoutesAlias.ChannelOnlineDaily,
+        meta: {
+          title: '线上渠道信息表',
+          keepAlive: true,
+          roles: [
+            'R_SUPER',
+            'R_ADMIN',
+            'R_INFO',
+            'R_BRAND_GM',
+            'R_REGION_GM',
+            'R_STORE_DIRECTOR',
+            'R_STORE_MANAGER',
+            'R_SALES_MANAGER',
+            'R_SALES',
+            'R_APPOINTMENT',
+            'R_FRONT_DESK'
+          ],
+          authList: [
+            { title: '查看', authMark: 'view' },
+            { title: '编辑', authMark: 'edit' }
+          ]
+        }
       }
     ]
   },

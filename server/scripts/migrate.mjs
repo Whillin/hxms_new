@@ -279,6 +279,149 @@ async function mig006_clues_visit_times_and_counts(conn, db) {
   await markApplied(conn, db, version)
 }
 
+// 008: 创建线上渠道相关三表（online_channels、online_channel_daily、online_channel_daily_allocation）
+async function mig008_online_channel_tables(conn, db) {
+  const version = '008_online_channel_tables'
+  if (await wasApplied(conn, db, version)) return
+
+  // 线上渠道字典表
+  await conn.query(`
+    CREATE TABLE IF NOT EXISTS online_channels (
+      id INT NOT NULL AUTO_INCREMENT,
+      level1 VARCHAR(50) NOT NULL,
+      level2 VARCHAR(50) NOT NULL,
+      compoundKey VARCHAR(255) NOT NULL,
+      enabled TINYINT NOT NULL DEFAULT 1,
+      sort INT NOT NULL DEFAULT 0,
+      createdAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updatedAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      PRIMARY KEY (id),
+      UNIQUE KEY uniq_online_compound (compoundKey),
+      KEY idx_online_level1 (level1),
+      KEY idx_online_level2 (level2)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+  `)
+
+  // 每日线上渠道填报表
+  await conn.query(`
+    CREATE TABLE IF NOT EXISTS online_channel_daily (
+      id INT NOT NULL AUTO_INCREMENT,
+      storeId INT NOT NULL,
+      date DATE NOT NULL,
+      compoundKey VARCHAR(255) NOT NULL,
+      level1 VARCHAR(50) NOT NULL,
+      level2 VARCHAR(50) NOT NULL,
+      count INT NOT NULL DEFAULT 0,
+      isBackfill TINYINT NOT NULL DEFAULT 0,
+      submitted TINYINT NOT NULL DEFAULT 0,
+      createdBy INT NULL,
+      updatedBy INT NULL,
+      uniqueKey VARCHAR(100) NOT NULL,
+      createdAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updatedAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      PRIMARY KEY (id),
+      UNIQUE KEY uniq_daily_store_date_key (uniqueKey),
+      KEY idx_daily_store_date (storeId, date),
+      KEY idx_daily_compound (compoundKey),
+      KEY idx_daily_level1 (level1),
+      KEY idx_daily_level2 (level2)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+  `)
+
+  // 每日线上渠道分配表
+  await conn.query(`
+    CREATE TABLE IF NOT EXISTS online_channel_daily_allocation (
+      id INT NOT NULL AUTO_INCREMENT,
+      dailyId INT NOT NULL,
+      employeeId INT NOT NULL,
+      count INT NOT NULL DEFAULT 0,
+      createdBy INT NULL,
+      updatedBy INT NULL,
+      uniqueKey VARCHAR(120) NOT NULL,
+      createdAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updatedAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      PRIMARY KEY (id),
+      UNIQUE KEY uniq_alloc_daily_emp (uniqueKey),
+      KEY idx_alloc_daily (dailyId),
+      KEY idx_alloc_employee (employeeId)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+  `)
+
+  await markApplied(conn, db, version)
+}
+
+// 007: 删除 online_channel_daily_allocation.roleCode，并将唯一键改为 (dailyId, employeeId)
+async function mig007_alloc_remove_role_and_unique_on_daily_employee(conn, db) {
+  const version = '007_alloc_remove_role_and_unique_on_daily_employee'
+  if (await wasApplied(conn, db, version)) return
+
+  const hasRoleCol = await hasColumn(conn, db, 'online_channel_daily_allocation', 'roleCode')
+
+  if (hasRoleCol) {
+    console.log(
+      '[migrate] online_channel_daily_allocation: removing roleCode and rebuilding unique key'
+    )
+
+    // 创建临时新表（不含 roleCode），唯一键为 uniqueKey，值为 `${dailyId}|${employeeId}`
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS online_channel_daily_allocation_tmp (
+        id INT NOT NULL AUTO_INCREMENT,
+        dailyId INT NOT NULL,
+        employeeId INT NOT NULL,
+        count INT NOT NULL DEFAULT 0,
+        createdBy INT NULL,
+        updatedBy INT NULL,
+        uniqueKey VARCHAR(120) NOT NULL,
+        createdAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updatedAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (id),
+        UNIQUE KEY uniq_alloc_daily_emp (uniqueKey),
+        KEY idx_alloc_daily (dailyId),
+        KEY idx_alloc_employee (employeeId)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `)
+
+    // 按 (dailyId, employeeId) 聚合旧数据并写入新表
+    await conn.query(`
+      INSERT INTO online_channel_daily_allocation_tmp (dailyId, employeeId, count, createdBy, updatedBy, uniqueKey)
+      SELECT dailyId, employeeId, SUM(count) AS count, MIN(createdBy) AS createdBy, MIN(updatedBy) AS updatedBy,
+             CONCAT(dailyId, '|', employeeId) AS uniqueKey
+      FROM online_channel_daily_allocation
+      GROUP BY dailyId, employeeId;
+    `)
+
+    // 备份旧表并替换
+    await conn.query(
+      'RENAME TABLE online_channel_daily_allocation TO online_channel_daily_allocation_old'
+    )
+    await conn.query(
+      'RENAME TABLE online_channel_daily_allocation_tmp TO online_channel_daily_allocation'
+    )
+
+    console.log(
+      '[migrate] online_channel_daily_allocation rebuilt without roleCode; old table saved as *_old'
+    )
+  } else {
+    // 确保唯一索引存在
+    const hasNewUniq = await hasIndex(
+      conn,
+      db,
+      'online_channel_daily_allocation',
+      'uniq_alloc_daily_emp'
+    )
+    if (!hasNewUniq) {
+      await conn.query(
+        `ALTER TABLE \`${db}\`.online_channel_daily_allocation ADD UNIQUE KEY uniq_alloc_daily_emp (uniqueKey)`
+      )
+      console.log(
+        '[migrate] online_channel_daily_allocation: ensured uniq_alloc_daily_emp(uniqueKey)'
+      )
+    }
+  }
+
+  await markApplied(conn, db, version)
+}
+
 async function main() {
   const root = path.resolve(process.cwd(), 'server')
   parseEnvFile(path.join(root, '.env.production'))
@@ -293,6 +436,8 @@ async function main() {
     await mig004_users_profile_fields(conn, db)
     await mig005_clues_snapshots(conn, db)
     await mig006_clues_visit_times_and_counts(conn, db)
+    await mig008_online_channel_tables(conn, db)
+    await mig007_alloc_remove_role_and_unique_on_daily_employee(conn, db)
     console.log('[OK] migrations applied')
   } finally {
     await conn.end()

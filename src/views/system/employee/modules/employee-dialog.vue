@@ -151,8 +151,9 @@
     DEPARTMENT_REQUIRED_ROLES.has(String(formModel.value?.role || ''))
   )
 
-  // 计算级联选择器属性：门店层级支持多选（销售经理不支持多选）
+  // 计算级联选择器属性：允许选择非叶子“门店”节点（即使存在小组），门店层级支持多选
   const cascaderProps = computed(() => {
+    // checkStrictly=true 允许选择父级节点；emitPath=true 返回完整路径用于映射
     const base = { checkStrictly: true, emitPath: true } as any
     return requiredLevel.value === 'store' && !isDepartmentRole.value
       ? { ...base, multiple: true }
@@ -179,12 +180,16 @@
           : level === 'region'
             ? 'region'
             : 'store'
-      // 检查所有路径最后节点类型是否匹配
-      const mismatch = paths.some((p) => {
-        const lastId = p[p.length - 1]
-        const node = idMap.value[lastId]
-        return node && node.type !== expectType
-      })
+      // 门店层级：只要路径中包含 store 节点即可视为匹配（允许选择带有小组的门店）
+      const hasStoreInPath = (p: number[]) => p.some((id) => idMap.value[id]?.type === 'store')
+      const mismatch =
+        expectType === 'store'
+          ? paths.some((p) => !hasStoreInPath(p))
+          : paths.some((p) => {
+              const lastId = p[p.length - 1]
+              const node = idMap.value[lastId]
+              return node && node.type !== expectType
+            })
       if (mismatch) {
         departmentPath.value = undefined
         formModel.value.brandId = undefined
@@ -197,16 +202,22 @@
   )
 
   const buildDeptOptions = (nodes: any[], level?: 'brand' | 'region' | 'store') => {
-    const allowTypes = level === 'brand' ? ['brand'] : level === 'region' ? ['region'] : ['store']
-    const mapNode = (n: any): any => ({
-      value: n.id,
-      label: n.name,
-      disabled:
-        n.type === 'group' ||
-        (!isDepartmentRole.value && n.type === 'team') ||
-        (!allowTypes.includes(n.type) && ['brand', 'region', 'store'].includes(n.type)),
-      children: Array.isArray(n.children) ? n.children.map(mapNode) : undefined
-    })
+    const mapNode = (n: any): any => {
+      // 严格匹配岗位层级：只允许选择与岗位要求一致的类型
+      const disableByLevel = (() => {
+        if (isDepartmentRole.value) return n.type !== 'team'
+        if (level === 'brand') return n.type !== 'brand'
+        if (level === 'region') return n.type !== 'region'
+        // 门店层级：仅允许选择门店节点（store），其余全部禁用
+        return n.type !== 'store'
+      })()
+      return {
+        value: n.id,
+        label: n.name,
+        disabled: n.type === 'group' || disableByLevel,
+        children: Array.isArray(n.children) ? n.children.map(mapNode) : undefined
+      }
+    }
     return nodes.map(mapNode)
   }
 
@@ -264,13 +275,15 @@
             const node = idMap.value[lastId]
             return node?.type
           }
+          const hasStoreInPath = (p: number[]) => p.some((id) => idMap.value[id]?.type === 'store')
           if (isDepartmentRole.value) {
             const type = lastNodeType(paths[0])
             if (type !== 'team') return cb(new Error('该岗位需选择门店下的小组'))
             return cb()
           }
           if (level === 'store') {
-            const bad = paths.some((p) => lastNodeType(p) !== 'store')
+            // 允许选择带有小组的门店：只要路径中存在 store 节点即可
+            const bad = paths.some((p) => !hasStoreInPath(p))
             if (bad) return cb(new Error('请选择门店层级'))
             return cb()
           } else if (level === 'brand' || level === 'region') {
@@ -395,9 +408,9 @@
       // 收集所有选中路径的门店ID集合（仅当末尾为 store 时）
       const storeIds: number[] = []
       for (const p of paths) {
-        const lastId = p[p.length - 1]
-        const node = idMap.value[lastId]
-        if (node && node.type === 'store') storeIds.push(lastId)
+        // 从路径中提取 store 节点（允许后面还有 team）
+        const storeId = p.find((id) => idMap.value[id]?.type === 'store')
+        if (typeof storeId === 'number') storeIds.push(storeId)
       }
       formModel.value.storeIds = storeIds.length ? storeIds : undefined
     },

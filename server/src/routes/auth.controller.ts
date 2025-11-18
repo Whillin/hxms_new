@@ -1,4 +1,4 @@
-import { Body, Controller, Post, Get, Inject, Res } from '@nestjs/common'
+import { Body, Controller, Post, Get, Inject, Res, Req } from '@nestjs/common'
 import { Throttle } from '@nestjs/throttler'
 import { AuthService } from '../auth/auth.service'
 import { UserService } from '../users/user.service'
@@ -65,9 +65,12 @@ export class AuthController {
   }
 
   @Post('refresh')
-  async refresh(@Body() body: any, @Res({ passthrough: true }) res: Response) {
+  async refresh(@Body() body: any, @Req() req: any, @Res({ passthrough: true }) res: Response) {
     try {
-      const refreshToken = body?.refreshToken || ''
+      const refreshToken = this.getRefreshTokenFromReq(req, body)
+      if (!refreshToken) {
+        return { code: 401, msg: '缺少刷新令牌', data: null }
+      }
       const payload = this.authService.verifyRefreshToken(refreshToken)
       if (!payload) {
         return { code: 401, msg: '刷新令牌无效', data: null }
@@ -99,6 +102,32 @@ export class AuthController {
       console.error('[AuthController.refresh] Unexpected error:', e)
       return { code: 500, msg: '刷新服务异常，请稍后重试', data: null }
     }
+  }
+
+  /** 从请求体、头与 Cookie 中提取刷新令牌（优先级：体 > 头 > Cookie） */
+  private getRefreshTokenFromReq(req: any, body: any): string {
+    const fromBody = body?.refreshToken || ''
+    const hdr = req?.headers?.['x-refresh-token']
+    const fromHeader = Array.isArray(hdr) ? hdr[0] : hdr
+    const fromCookie = this.getCookieValue(req?.headers?.cookie, 'refresh_token') || ''
+    return fromBody || fromHeader || fromCookie || ''
+  }
+
+  /** 解析 Cookie 头中的指定键 */
+  private getCookieValue(cookieHeader: string | undefined, name: string): string | undefined {
+    if (!cookieHeader || !name) return undefined
+    try {
+      const parts = cookieHeader.split(';')
+      for (const part of parts) {
+        const [k, ...rest] = part.split('=')
+        if (k && k.trim() === name) {
+          return decodeURIComponent(rest.join('=')?.trim() || '')
+        }
+      }
+    } catch (e) {
+      console.warn('[AuthController] getCookieValue parse failed:', e)
+    }
+    return undefined
   }
 
   /** 将刷新令牌写入 HttpOnly Cookie，生产开启 Secure 与 Lax SameSite */

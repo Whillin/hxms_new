@@ -1,0 +1,32 @@
+name: Deploy to Cloud Server
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 通过 SSH 登录云端服务器执行仓库内的一键更新脚本
+      # 需要在仓库 Settings -> Secrets and variables -> Actions 中配置：
+      #   SSH_HOST, SSH_USER, SSH_KEY (PEM 私钥), SSH_PORT(可选, 默认 22), APP_DIR(可选)
+      - name: Deploy via SSH and run update script
+        uses: appleboy/ssh-action@v0.1.17
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          script: |
+            set -e
+            APP_DIR="${{ secrets.APP_DIR }}"
+            if [ -z "$APP_DIR" ]; then APP_DIR="$HOME/apps/hxms_new"; fi
+            echo "[CI] Using APP_DIR=$APP_DIR"
+            cd "$APP_DIR"
+            # 运行项目内的云端更新脚本：拉取 main 并构建/滚动更新
+            bash deploy/update_all.sh --auto-fix
