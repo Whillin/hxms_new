@@ -6,7 +6,6 @@
           <img class="bg" src="@imgs/user/bg.webp" />
           <img class="avatar" src="@imgs/user/avatar.webp" />
           <h2 class="name">{{ form.realName || userInfo.userName }}</h2>
-          
 
           <div class="outer-info">
             <div>
@@ -32,7 +31,6 @@
             <p class="intro-title">个人介绍</p>
             <p class="intro-text">{{ form.des || '-' }}</p>
           </div>
-
         </div>
 
         <!-- <el-carousel class="gallery" height="160px"
@@ -83,9 +81,9 @@
 
             <ElRow>
               <ElFormItem label="手机" prop="mobile">
-              <ElInput v-model="form.mobile" :disabled="true" />
-            </ElFormItem>
-            <ElFormItem label="地址" prop="address" class="right-input">
+                <ElInput v-model="form.mobile" :disabled="true" />
+              </ElFormItem>
+              <ElFormItem label="地址" prop="address" class="right-input">
                 <ElCascader
                   v-model="addressSelect"
                   :options="regionData"
@@ -95,8 +93,8 @@
                   clearable
                   @change="handleAddressChange"
                 />
-            </ElFormItem>
-          </ElRow>
+              </ElFormItem>
+            </ElRow>
 
             <ElFormItem label="个人介绍" prop="des" :style="{ height: '130px' }">
               <ElInput type="textarea" :rows="4" v-model="form.des" :disabled="!isEdit" />
@@ -251,7 +249,7 @@
       ext.orgPath = (res as any).orgPath || ''
       // 尝试填充地址选择（如果能拆分出省市区）
       addressSelect.value = form.address ? form.address.split(/\s+|\//).filter(Boolean) : []
-    } catch (e) {
+    } catch {
       // ignore
     }
   }
@@ -302,7 +300,7 @@
         const info = await fetchGetUserInfo()
         userStore.setUserInfo(info)
         isEdit.value = false
-      } catch (err) {
+      } catch {
         // 错误提示由请求拦截器处理
       }
     })
@@ -329,13 +327,17 @@
       return
     }
     try {
-      await fetchChangePassword({ password: pwdForm.password, newPassword: pwdForm.newPassword })
+      await fetchChangePassword({
+        currentPassword: pwdForm.password,
+        newPassword: pwdForm.newPassword,
+        confirmPassword: pwdForm.confirmPassword
+      })
       isEditPwd.value = false
       // 清空表单
       pwdForm.password = ''
       pwdForm.newPassword = ''
       pwdForm.confirmPassword = ''
-    } catch (e) {
+    } catch {
       // 错误提示由请求拦截器处理
     }
   }
@@ -438,8 +440,8 @@
 
           .intro {
             width: 320px;
-            margin: 14px auto 0;
             padding: 10px 12px;
+            margin: 14px auto 0;
             text-align: left;
             background: var(--art-main-bg-color);
             border: 1px solid var(--art-border-color);
@@ -454,10 +456,10 @@
             .intro-text {
               margin: 0;
               font-size: 14px;
-              color: var(--art-gray-800);
-              white-space: pre-wrap;
-              word-break: break-word;
               line-height: 20px;
+              color: var(--art-gray-800);
+              word-break: break-word;
+              white-space: pre-wrap;
             }
           }
         }
