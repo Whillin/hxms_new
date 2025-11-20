@@ -432,27 +432,17 @@
     const lastDay = end.getDate()
 
     const dates: string[] = []
-    const tasks: Array<() => Promise<void>> = []
+    const delay = (ms: number) => new Promise((r) => setTimeout(r, ms))
     for (let d = 1; d <= lastDay; d++) {
       const ds = `${year}-${pad(month)}-${pad(d)}`
-      tasks.push(async () => {
-        try {
-          const resp = await fetchOnlineDailyListQuiet({ storeId: storeId.value!, date: ds })
-          if (!resp.submitted) dates.push(ds)
-        } catch {
-          // 忽略单天错误，避免中断整体结果
-        }
-      })
-    }
-    // 并发 4
-    let idx = 0
-    async function worker() {
-      while (idx < tasks.length) {
-        const t = tasks[idx++]
-        await t()
+      try {
+        const resp = await fetchOnlineDailyListQuiet({ storeId: storeId.value!, date: ds })
+        if (!resp.submitted) dates.push(ds)
+      } catch {
+        void 0
       }
+      await delay(1200)
     }
-    await Promise.all([worker(), worker(), worker(), worker()])
 
     dates.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
     missingCache.set(key, { updatedAt: now, dates })
