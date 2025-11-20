@@ -19,6 +19,7 @@ type DailyItem = {
   allocations?: AllocationItem[]
 }
 
+@SkipThrottle()
 @Controller('api/channel/online/daily')
 export class ChannelOnlineDailyController {
   constructor(
