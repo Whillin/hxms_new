@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Post, Query, Req, UseGuards, Inject } from '@nestjs/common'
+import { SkipThrottle } from '@nestjs/throttler'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 import { JwtGuard } from '../auth/jwt.guard'
@@ -96,6 +97,7 @@ export class ChannelOnlineDailyController {
 
   /** 获取当日该店所有渠道的填报数据；为空则返回字典结构 */
   @UseGuards(JwtGuard)
+  @SkipThrottle()
   @Get('list')
   async list(@Req() req: any, @Query() query: any) {
     const roles: string[] = Array.isArray(req.user?.roles) ? req.user.roles : []
@@ -301,6 +303,7 @@ export class ChannelOnlineDailyController {
 
   /** 今日完成度：用于首页红角标与菜单红点提示 */
   @UseGuards(JwtGuard)
+  @SkipThrottle()
   @Get('today/completion')
   async todayCompletion(@Req() req: any, @Query() query: any) {
     const roles: string[] = Array.isArray(req.user?.roles) ? req.user.roles : []
@@ -326,6 +329,7 @@ export class ChannelOnlineDailyController {
 
   /** 缺失天数筛查：按门店与日期范围返回未完成的日期列表 */
   @UseGuards(JwtGuard)
+  @SkipThrottle()
   @Get('missing-days')
   async missingDays(@Req() req: any, @Query() query: any) {
     const roles: string[] = Array.isArray(req.user?.roles) ? req.user.roles : []
