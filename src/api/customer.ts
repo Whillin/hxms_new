@@ -70,3 +70,10 @@ export function fetchDeleteCustomer(id: number, options?: { showSuccessMessage?:
 export function fetchGetCustomerStoreOptions() {
   return request.get<Array<{ id: number; name: string }>>({ url: '/api/customer/store-options' })
 }
+
+export function fetchGetCustomerNewWeekCount(params?: { storeId?: number }) {
+  return request.get<{ count: number; changePercent: number }>({
+    url: '/api/customer/new-week-count',
+    params
+  })
+}

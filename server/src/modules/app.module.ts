@@ -1,4 +1,7 @@
 import { Module } from '@nestjs/common'
+import path from 'path'
+import dotenv from 'dotenv'
+dotenv.config({ path: path.resolve(process.cwd(), '.env'), override: true })
 import { TypeOrmModule } from '@nestjs/typeorm'
 import { UserController } from '../routes/user.controller'
 import { DepartmentController } from '../routes/department.controller'
@@ -34,6 +37,7 @@ import { CustomerController } from '../routes/customer.controller'
 import { HealthController } from '../routes/health.controller'
 import { MetricsController } from '../routes/metrics.controller'
 import { OpportunityController } from '../routes/opportunity.controller'
+import { BiController } from '../routes/bi.controller'
 import { Opportunity } from '../opportunities/opportunity.entity'
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler'
 import { APP_GUARD } from '@nestjs/core'
@@ -181,6 +185,7 @@ import { DbEnsureService } from '../common/db-ensure.service'
     ChannelsController,
     ChannelOnlineController,
     ChannelOnlineDailyController,
+    BiController,
     CategoryController,
     ProductController,
     CustomerController,

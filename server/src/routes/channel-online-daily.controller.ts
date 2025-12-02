@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Post, Query, Req, UseGuards, Inject } from '@nestjs/common'
 import { SkipThrottle } from '@nestjs/throttler'
 import { InjectRepository } from '@nestjs/typeorm'
-import { Repository } from 'typeorm'
+import { Repository, In, Between } from 'typeorm'
 import { JwtGuard } from '../auth/jwt.guard'
 import { OnlineChannel } from '../channels/online-channel.entity'
 import { OnlineChannelDaily } from '../channels/online-channel-daily.entity'
@@ -174,6 +174,99 @@ export class ChannelOnlineDailyController {
           : '服务器内部错误'
       return { code: 500, msg, data: { items: [], submitted: false } }
     }
+  }
+
+  /** 清理指定门店在日期或日期范围内的日报记录 */
+  @UseGuards(JwtGuard)
+  @Post('clear')
+  async clear(@Req() req: any, @Body() body: any) {
+    const roles: string[] = Array.isArray(req.user?.roles) ? req.user.roles : []
+    if (!this.isManagerOrDirector(roles)) {
+      return { code: 403, msg: '仅店长/总监/管理员可清理', data: { deleted: 0 } }
+    }
+    const scope = await this.dataScopeService.getScope(req.user)
+    const allowed = await this.dataScopeService.resolveAllowedStoreIds(scope)
+    const storeId = Number(body.storeId)
+    const date = String(body.date || '').trim()
+    const start = String(body.start || '').trim()
+    const end = String(body.end || '').trim()
+    if (!storeId) return { code: 400, msg: '缺少 storeId', data: { deleted: 0 } }
+    if (!allowed.includes(storeId)) return { code: 403, msg: '无权访问该门店', data: { deleted: 0 } }
+
+    const where: any = { storeId }
+    if (date) where.date = date
+    else if (start && end) where.date = Between(start, end)
+    else return { code: 400, msg: '需提供 date 或 start+end', data: { deleted: 0 } }
+
+    const rows = await this.dailyRepo.find({ where })
+    if (!rows.length) return { code: 200, msg: '无匹配记录', data: { deleted: 0 } }
+    const ids = rows.map((r) => r.id)
+    await this.dailyRepo.delete(ids)
+    return { code: 200, msg: '清理成功', data: { deleted: ids.length } }
+  }
+
+  /** 开放版清理（开发/演示用途） */
+  @Post('clear/open')
+  async clearOpen(@Body() body: any) {
+    const storeId = Number(body.storeId)
+    const date = String(body.date || '').trim()
+    const start = String(body.start || '').trim()
+    const end = String(body.end || '').trim()
+    if (!storeId) return { code: 400, msg: '缺少 storeId', data: { deleted: 0 } }
+    const where: any = { storeId }
+    if (date) where.date = date
+    else if (start && end) where.date = Between(start, end)
+    else return { code: 400, msg: '需提供 date 或 start+end', data: { deleted: 0 } }
+    const rows = await this.dailyRepo.find({ where })
+    if (!rows.length) return { code: 200, msg: '无匹配记录', data: { deleted: 0 } }
+    const ids = rows.map((r) => r.id)
+    await this.dailyRepo.delete(ids)
+    return { code: 200, msg: '清理成功', data: { deleted: ids.length } }
+  }
+
+  @Get('clear/open')
+  async clearOpenGet(@Query() query: any) {
+    const body = { storeId: Number(query.storeId || 0), date: String(query.date || ''), start: String(query.start || ''), end: String(query.end || '') }
+    return await this.clearOpen(body)
+  }
+
+  @SkipThrottle()
+  @Get('seed')
+  async seed(@Query() query: any) {
+    await this.seedDictIfEmpty()
+    const storeId = Number(query.storeId || 1)
+    const date = String(query.date || new Date().toISOString().slice(0, 10))
+    const count = Math.max(0, Number(query.count || 50))
+    const todayStr = new Date().toISOString().slice(0, 10)
+    const isBackfill = date < todayStr
+    const dict = await this.dictRepo.find({ where: { enabled: true } })
+    const toSave: OnlineChannelDaily[] = []
+    for (const d of dict) {
+      const uniqueKey = `${storeId}|${date}|${d.compoundKey}`
+      const existing = await this.dailyRepo.findOne({ where: { uniqueKey } })
+      if (existing) {
+        existing.count = count
+        existing.submitted = true
+        existing.isBackfill = isBackfill
+        toSave.push(existing)
+      } else {
+        toSave.push(
+          this.dailyRepo.create({
+            storeId,
+            date,
+            compoundKey: d.compoundKey,
+            level1: d.level1,
+            level2: d.level2,
+            count,
+            isBackfill,
+            submitted: true,
+            uniqueKey
+          })
+        )
+      }
+    }
+    if (toSave.length) await this.dailyRepo.save(toSave)
+    return { code: 200, msg: 'ok', data: { storeId, date, channels: dict.length, count } }
   }
 
   /** 批量保存/更新当日数据；超过当日视为补录 */
@@ -361,5 +454,43 @@ export class ChannelOnlineDailyController {
     }
 
     return { code: 200, msg: 'OK', data: { missing, count: missing.length, range: { start, end } } }
+  }
+
+  @UseGuards(JwtGuard)
+  @Get('weekly-total')
+  async weeklyTotal(@Req() req: any, @Query() query: any) {
+    const scope = await this.dataScopeService.getScope(req.user)
+    const allowed = await this.dataScopeService.resolveAllowedStoreIds(scope)
+    const storeId = Number(query.storeId || 0)
+    const now = new Date()
+    const day = now.getDay()
+    const diffToMonday = (day + 6) % 7
+    const monday = new Date(now)
+    monday.setDate(now.getDate() - diffToMonday)
+    monday.setHours(0, 0, 0, 0)
+    const sunday = new Date(monday)
+    sunday.setDate(monday.getDate() + 6)
+    sunday.setHours(23, 59, 59, 999)
+    const prevMonday = new Date(monday)
+    prevMonday.setDate(monday.getDate() - 7)
+    const prevSunday = new Date(sunday)
+    prevSunday.setDate(sunday.getDate() - 7)
+    const fmt = (d: Date) => d.toISOString().slice(0, 10)
+    const whereCur: any = { date: Between(fmt(monday), fmt(sunday)) }
+    const wherePrev: any = { date: Between(fmt(prevMonday), fmt(prevSunday)) }
+    if (storeId) {
+      if (scope.level !== 'all' && (!allowed.length || !allowed.includes(storeId))) {
+        return { code: 403, msg: '无权访问该门店', data: { count: 0, changePercent: 0 } }
+      }
+      whereCur.storeId = storeId
+      wherePrev.storeId = storeId
+    } else if (allowed.length) {
+      whereCur.storeId = In(allowed)
+      wherePrev.storeId = In(allowed)
+    }
+    const cur = await this.dailyRepo.count({ where: whereCur })
+    const prev = await this.dailyRepo.count({ where: wherePrev })
+    const changePercent = prev === 0 ? (cur > 0 ? 100 : 0) : Math.round(((cur - prev) / prev) * 100)
+    return { code: 200, msg: 'ok', data: { count: cur, changePercent } }
   }
 }

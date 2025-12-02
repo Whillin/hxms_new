@@ -1,6 +1,6 @@
 import { Controller, Get, Post, Body, Query, Req, UseGuards, Inject } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
-import { Repository, Like, In } from 'typeorm'
+import { Repository, Like, In, Between } from 'typeorm'
 import { JwtGuard } from '../auth/jwt.guard'
 import { Customer } from '../customers/customer.entity'
 import { DataScopeService } from '../common/data-scope.service'
@@ -104,18 +104,37 @@ export class CustomerController {
   @UseGuards(JwtGuard)
   @Get('store-options')
   async storeOptions(@Req() req: any) {
-    const scope = await this.dataScopeService.getScope(req.user)
-    const allowedStoreIds = await this.dataScopeService.resolveAllowedStoreIds(scope)
-    if (scope.level === 'all') {
-      // 管理员/信息岗：返回全部门店
-      const allStores = await this.deptRepo.find({ where: { type: 'store' as any } })
-      const options = allStores.map((s) => ({ id: s.id, name: s.name }))
-      return { code: 200, msg: 'ok', data: options }
+    const roles: string[] = Array.isArray(req.user?.roles) ? req.user.roles : []
+    const isAdmin = roles.includes('R_ADMIN') || roles.includes('R_SUPER') || roles.includes('R_INFO')
+    if (!this.dataScopeService) {
+      if (isAdmin) {
+        const allStores = await this.deptRepo.find({ where: { type: 'store' as any } })
+        const options = allStores.map((s) => ({ id: s.id, name: s.name }))
+        return { code: 200, msg: 'ok', data: options }
+      }
+      return { code: 200, msg: 'ok', data: [] }
     }
-    if (!allowedStoreIds.length) return { code: 200, msg: 'ok', data: [] }
-    const stores = await this.deptRepo.find({ where: { id: In(allowedStoreIds) } })
-    const options = stores.map((s) => ({ id: s.id, name: s.name }))
-    return { code: 200, msg: 'ok', data: options }
+
+    try {
+      const scope = await this.dataScopeService.getScope(req.user)
+      const allowedStoreIds = await this.dataScopeService.resolveAllowedStoreIds(scope)
+      if (scope.level === 'all') {
+        const allStores = await this.deptRepo.find({ where: { type: 'store' as any } })
+        const options = allStores.map((s) => ({ id: s.id, name: s.name }))
+        return { code: 200, msg: 'ok', data: options }
+      }
+      if (!allowedStoreIds.length) return { code: 200, msg: 'ok', data: [] }
+      const stores = await this.deptRepo.find({ where: { id: In(allowedStoreIds) } })
+      const options = stores.map((s) => ({ id: s.id, name: s.name }))
+      return { code: 200, msg: 'ok', data: options }
+    } catch (err) {
+      if (isAdmin) {
+        const allStores = await this.deptRepo.find({ where: { type: 'store' as any } })
+        const options = allStores.map((s) => ({ id: s.id, name: s.name }))
+        return { code: 200, msg: 'ok', data: options }
+      }
+      return { code: 200, msg: 'ok', data: [] }
+    }
   }
 
   /** 编辑保存客户（仅支持更新已有记录） */
@@ -184,5 +203,43 @@ export class CustomerController {
 
     await this.repo.delete(id)
     return { code: 200, msg: '删除成功', data: true }
+  }
+
+  @UseGuards(JwtGuard)
+  @Get('new-week-count')
+  async newWeekCount(@Req() req: any, @Query() query: any) {
+    const scope = await this.dataScopeService.getScope(req.user)
+    const allowedStoreIds = await this.dataScopeService.resolveAllowedStoreIds(scope)
+    const storeId = query.storeId ? Number(query.storeId) : undefined
+    const now = new Date()
+    const day = now.getDay()
+    const diffToMonday = (day + 6) % 7
+    const monday = new Date(now)
+    monday.setDate(now.getDate() - diffToMonday)
+    monday.setHours(0, 0, 0, 0)
+    const sunday = new Date(monday)
+    sunday.setDate(monday.getDate() + 6)
+    sunday.setHours(23, 59, 59, 999)
+    const prevMonday = new Date(monday)
+    prevMonday.setDate(monday.getDate() - 7)
+    const prevSunday = new Date(sunday)
+    prevSunday.setDate(sunday.getDate() - 7)
+    const fmtFull = (d: Date) => d.toISOString().slice(0, 19).replace('T', ' ')
+    const whereCur: any = { createdAt: Between(fmtFull(monday), fmtFull(sunday)) }
+    const wherePrev: any = { createdAt: Between(fmtFull(prevMonday), fmtFull(prevSunday)) }
+    if (storeId) {
+      if (scope.level !== 'all' && (!allowedStoreIds.length || !allowedStoreIds.includes(storeId))) {
+        return { code: 403, msg: '无权访问该门店', data: { count: 0, changePercent: 0 } }
+      }
+      whereCur.storeId = storeId
+      wherePrev.storeId = storeId
+    } else if (allowedStoreIds.length) {
+      whereCur.storeId = In(allowedStoreIds)
+      wherePrev.storeId = In(allowedStoreIds)
+    }
+    const cur = await this.repo.count({ where: whereCur })
+    const prev = await this.repo.count({ where: wherePrev })
+    const changePercent = prev === 0 ? (cur > 0 ? 100 : 0) : Math.round(((cur - prev) / prev) * 100)
+    return { code: 200, msg: 'ok', data: { count: cur, changePercent } }
   }
 }

@@ -23,14 +23,20 @@ const USER = OPTS.user || process.env.HXMS_USER || 'Admin'
 const PASS = OPTS.pass || process.env.HXMS_PASS || '123456'
 const VERBOSE = !!OPTS.verbose
 
-function vLog(...a) { if (VERBOSE) console.log(...a) }
+function vLog(...a) {
+  if (VERBOSE) console.log(...a)
+}
 
 async function fetchJson(url, opts = {}) {
   const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) }
   const body = opts.body ? JSON.stringify(opts.body) : undefined
   const res = await fetch(url, { ...opts, headers, body })
   let json
-  try { json = await res.json() } catch { json = { code: res.status, msg: 'non-json' } }
+  try {
+    json = await res.json()
+  } catch {
+    json = { code: res.status, msg: 'non-json' }
+  }
   return { status: res.status, json }
 }
 
@@ -44,7 +50,9 @@ async function login(userName, password) {
   return json
 }
 
-function bearer(token) { return token ? { Authorization: `Bearer ${token}` } : {} }
+function bearer(token) {
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
 
 ;(async () => {
   try {
@@ -63,7 +71,9 @@ function bearer(token) { return token ? { Authorization: `Bearer ${token}` } : {
     const roles = Array.isArray(info.roles) ? info.roles : []
     const employeeId = info.employeeId
     const departmentId = info.departmentId
-    console.log(`[OppCheck] roles=${JSON.stringify(roles)} employeeId=${employeeId} departmentId=${departmentId}`)
+    console.log(
+      `[OppCheck] roles=${JSON.stringify(roles)} employeeId=${employeeId} departmentId=${departmentId}`
+    )
 
     const listUrl = new URL(`${BASE}/opportunity/list`)
     listUrl.searchParams.set('current', '1')
@@ -88,7 +98,10 @@ function bearer(token) { return token ? { Authorization: `Bearer ${token}` } : {
     }
 
     if (violations.length > 0) {
-      console.error('[OppCheck] 检测到违规记录示例：', JSON.stringify(violations.slice(0, 3), null, 2))
+      console.error(
+        '[OppCheck] 检测到违规记录示例：',
+        JSON.stringify(violations.slice(0, 3), null, 2)
+      )
       process.exit(3)
     }
     console.log('[OppCheck] 校验通过。')

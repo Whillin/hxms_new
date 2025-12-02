@@ -169,9 +169,8 @@
         </el-select>
 
         <el-select
-          v-if="false"
           v-model="channelType"
-          placeholder="渠道类型"
+          placeholder="渠道一级"
           size="small"
           style="width: 160px; margin-left: 8px"
         >
@@ -179,7 +178,6 @@
         </el-select>
 
         <el-select
-          v-if="false"
           v-model="channelLevel2"
           placeholder="渠道二级"
           size="small"
@@ -216,7 +214,7 @@
 
     <div class="charts-row" v-if="!overlayMode">
       <el-card class="art-custom-card funnel-card">
-        <div class="card-title">销售漏斗</div>
+        <div class="card-title">线上销售漏斗</div>
         <el-table :data="tableRows" border style="width: 100%">
           <el-table-column prop="stage" label="环节" min-width="360">
             <template #header>
@@ -323,7 +321,7 @@
 
     <div v-else>
       <el-card class="art-custom-card">
-        <div class="card-title">销售漏斗（叠加）</div>
+        <div class="card-title">线上销售漏斗（叠加）</div>
         <div class="legend">
           <span class="legend-item"><i class="legend-dot dot-a"></i>{{ legendA }}</span>
           <span v-if="hasCompareSelection" class="legend-item">
@@ -377,7 +375,7 @@
 </template>
 
 <script setup lang="ts">
-  defineOptions({ name: 'BISalesProcess' })
+  defineOptions({ name: 'BIOnlineSalesProcess' })
 
   import request from '@/utils/http'
   import { fetchGetCustomerStoreOptions } from '@/api/customer'
@@ -388,17 +386,6 @@
   import { useUserStore } from '@/store/modules/user'
 
   import { InfoFilled } from '@element-plus/icons-vue'
-
-  const STAGES: string[] = [
-    '全部商机数量',
-    '首次到店',
-    '首次试驾',
-    '首次成交',
-    '再次到店/接触（上门）',
-    '再次试驾',
-    '再次成交',
-    '综合成交'
-  ]
 
   const periodType = ref<'day' | 'week' | 'month' | 'year'>('month')
   const dateDay = ref<string | [string, string]>('')
@@ -428,19 +415,6 @@
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
     }
     return ''
-  }
-
-  const getPrevMonthStr = (v: any): string => {
-    let d: Date
-    const cur = getMonthStr(v)
-    if (cur) {
-      const [yy, mm] = cur.split('-')
-      d = new Date(Number(yy), Number(mm) - 1, 1)
-    } else {
-      d = new Date()
-    }
-    d.setMonth(d.getMonth() - 1)
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
   }
 
   const storeId = ref<number | ''>('')
@@ -583,107 +557,425 @@
             storeName: n.type === 'store' ? nodeName : context.storeName,
             pathNames: [...context.pathNames, nodeName]
           }
-          if (n.type === 'team') {
-            const idNum = Number(n.id)
-            if (Number.isFinite(idNum))
-              opts.push({
-                label: `${nextContext.storeName || ''} ${String(n.name || idNum)}`.trim(),
-                value: idNum
-              })
+          const isTeam = String(n.type || '') === 'team'
+          if (isTeam) {
+            const label = `${nextContext.storeName || ''} - ${nodeName}`
+            opts.push({ label, value: Number(n.id) })
           }
-          if (n.type === 'store') {
-            const idNum = Number(n.id)
-            if (Number.isFinite(idNum)) {
-              let brandFromPath = ''
-              for (const nm of nextContext.pathNames) {
-                const v = detectBrandFromText(nm)
-                if (v) {
-                  brandFromPath = v
-                  break
-                }
+          const isStore = String(n.type || '') === 'store'
+          if (isStore) {
+            let brandFromPath = ''
+            for (const p of nextContext.pathNames) {
+              const v = detectBrandFromText(String(p || ''))
+              if (v) {
+                brandFromPath = v
+                break
               }
-              if (brandFromPath) storeBrandById.value[idNum] = brandFromPath
+            }
+            if (brandFromPath) {
+              const idNum = Number(n.id)
+              if (Number.isFinite(idNum)) {
+                storeBrandById.value[idNum] = normalizeBrand(brandFromPath)
+              }
             }
           }
-          if (Array.isArray(n.children)) walk(n.children, nextContext)
+          const children = (n.children || []) as any[]
+          if (children.length) walk(children, nextContext)
         }
       }
       walk(tree)
       teamOptions.value = opts
-    } catch {
-      teamOptions.value = []
+    } catch (e) {
+      void e
     }
   }
 
-  const loadModelsAndOem = async () => {
+  const loadModels = async () => {
     try {
-      const res = await fetchGetProductList({ current: 1, size: 200 })
-      const records = (res as any)?.records || []
-      const modelOpts: Array<{ label: string; value: number | ''; brand?: string }> = [
+      const brand = currentBrand.value
+      let list: any[] = []
+      if (brand) {
+        const catsRes: any = await request.get({ url: '/api/category/all' })
+        const cats: any[] = Array.isArray(catsRes?.data) ? catsRes.data : []
+        const target = cats.find((c: any) => String(c.level || 0) === '0' && normalizeBrand(String(c.name || '')) === brand)
+        if (target) {
+          const prods: any = await request.get({ url: `/api/category/${Number(target.id)}/products`, params: { includeChildren: 'true' } })
+          const arr = Array.isArray(prods?.data) ? prods.data : []
+          if (arr.length) list = arr
+        }
+      }
+      if (!list.length) {
+        const res: any = await fetchGetProductList({ current: 1, size: 200 })
+        list = res?.records || res?.list || []
+      }
+      const opts: Array<{ label: string; value: number | ''; brand?: string }> = [
         { label: '全部车型', value: '' }
       ]
-      const brandSet = new Set<string>()
-      records.forEach((p: any) => {
-        const idNum = Number(p.id)
-        const label = String(p.name || idNum)
-        const brandVal = normalizeBrand(String(p.brand || ''))
-        if (Number.isFinite(idNum)) modelOpts.push({ label, value: idNum, brand: brandVal })
-        if (p.brand) brandSet.add(String(p.brand))
+      list.forEach((m: any) => {
+        const idNum = Number(m.id)
+        const label = String(m.name || m.modelName || idNum)
+        const brandRaw = String(m.brand || (m as any).series || '')
+        const brand = normalizeBrand(brandRaw)
+        if (Number.isFinite(idNum)) opts.push({ label, value: idNum, brand })
       })
-      modelsAll.value = modelOpts
-      models.value = modelsView.value
-      const oemOpts: Array<{ label: string; value: string }> = [{ label: '全部OEM', value: '' }]
-      Array.from(brandSet).forEach((b) => oemOpts.push({ label: b, value: b }))
-      oems.value = oemOpts
+      modelsAll.value = opts
+      models.value = opts.map((m) => ({ label: m.label, value: m.value }))
     } catch (e) {
       void e
     }
   }
 
-  const loadChannels = async () => {
+  watch(
+    () => storeId.value,
+    () => {
+      void loadModels()
+    }
+  )
+
+  const disableFutureDate = (date: Date) => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    return date > today
+  }
+
+  const loadChannelOptions = async () => {
     try {
-      const res = await fetchChannelOptions()
-      const level1 = (res as any)?.level1 || []
-      level2Map.value = (res as any)?.level2Map || {}
-      channelMetaByLevel1.value = (res as any)?.metaByLevel1 || {}
-      const opts: Array<{ label: string; value: string }> = [{ label: '全部渠道', value: '' }]
-      level1.forEach((l: any) => opts.push({ label: String(l), value: String(l) }))
-      channels.value = opts
+      const resp = await fetchChannelOptions()
+      const meta: Record<string, { category: string; businessSource: string }> =
+        (resp as any)?.metaByLevel1 || {}
+      const l1all: string[] = (resp as any)?.level1 || []
+      let l1online = l1all.filter((l1) => String(meta?.[l1]?.category || '') === '线上')
+      // 兜底：若综合字典未返回线上项，则回退到线上渠道字典
+      if (!l1online.length) {
+        const online = await (await import('@/api/channel')).fetchOnlineChannelOptions()
+        const l1list: string[] = online?.level1 || []
+        const arr: Array<{ label: string; value: string }> = [{ label: '全部渠道', value: '' }]
+        l1list.forEach((l1) => arr.push({ label: l1, value: l1 }))
+        channels.value = arr
+        const l2mapRaw = online?.level2Map || {}
+        level2Map.value = (l1list || []).reduce((acc: any, k: string) => {
+          const list = Array.isArray(l2mapRaw[k]) ? l2mapRaw[k] : []
+          const opts: Array<{ label: string; value: string }> = [{ label: '全部二级', value: '' }]
+          list.forEach((v: any) =>
+            opts.push({ label: String(v.label || v), value: String(v.value || v) })
+          )
+          acc[k] = opts
+          return acc
+        }, {})
+        return
+      }
+      const arr: Array<{ label: string; value: string }> = [{ label: '全部渠道', value: '' }]
+      l1online.forEach((l1) => arr.push({ label: l1, value: l1 }))
+      channels.value = arr
+      channelMetaByLevel1.value = meta
+      const l2mapRaw = (resp as any)?.level2Map || {}
+      level2Map.value = l1online.reduce((acc: any, k: string) => {
+        const list = Array.isArray(l2mapRaw[k]) ? l2mapRaw[k] : []
+        const opts: Array<{ label: string; value: string }> = [{ label: '全部二级', value: '' }]
+        list.forEach((v: any) =>
+          opts.push({ label: String(v.label || v), value: String(v.value || v) })
+        )
+        acc[k] = opts
+        return acc
+      }, {})
     } catch (e) {
       void e
     }
   }
 
-  watch(storeId, () => {
-    loadConsultants()
-    const ids = modelsView.value.map((m) => m.value)
-    if (!ids.includes(modelId.value)) modelId.value = ''
-    if (!ids.includes(compareModelId.value)) compareModelId.value = ''
-    models.value = modelsView.value
-  })
+  const stageInfoMap: Record<string, string> = {
+    全部商机数量: '包含指定维度下所有商机（下钻：顾问/门店/车型）',
+    首次到店: '首次到店是指该客户首次到达该门店的行为（下钻：顾问/门店）',
+    首次试驾: '首次试驾是在到店后进行的第一次试驾活动（下钻：顾问/门店/车型）',
+    首次成交: '首次成交指首次下订或签订合同（下钻：顾问/门店/车型）',
+    '再次到店/接触（上门）': '再次到店（或上门）表示后续跟进中的再次到店或接触行为',
+    再次试驾: '再次试驾发生在再次到店后，是进一步促成成交的重要环节（下钻：顾问/门店/车型）',
+    再次成交: '再次成交指非首次的成交行为（复购/转化）（下钻：顾问/门店/车型）',
+    综合试驾: '综合试驾指首次试驾与再次试驾的总和（下钻：顾问/门店/车型）',
+    综合成交: '综合成交指所有成交行为的集合（下钻：顾问/门店/车型）',
+    线索转化率: '线索转化率 = 综合成交 / 全部线索数量'
+  }
 
-  watch(compareStoreId, () => {
-    loadFunnelRight()
-  })
+  const tableRows = ref<
+    {
+      stage: string
+      percent: number
+      percentText: string
+      value: number
+      momText: string
+      momClass: string
+    }[]
+  >([])
+  const tableRowsRight = ref<
+    {
+      stage: string
+      percent: number
+      percentText: string
+      value: number
+      momText: string
+      momClass: string
+    }[]
+  >([])
+  const tableRowsCombined = ref<
+    {
+      stage: string
+      shareA: number
+      shareAText: string
+      shareB: number
+      shareBText: string
+      valueA: number
+      valueB: number
+    }[]
+  >([])
 
-  watch(channelType, (val) => {
-    const arr = level2Map.value[String(val)] || []
-    const opts: Array<{ label: string; value: string }> = [{ label: '全部二级', value: '' }]
-    arr.forEach((it) =>
-      opts.push({ label: String(it.label || it.value), value: String(it.value || it.label) })
-    )
-    channelLevel2Options.value = opts
-    channelLevel2.value = ''
-  })
+  const percentLabelStyle = (p: number) => {
+    void p
+    return { left: '50%', top: '50%', transform: 'translate(-50%, -50%)' }
+  }
 
-  const apply = () => {
-    loadFunnel()
-    if (enableCompare.value && hasCompareSelection.value) {
-      loadFunnelRight()
-    } else {
-      funnelItemsRight.value = []
+  const legendA = ref('当前选择')
+  const legendB = ref('对比选择')
+  const compareTitle = ref('对比选择')
+  const hasCompareSelection = ref(false)
+
+  const apply = async () => {
+    const mode = funnelType.value
+    const cmpModelId = Number(compareModelId.value || 0)
+    const cmpStoreId = Number(compareStoreId.value || 0)
+    const cmpTeamId = Number(compareTeamId.value || 0)
+    const cmpConsultantId = Number(compareConsultantId.value || 0)
+
+    const period = periodType.value
+    let dateStart = ''
+    let dateEnd = ''
+    let month = ''
+    let year = ''
+    if (period === 'day') {
+      const r = dateDay.value
+      if (Array.isArray(r) && r.length === 2) {
+        dateStart = String(r[0] || '')
+        dateEnd = String(r[1] || '')
+      }
+    } else if (period === 'week') {
+      dateStart = String(dateWeek.value || '')
+    } else if (period === 'month') {
+      month = getMonthStr(dateMonth.value)
+    } else if (period === 'year') {
+      year = String(dateYear.value || '')
+    }
+
+    const buildTitle = (
+      mode: 'store' | 'person' | 'model',
+      storeId: number,
+      teamId: number,
+      consultantId: number,
+      modelId: number
+    ): string => {
+      if (mode === 'store') {
+        const s = stores.value.find((x) => Number(x.value || 0) === Number(storeId))
+        return s?.label || '门店'
+      }
+      if (mode === 'person') {
+        const c = consultants.value.find((x) => Number(x.value || 0) === Number(consultantId))
+        if (c) return c.label
+        const t = teamOptions.value.find((x) => Number(x.value || 0) === Number(teamId))
+        if (t) return t.label
+        return '销售顾问'
+      }
+      if (mode === 'model') {
+        const m = models.value.find((x) => Number(x.value || 0) === Number(modelId))
+        return m?.label || '车型'
+      }
+      return '选择'
+    }
+
+  const buildParams = (
+    storeId: number,
+    teamId: number,
+    consultantId: number,
+    modelId: number
+  ): Record<string, any> => {
+    const params: Record<string, any> = { period }
+    if (dateStart && dateEnd) {
+      params.start = dateStart
+      params.end = dateEnd
+    }
+    if (month) params.month = month
+    if (year) params.year = year
+    if (storeId) params.storeId = storeId
+    if (teamId) params.teamId = teamId
+    if (consultantId) params.consultantId = consultantId
+    if (modelId) params.modelId = modelId
+    if (channelType.value) params.channelLevel1 = channelType.value
+    if (channelLevel2.value) params.channelLevel2 = channelLevel2.value
+    return params
+  }
+
+    const sid = Number(storeId.value || 0)
+    const tid = Number(teamId.value || 0)
+    const cid = Number(consultantId.value || 0)
+    const mid = Number(modelId.value || 0)
+
+    const paramsA = buildParams(sid, tid, cid, mid)
+    const paramsB = buildParams(cmpStoreId, cmpTeamId, cmpConsultantId, cmpModelId)
+    legendA.value = buildTitle(mode, sid, tid, cid, mid)
+    legendB.value = buildTitle(mode, cmpStoreId, cmpTeamId, cmpConsultantId, cmpModelId)
+    compareTitle.value = legendB.value
+
+    try {
+      const endpointMain = '/api/bi/sales-funnel'
+      const endpointOpen = '/api/bi/sales-funnel/open'
+      let respA: { items: { stage: string; percent: number; value: number; mom: number; percentRaw?: number }[] }
+      try {
+        respA = await request.get({ url: endpointMain, params: paramsA })
+      } catch {
+        respA = await request.get({ url: endpointOpen, params: paramsA })
+      }
+      
+      const buildRows = (
+        arr: { stage: string; percent: number; value: number; mom: number; percentRaw?: number }[]
+      ) => {
+        const valueMap: Record<string, number> = {}
+        arr.forEach((it) => {
+          const k = normalizeStageLabel(it.stage)
+          valueMap[k] = Math.max(0, Number(it.value || 0))
+        })
+
+        const baseStageMap: Record<string, string | undefined> = {
+          全部线索数量: undefined,
+          全部商机数量: '全部线索数量',
+          首次到店: '全部商机数量',
+          首次试驾: '首次到店',
+          首次成交: '首次到店',
+          '再次到店/接触（上门）': '全部商机数量',
+          再次试驾: '再次到店/接触（上门）',
+          再次成交: '再次到店/接触（上门）',
+          综合试驾: '全部商机数量',
+          综合成交: '全部商机数量',
+          线索转化率: '全部线索数量'
+        }
+
+        const rows = [] as any[]
+        arr.forEach((it) => {
+          const stage = normalizeStageLabel(it.stage)
+          const v0 = Math.max(0, Number(it.value || 0))
+          const baseStage = baseStageMap[stage]
+          const baseVal = baseStage ? Math.max(0, Number(valueMap[baseStage] || 0)) : v0
+          const v = baseStage ? Math.min(v0, baseVal) : v0
+          const raw0 = typeof it.percentRaw === 'number' ? Number(it.percentRaw) : baseVal > 0 ? (v / baseVal) * 100 : v > 0 ? 100 : 0
+          const percent = Math.max(0, Math.min(100, Math.round(raw0)))
+          const percentText = String(percent)
+          const mom = Number(it.mom || 0)
+          const momText = mom > 0 ? `↑ ${mom}%` : mom < 0 ? `↓ ${Math.abs(mom)}%` : `${mom}%`
+          const momClass = mom > 0 ? 'inc' : mom < 0 ? 'dec' : 'flat'
+          rows.push({ stage, percent, percentText, value: v, momText, momClass })
+        })
+        return rows
+      }
+      tableRows.value = buildRows(respA.items || [])
+      // 兜底：若后端暂未返回新增行，前端强制补齐（值可为0，比例按口径计算）
+      const ensureExtraRows = (rows: any[]) => {
+        const exists = (name: string) => rows.some((r) => r.stage === name)
+        const valueMap: Record<string, number> = {}
+        rows.forEach((r) => (valueMap[r.stage] = Math.max(0, Number(r.value || 0))))
+        // 基准映射
+        const baseStageMap: Record<string, string | undefined> = {
+          全部线索数量: undefined,
+          全部商机数量: '全部线索数量',
+          首次到店: '全部商机数量',
+          首次试驾: '首次到店',
+          首次成交: '首次到店',
+          '再次到店/接触（上门）': '全部商机数量',
+          再次试驾: '再次到店/接触（上门）',
+          再次成交: '再次到店/接触（上门）',
+          综合试驾: '全部商机数量',
+          综合成交: '全部商机数量',
+          线索转化率: '全部线索数量'
+        }
+        const addRow = (stage: string, v: number) => {
+          const baseStage = baseStageMap[stage]
+          const baseVal = baseStage ? Math.max(0, Number(valueMap[baseStage] || 0)) : v
+          const vClamped = baseStage ? Math.min(v, baseVal) : v
+          const raw = baseVal > 0 ? (vClamped / baseVal) * 100 : vClamped > 0 ? 100 : 0
+          const percent = Math.max(0, Math.min(100, Math.round(raw)))
+          const percentText = String(percent)
+          rows.push({ stage, percent, percentText, value: vClamped, momText: '0%', momClass: 'flat' })
+        }
+        if (!exists('综合试驾')) {
+          addRow('综合试驾', (valueMap['首次试驾'] || 0) + (valueMap['再次试驾'] || 0))
+        }
+        if (!exists('线索转化率')) {
+          addRow('线索转化率', valueMap['综合成交'] || 0)
+        }
+        return rows
+      }
+      tableRows.value = ensureExtraRows(tableRows.value)
+      const STAGE_ORDER = [
+        '全部线索数量',
+        '全部商机数量',
+        '首次到店',
+        '首次试驾',
+        '首次成交',
+        '再次到店/接触（上门）',
+        '再次试驾',
+        '再次成交',
+        '综合试驾',
+        '综合成交',
+        '线索转化率'
+      ]
+      const sortRows = (rows: any[]) => {
+        const idx = (name: string) => {
+          const i = STAGE_ORDER.indexOf(name)
+          return i >= 0 ? i : 999
+        }
+        rows.sort((a, b) => idx(a.stage) - idx(b.stage))
+        return rows
+      }
+      tableRows.value = sortRows(tableRows.value)
+
+      if (enableCompare.value && (cmpModelId || cmpStoreId || cmpTeamId || cmpConsultantId)) {
+        const endpointBMain = '/api/bi/sales-funnel'
+        const endpointBOpen = '/api/bi/sales-funnel/open'
+        let respB: { items: { stage: string; percent: number; value: number; mom: number; percentRaw?: number }[] }
+        try {
+          respB = await request.get({ url: endpointBMain, params: paramsB })
+        } catch {
+          respB = await request.get({ url: endpointBOpen, params: paramsB })
+        }
+        tableRowsRight.value = buildRows(respB.items || [])
+        tableRowsRight.value = ensureExtraRows(tableRowsRight.value)
+        tableRowsRight.value = sortRows(tableRowsRight.value)
+        hasCompareSelection.value = (tableRowsRight.value || []).length > 0
+        const combined = [] as any[]
+        tableRows.value.forEach((left) => {
+          const right = tableRowsRight.value.find((x) => x.stage === left.stage)
+          const a = Math.max(0, Math.min(100, Number(left.percent || 0)))
+          const b = Math.max(0, Math.min(100, Number(right?.percent || 0)))
+          const aText = String(a)
+          const bText = String(b)
+          const valA = Math.max(0, Number(left.value || 0))
+          const valB = Math.max(0, Number(right?.value || 0))
+          combined.push({
+            stage: left.stage,
+            shareA: a,
+            shareAText: aText,
+            shareB: b,
+            shareBText: bText,
+            valueA: valA,
+            valueB: valB
+          })
+        })
+        tableRowsCombined.value = combined
+      } else {
+        hasCompareSelection.value = false
+        tableRowsRight.value = []
+        tableRowsCombined.value = []
+      }
+    } catch (e) {
+      void e
     }
   }
+
   const reset = () => {
     periodType.value = 'month'
     dateDay.value = ''
@@ -691,440 +983,76 @@
     dateMonth.value = ''
     dateYear.value = ''
     storeId.value = ''
-    compareStoreId.value = ''
-    modelId.value = ''
+    teamId.value = ''
     consultantId.value = ''
-    oem.value = ''
-    channelType.value = ''
-
-    funnelItems.value = []
-    funnelItemsRight.value = []
-    renderFunnel()
-  }
-
-  onMounted(async () => {
-    await Promise.all([
-      loadStores(),
-      loadConsultants(),
-      loadModelsAndOem(),
-      loadChannels(),
-      loadTeams()
-    ])
-    apply()
-  })
-
-  const funnelItems = ref<Array<{ stage: string; value: number }>>([])
-  const funnelItemsRight = ref<Array<{ stage: string; value: number }>>([])
-  const prevMap = ref<Record<string, number>>({})
-  const teamId = ref<number | ''>('')
-  const disableFutureDate = (date: Date) => {
-    return date.getTime() > Date.now()
-  }
-
-  const hasCompareSelection = computed(() => {
-    if (funnelType.value === 'store') return compareStoreId.value !== ''
-    if (funnelType.value === 'person')
-      return compareTeamId.value !== '' || compareConsultantId.value !== ''
-    if (funnelType.value === 'model') return compareModelId.value !== ''
-    return false
-  })
-
-  const legendA = computed(() => {
-    if (funnelType.value === 'store') return '当前门店'
-    if (funnelType.value === 'person') return '当前对象'
-    if (funnelType.value === 'model') return '当前车型'
-    return '当前'
-  })
-  const legendB = computed(() => {
-    if (funnelType.value === 'store') return '对比门店'
-    if (funnelType.value === 'person') return '对比对象'
-    if (funnelType.value === 'model') return '对比车型'
-    return '对比'
-  })
-
-  const compareTitle = computed(() => {
-    if (funnelType.value === 'store') return '对比门店漏斗'
-    if (funnelType.value === 'person') return '对比对象漏斗'
-    if (funnelType.value === 'model') return '对比车型漏斗'
-    return '对比漏斗'
-  })
-
-  const tableRowsCombined = computed(() => {
-    const valueMapA: Record<string, number> = {}
-    funnelItems.value.forEach((it) => (valueMapA[String(it.stage)] = Number(it.value) || 0))
-    const valueMapB: Record<string, number> = {}
-    funnelItemsRight.value.forEach((it) => (valueMapB[String(it.stage)] = Number(it.value) || 0))
-
-    const baseStageMap: Record<string, string | undefined> = {
-      全部商机数量: undefined,
-      首次到店: '全部商机数量',
-      首次试驾: '首次到店',
-      首次成交: '首次到店',
-      '再次到店/接触（上门）': '全部商机数量',
-      再次试驾: '再次到店/接触（上门）',
-      再次成交: '再次到店/接触（上门）',
-      综合成交: '全部商机数量'
-    }
-
-    return STAGES.map((stage) => {
-      const vA = valueMapA[stage] || 0
-      const vB = valueMapB[stage] || 0
-      const baseStage = baseStageMap[stage]
-      const baseAVal = baseStage ? valueMapA[baseStage] || 0 : vA || 0
-      const baseBVal = baseStage ? valueMapB[baseStage] || 0 : vB || 0
-      const baseA = Math.max(baseAVal, 1)
-      const baseB = Math.max(baseBVal, 1)
-      const pARaw = (vA / baseA) * 100
-      const pBRaw = (vB / baseB) * 100
-      const percentA = Math.min(100, Math.round(pARaw))
-      const percentB = Math.min(100, Math.round(pBRaw))
-      const percentAText = Math.min(100, Math.round(pARaw * 10) / 10).toFixed(1)
-      const percentBText = Math.min(100, Math.round(pBRaw * 10) / 10).toFixed(1)
-      const total = vA + vB
-      const shareA = total > 0 ? Math.round((vA / total) * 100) : 0
-      const shareB = total > 0 ? 100 - shareA : 0
-      const shareAText = total > 0 ? (Math.round((vA / total) * 1000) / 10).toFixed(1) : '0.0'
-      const shareBText = total > 0 ? (Math.round((vB / total) * 1000) / 10).toFixed(1) : '0.0'
-      return {
-        stage,
-        valueA: vA,
-        valueB: vB,
-        percentA,
-        percentB,
-        percentAText,
-        percentBText,
-        shareA,
-        shareB,
-        shareAText,
-        shareBText
-      }
-    })
-  })
-
-  const loadFunnel = async () => {
-    const params: Record<string, any> = {}
-    if (storeId.value !== '') params.storeId = storeId.value
-    if (funnelType.value === 'model' && modelId.value !== '') params.modelId = modelId.value
-    if (funnelType.value === 'person' && teamId.value !== '') params.departmentId = teamId.value
-    if (funnelType.value === 'person' && consultantId.value !== '')
-      params.consultantId = consultantId.value
-    if (channelType.value) params.channelLevel1 = channelType.value
-    if (channelLevel2.value) params.channelLevel2 = channelLevel2.value
-
-    params.period = periodType.value
-    if (periodType.value === 'day' && dateDay.value) {
-      if (Array.isArray(dateDay.value)) {
-        params.start = dateDay.value[0]
-        params.end = dateDay.value[1]
-      } else {
-        params.start = dateDay.value
-        params.end = dateDay.value
-      }
-    }
-    if (periodType.value === 'week' && dateWeek.value) params.week = dateWeek.value
-    if (periodType.value === 'month') {
-      const m = getMonthStr(dateMonth.value)
-      if (m) params.month = m
-    }
-    if (periodType.value === 'year' && dateYear.value) params.year = dateYear.value
-
-    let res: { items: { stage: string; value: number }[] }
-    try {
-      res = await request.get<{ items: { stage: string; value: number }[] }>({
-        url: '/api/bi/sales-funnel',
-        params
-      })
-    } catch {
-      res = await request.get<{ items: { stage: string; value: number }[] }>({
-        url: '/api/bi/sales-funnel/open',
-        params
-      })
-    }
-    const itemsA = Array.isArray(res?.items) ? res.items : []
-    funnelItems.value = itemsA.map((it) => ({
-      stage: normalizeStageLabel(it.stage),
-      value: Number(it.value) || 0
-    }))
-    await loadPrevFunnel(params)
-    renderFunnel()
-  }
-
-  const loadFunnelRight = async () => {
-    const params: Record<string, any> = {}
-    if (funnelType.value === 'store' && compareStoreId.value !== '')
-      params.storeId = compareStoreId.value
-    if (funnelType.value === 'person' && compareTeamId.value !== '')
-      params.departmentId = compareTeamId.value
-    if (funnelType.value === 'person' && compareConsultantId.value !== '')
-      params.consultantId = compareConsultantId.value
-    if (funnelType.value === 'model' && compareModelId.value !== '')
-      params.modelId = compareModelId.value
-    if (modelId.value !== '') params.modelId = modelId.value
-    if (consultantId.value !== '' && funnelType.value === 'person')
-      params.consultantId = consultantId.value
-    if (oem.value) void oem.value
-    if (channelType.value) params.channelLevel1 = channelType.value
-    if (channelLevel2.value) params.channelLevel2 = channelLevel2.value
-
-    params.period = periodType.value
-    if (periodType.value === 'day' && dateDay.value) {
-      if (Array.isArray(dateDay.value)) {
-        params.start = dateDay.value[0]
-        params.end = dateDay.value[1]
-      } else {
-        params.start = dateDay.value
-        params.end = dateDay.value
-      }
-    }
-    if (periodType.value === 'week' && dateWeek.value) params.week = dateWeek.value
-    if (periodType.value === 'month') {
-      const m = getMonthStr(dateMonth.value)
-      if (m) params.month = m
-    }
-    if (periodType.value === 'year' && dateYear.value) params.year = dateYear.value
-
-    let res: { items: { stage: string; value: number }[] }
-    try {
-      res = await request.get<{ items: { stage: string; value: number }[] }>({
-        url: '/api/bi/sales-funnel',
-        params
-      })
-    } catch {
-      res = await request.get<{ items: { stage: string; value: number }[] }>({
-        url: '/api/bi/sales-funnel/open',
-        params
-      })
-    }
-    const itemsB = Array.isArray(res?.items) ? res.items : []
-    funnelItemsRight.value = itemsB.map((it) => ({
-      stage: normalizeStageLabel(it.stage),
-      value: Number(it.value) || 0
-    }))
-    await loadPrevFunnelRight(params)
-  }
-
-  const loadPrevFunnel = async (baseParams: Record<string, any>) => {
-    const params2: Record<string, any> = { ...baseParams }
-    if (periodType.value === 'month') {
-      const prev = getPrevMonthStr(dateMonth.value)
-      params2.month = prev
-      delete params2.start
-      delete params2.end
-      let res2: { items: { stage: string; value: number }[] }
-      try {
-        res2 = await request.get<{ items: { stage: string; value: number }[] }>({
-          url: '/api/bi/sales-funnel',
-          params: params2
-        })
-      } catch {
-        res2 = await request.get<{ items: { stage: string; value: number }[] }>({
-          url: '/api/bi/sales-funnel/open',
-          params: params2
-        })
-      }
-      const itemsPrev = Array.isArray(res2?.items) ? res2.items : []
-      const map: Record<string, number> = {}
-      itemsPrev.forEach((it) => (map[normalizeStageLabel(it.stage)] = Number(it.value) || 0))
-      prevMap.value = map
-    } else {
-      prevMap.value = {}
-    }
-  }
-
-  const prevMapRight = ref<Record<string, number>>({})
-  const loadPrevFunnelRight = async (baseParams: Record<string, any>) => {
-    const params2: Record<string, any> = { ...baseParams }
-    if (periodType.value === 'month') {
-      const prev = getPrevMonthStr(dateMonth.value)
-      params2.month = prev
-      delete params2.start
-      delete params2.end
-      let res2: { items: { stage: string; value: number }[] }
-      try {
-        res2 = await request.get<{ items: { stage: string; value: number }[] }>({
-          url: '/api/bi/sales-funnel',
-          params: params2
-        })
-      } catch {
-        res2 = await request.get<{ items: { stage: string; value: number }[] }>({
-          url: '/api/bi/sales-funnel/open',
-          params: params2
-        })
-      }
-      const itemsPrev = Array.isArray(res2?.items) ? res2.items : []
-      const map: Record<string, number> = {}
-      itemsPrev.forEach((it) => (map[normalizeStageLabel(it.stage)] = Number(it.value) || 0))
-      prevMapRight.value = map
-    } else {
-      prevMapRight.value = {}
-    }
-  }
-
-  const tableRows = computed(() => {
-    const valueMap: Record<string, number> = {}
-    funnelItems.value.forEach((it) => {
-      valueMap[String(it.stage)] = Number(it.value) || 0
-    })
-    void 0
-
-    const baseStageMap: Record<string, string | undefined> = {
-      全部商机数量: undefined,
-      首次到店: '全部商机数量',
-      首次试驾: '首次到店',
-      首次成交: '首次到店',
-      '再次到店/接触（上门）': '全部商机数量',
-      再次试驾: '再次到店/接触（上门）',
-      再次成交: '再次到店/接触（上门）',
-      综合成交: '全部商机数量'
-    }
-
-    return STAGES.map((stage) => {
-      const v = Number(valueMap[stage] || 0)
-      const baseStage = baseStageMap[stage]
-      const baseVal = baseStage ? valueMap[baseStage] || 0 : v || 0
-      const base = Math.max(baseVal, 1)
-      const pRaw = (v / base) * 100
-      const p = Math.min(100, Math.round(pRaw))
-      const percentText = Math.min(100, Math.round(pRaw * 10) / 10).toFixed(1)
-      const prev = prevMap.value[stage]
-      const mom = typeof prev === 'number' && prev > 0 ? (v - prev) / prev : null
-      const momText = mom === null ? '--' : `${(mom * 100).toFixed(1)}%`
-      const momClass = mom === null ? '' : mom >= 0 ? 'mom-up' : 'mom-down'
-      return { stage, value: v, percent: p, percentText, momText, momClass }
-    })
-  })
-
-  const tableRowsRight = computed(() => {
-    const valueMap: Record<string, number> = {}
-    funnelItemsRight.value.forEach((it) => {
-      valueMap[String(it.stage)] = Number(it.value) || 0
-    })
-    void 0
-
-    const baseStageMap: Record<string, string | undefined> = {
-      全部商机数量: undefined,
-      首次到店: '全部商机数量',
-      首次试驾: '首次到店',
-      首次成交: '首次到店',
-      '再次到店/接触（上门）': '全部商机数量',
-      再次试驾: '再次到店/接触（上门）',
-      再次成交: '再次到店/接触（上门）',
-      综合成交: '全部商机数量'
-    }
-
-    return STAGES.map((stage) => {
-      const v = Number(valueMap[stage] || 0)
-      const baseStage = baseStageMap[stage]
-      const baseVal = baseStage ? valueMap[baseStage] || 0 : v || 0
-      const base = Math.max(baseVal, 1)
-      const pRaw = (v / base) * 100
-      const p = Math.min(100, Math.round(pRaw))
-      const percentText = Math.min(100, Math.round(pRaw * 10) / 10).toFixed(1)
-      const prev = prevMapRight.value[stage]
-      const mom = typeof prev === 'number' && prev > 0 ? (v - prev) / prev : null
-      const momText = mom === null ? '--' : `${(mom * 100).toFixed(1)}%`
-      const momClass = mom === null ? '' : mom >= 0 ? 'mom-up' : 'mom-down'
-      return { stage, value: v, percent: p, percentText, momText, momClass }
-    })
-  })
-
-  const percentLabelStyle = (p: number) => {
-    void p
-    return { left: '50%', top: '50%', transform: 'translate(-50%, -50%)' }
-  }
-
-  const stageInfoMap: Record<string, string> = {
-    全部商机数量: '总商机个数（按筛选条件统计）',
-    首次到店: '该商机的第一条到店记录',
-    首次试驾: '首次到店阶段的试驾记录',
-    首次成交: '成交发生在首次到店阶段',
-    '再次到店/接触（上门）': '同一商机的第二次及以后到店或上门接触',
-    再次试驾: '再次到店阶段的试驾记录',
-    再次成交: '成交发生在再次到店阶段',
-    综合成交: '成交商机个数（按商机去重计数）'
-  }
-
-  const renderFunnel = () => {}
-
-  watch(funnelType, () => {
+    modelId.value = ''
     compareStoreId.value = ''
     compareTeamId.value = ''
     compareConsultantId.value = ''
     compareModelId.value = ''
-    teamId.value = ''
-  })
+    enableCompare.value = false
+    overlayMode.value = false
+    channelLevel2.value = ''
+  }
 
-  watch(enableCompare, (val) => {
-    if (!val) {
-      overlayMode.value = false
-      compareStoreId.value = ''
-      compareTeamId.value = ''
-      compareConsultantId.value = ''
-      compareModelId.value = ''
-      funnelItemsRight.value = []
-    }
+  const teamId = ref<number | ''>('')
+
+  onMounted(async () => {
+    await loadStores()
+    await loadConsultants()
+    await loadTeams()
+    await loadModels()
+    await loadChannelOptions()
+    watch(
+      () => channelType.value,
+      (l1) => {
+        const opts = level2Map.value[String(l1 || '')] || [{ label: '全部二级', value: '' }]
+        channelLevel2Options.value = opts
+        channelLevel2.value = ''
+        void apply()
+      },
+      { immediate: true }
+    )
+    watch(
+      () => channelLevel2.value,
+      () => {
+        void apply()
+      }
+    )
+    await apply()
   })
 </script>
 
-<style lang="scss" scoped>
+<style scoped>
+  .bi-sales {
+    padding: 12px;
+  }
   .filters {
     display: flex;
-    flex-wrap: wrap;
+    align-items: center;
     gap: 8px;
-    align-items: center;
   }
-
-  .bi-sales {
-    padding-bottom: 8px;
-  }
-
-  .charts-row {
-    display: flex;
-    gap: 12px;
-  }
-
-  .funnel-card {
-    flex: 0 0 48%;
-    width: 48%;
-  }
-
-  .legend {
-    display: flex;
-    gap: 16px;
-    align-items: center;
-    padding: 0 12px 8px;
-    font-size: 12px;
-    color: var(--art-gray-text-700);
-  }
-
-  .legend-item {
-    display: inline-flex;
-    gap: 6px;
-    align-items: center;
-  }
-
-  .legend-dot {
-    display: inline-block;
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-  }
-
-  .legend-dot.dot-a {
-    background: #ff5b79;
-  }
-
-  .legend-dot.dot-b {
-    background: #b7bdc6;
-  }
-
   .card-title {
-    padding: 4px 12px 8px;
-    font-size: 14px;
     font-weight: 600;
-    color: var(--art-gray-text-900);
+    margin-bottom: 8px;
   }
-
+  .funnel-card {
+    margin-bottom: 12px;
+  }
+  .stage-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .stage-cell {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .info-icon {
+    color: #b3b3b3;
+    cursor: help;
+  }
   .progress {
     position: relative;
     width: 100%;
@@ -1133,7 +1061,9 @@
     background: #eceff3;
     border-radius: 999px;
   }
-
+  .progress.stacked {
+    margin-top: 4px;
+  }
   .bar {
     position: relative;
     z-index: 1;
@@ -1143,130 +1073,6 @@
     border-radius: 999px;
     transition: width 0.3s ease;
   }
-
-  .bar.bar-a {
-    background: #ff5b79;
-  }
-
-  .bar.bar-b {
-    background: #b7bdc6;
-  }
-
-  .progress.split .bar {
-    position: absolute;
-    top: 0;
-    left: 0;
-  }
-
-  .progress-list {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    padding: 8px 12px;
-  }
-
-  .progress-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 6px 12px 0;
-    font-size: 12px;
-    color: var(--art-gray-text-700);
-  }
-
-  .header-left {
-    display: flex;
-    flex: 1;
-    gap: 12px;
-    align-items: baseline;
-    min-width: 0;
-  }
-
-  .header-left .label {
-    flex-shrink: 0;
-    width: 160px;
-    font-weight: 600;
-    color: var(--art-gray-text-900);
-  }
-
-  .header-left .hint {
-    flex: 1;
-    min-width: 0;
-    overflow: hidden;
-    color: var(--art-gray-text-600);
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .header-right {
-    display: flex;
-    gap: 16px;
-    align-items: center;
-  }
-
-  .header-right .col-value {
-    width: 80px;
-    text-align: right;
-  }
-
-  .progress-item {
-    display: flex;
-    gap: 16px;
-    align-items: center;
-  }
-
-  .progress-value {
-    width: 80px;
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--art-gray-text-900);
-    text-align: right;
-  }
-
-  .progress-label {
-    display: flex;
-    gap: 6px;
-    align-items: center;
-    width: 160px;
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--art-gray-text-900);
-  }
-
-  .mom-up {
-    color: #27ae60;
-  }
-
-  .mom-down {
-    color: #ff3b30;
-  }
-
-  .stage-header {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-  }
-
-  .stage-header .note {
-    font-size: 12px;
-    color: var(--art-gray-text-700);
-  }
-
-  .stage-cell {
-    display: flex;
-    gap: 6px;
-    align-items: center;
-  }
-
-  .progress.stacked {
-    margin-top: 4px;
-  }
-
-  .info-icon {
-    color: #b3b3b3;
-    cursor: help;
-  }
-
   .bar-overlay-text {
     position: absolute;
     top: 50%;
@@ -1282,9 +1088,47 @@
     pointer-events: none;
     transform: translate(-50%, -50%);
   }
-
   .bar-overlay-text.light {
     color: #ff3b30;
     text-shadow: 0 0 1px rgb(0 0 0 / 15%);
+  }
+  .progress.split .bar {
+    position: absolute;
+    top: 0;
+    left: 0;
+  }
+  .bar.bar-a {
+    background: #ff5b79;
+  }
+  .bar.bar-b {
+    background: #b7bdc6;
+  }
+  .legend {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 8px;
+  }
+  .legend-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 4px;
+    vertical-align: middle;
+  }
+  .legend-dot.dot-a {
+    background: #ff5b79;
+  }
+  .legend-dot.dot-b {
+    background: #b7bdc6;
+  }
+  .inc {
+    color: var(--el-color-success);
+  }
+  .dec {
+    color: var(--el-color-danger);
+  }
+  .flat {
+    color: #999;
   }
 </style>

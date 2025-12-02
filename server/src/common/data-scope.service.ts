@@ -161,6 +161,12 @@ export class DataScopeService {
     return Array.from(set)
   }
 
+  async getStoreIdsForEmployee(employeeId: number): Promise<number[]> {
+    const emp = await this.empRepo.findOne({ where: { id: employeeId } })
+    const primary = emp?.storeId ?? null
+    return await this.collectStoreIds(employeeId, primary)
+  }
+
   // 标准字段映射的 where 片段（适用于包含 brandId/regionId/storeId/departmentId/id 的表）
   buildWhereForStandard(scope: DataScope, query: Record<string, any> = {}): Record<string, any> {
     const where: any = {}

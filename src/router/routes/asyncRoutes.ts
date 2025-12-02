@@ -59,6 +59,36 @@ export const asyncRoutes: AppRouteRecord[] = [
     ]
   },
   {
+    path: '/bi',
+    name: 'BI',
+    component: RoutesAlias.Layout,
+    meta: {
+      title: 'BI分析',
+      icon: '&#xe733;',
+      roles: ['R_SUPER', 'R_ADMIN']
+    },
+    children: [
+      {
+        path: 'sales-process',
+        name: 'SalesProcess',
+        component: '/bi/sales-process',
+        meta: {
+          title: '销售过程',
+          keepAlive: true
+        }
+      },
+      {
+        path: 'online-sales-process',
+        name: 'OnlineSalesProcess',
+        component: '/bi/online-sales-process',
+        meta: {
+          title: '线上销售过程',
+          keepAlive: true
+        }
+      }
+    ]
+  },
+  {
     path: '/customer',
     name: 'Customer',
     component: RoutesAlias.Layout,

@@ -14,6 +14,13 @@ export function fetchChannelOptions() {
   }>({ url: '/api/channel/options' })
 }
 
+export function fetchOnlineChannelOptions() {
+  return request.get<{
+    level1: string[]
+    level2Map: Record<string, { label: string; value: string }[]>
+  }>({ url: '/api/channel/online/options' })
+}
+
 export function fetchOnlineDailyList(params: { storeId: number; date: string }) {
   return request.get<{
     items: {
@@ -86,5 +93,12 @@ export function fetchOnlineDailyMissingDays(params: {
     // 该接口用于标记日历缺失天数，后端可能尚未发布此路由或受权限限制。
     // 前端不弹出错误提示，交由调用方自行降级处理。
     showErrorMessage: false
+  })
+}
+
+export function fetchOnlineDailyWeeklyTotal(params?: { storeId?: number }) {
+  return request.get<{ count: number; changePercent: number }>({
+    url: '/api/channel/online/daily/weekly-total',
+    params
   })
 }

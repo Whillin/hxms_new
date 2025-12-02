@@ -1,4 +1,14 @@
-import { Body, Controller, Get, Post, Query, Req, UseGuards, Inject, Optional } from '@nestjs/common'
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  Query,
+  Req,
+  UseGuards,
+  Inject,
+  Optional
+} from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository, Like, Between, In } from 'typeorm'
 import { JwtGuard } from '../auth/jwt.guard'
@@ -14,6 +24,8 @@ import { InjectQueue } from '@nestjs/bull'
 import { Queue } from 'bull'
 import { FeatureFlagsService } from '../common/feature-flags.service'
 import { OpportunityService } from '../opportunities/opportunity.service'
+import { Opportunity } from '../opportunities/opportunity.entity'
+import { OnlineChannel } from '../channels/online-channel.entity'
 
 @Controller('api/clue')
 export class ClueController {
@@ -28,7 +40,9 @@ export class ClueController {
     @Inject(UserService) private readonly userService: UserService,
     @Optional() @InjectQueue('clue-processing') private clueQueue: Queue | undefined,
     @Inject(FeatureFlagsService) private readonly features: FeatureFlagsService,
-    @Inject(OpportunityService) private readonly oppService: OpportunityService
+    @Inject(OpportunityService) private readonly oppService: OpportunityService,
+    @InjectRepository(Opportunity) private readonly oppRepo: Repository<Opportunity>,
+    @InjectRepository(OnlineChannel) private readonly onlineDictRepo: Repository<OnlineChannel>
   ) {}
 
   @UseGuards(JwtGuard)
@@ -50,7 +64,8 @@ export class ClueController {
         else whereClauses.push({})
         break
       case 'department': {
-        if (typeof scope.departmentId === 'number') whereClauses.push({ departmentId: scope.departmentId })
+        if (typeof scope.departmentId === 'number')
+          whereClauses.push({ departmentId: scope.departmentId })
         const ids = Array.isArray(scope.storeIds) ? scope.storeIds : []
         if (ids.length) whereClauses.push({ storeId: In(ids) })
         if (!whereClauses.length) whereClauses.push({})
@@ -154,18 +169,184 @@ export class ClueController {
     return { code: 200, msg: 'ok', data: payload }
   }
 
+  @Get('seed-online/open')
+  async seedOnlineOpen(@Query() query: any) {
+    const storeId = Number(query.storeId || 1)
+    const date = String(query.date || new Date().toISOString().slice(0, 10))
+    const count = Math.max(1, Number(query.count || 50))
+    const dict = await this.onlineDictRepo.find({ where: { enabled: true } })
+    // 选择一个当前门店在职员工作为默认顾问
+    const owner = await this.empRepo.findOne({ where: { storeId, status: '1' as any } })
+    const savedIds: number[] = []
+    let seq = 0
+    for (const ch of dict) {
+      for (let i = 0; i < count; i++) {
+        seq += 1
+        const phone = `139${String(storeId).padStart(2, '0')}${String(ch.id).padStart(3, '0')}${String(i).padStart(4, '0')}`.slice(0, 11)
+        const clue = this.repo.create({
+          visitDate: date,
+          customerName: `测试用户${seq}`,
+          customerPhone: phone,
+          businessSource: '线上投放',
+          channelCategory: '线上',
+          channelLevel1: ch.level1,
+          channelLevel2: ch.level2,
+          storeId,
+          salesConsultantId: owner?.id,
+          opportunityLevel: 'B',
+          userGender: '未知',
+          userAge: 0,
+          contactTimes: 1,
+          visitCategory: i % 4 === 0 ? ('首次' as any) : ('再次' as any)
+        } as Partial<Clue>)
+        const saved = await this.repo.save(clue)
+        savedIds.push(saved.id)
+        try {
+          const opp = this.oppRepo.create({
+            customerId: saved.customerId,
+            customerName: saved.customerName!,
+            customerPhone: saved.customerPhone!,
+            status: '跟进中',
+            opportunityLevel: (saved.opportunityLevel as any) || 'C',
+            focusModelId: saved.focusModelId || undefined,
+            focusModelName: saved.focusModelName || undefined,
+            testDrive: !!saved.testDrive,
+            bargaining: !!saved.bargaining,
+            ownerId: saved.salesConsultantId || undefined,
+            ownerName: owner?.name || undefined,
+            storeId,
+            regionId: saved.regionId || undefined,
+            brandId: saved.brandId || undefined,
+            departmentId: saved.departmentId || undefined,
+            ownerDepartmentId: undefined,
+            openDate: saved.visitDate!,
+            latestVisitDate: saved.visitDate!,
+            channelCategory: '线上',
+            businessSource: String(saved.businessSource || '线上投放'),
+            channelLevel1: saved.channelLevel1 || undefined,
+            channelLevel2: saved.channelLevel2 || undefined
+          })
+          await this.oppRepo.save(opp)
+        } catch (err) {
+          void err
+        }
+      }
+    }
+    return { code: 200, msg: 'ok', data: { storeId, date, channels: dict.length, perChannel: count, created: savedIds.length } }
+  }
+
+  /** 批量清理线上投放的测试线索及其对应商机（按门店与日期范围） */
+  @UseGuards(JwtGuard)
+  @Post('clear-seeded-online')
+  async clearSeededOnline(@Req() req: any, @Body() body: any) {
+    const storeId = Number(body.storeId || 0)
+    const start = String(body.start || '').trim()
+    const end = String(body.end || '').trim()
+    if (!storeId || !start || !end)
+      return { code: 400, msg: '缺少 storeId/start/end', data: { deletedClues: 0, deletedOpps: 0 } }
+
+    const scope = await this.dataScopeService.getScope(req.user)
+    const allowed = await this.dataScopeService.resolveAllowedStoreIds(scope)
+    if (!allowed.includes(storeId))
+      return { code: 403, msg: '无权访问该门店', data: { deletedClues: 0, deletedOpps: 0 } }
+
+    const whereClues: any = {
+      storeId,
+      visitDate: Between(start, end),
+      channelCategory: '线上',
+      businessSource: '线上投放'
+    }
+    const clues = await this.repo.find({ where: whereClues })
+    const phones = Array.from(new Set(clues.map((c) => String(c.customerPhone || '')))).filter((p) => !!p)
+    const clueIds = clues.map((c) => c.id)
+    let deletedClues = 0
+    if (clueIds.length) {
+      await this.repo.delete(clueIds)
+      deletedClues = clueIds.length
+    }
+
+    let deletedOpps = 0
+    if (phones.length) {
+      const qbOpp = this.oppRepo.createQueryBuilder('o')
+      qbOpp.where('1=1')
+      qbOpp.andWhere('o.storeId = :storeId', { storeId })
+      qbOpp.andWhere('o.channelCategory = :online', { online: '线上' })
+      qbOpp.andWhere('o.openDate BETWEEN :start AND :end', { start, end })
+      qbOpp.andWhere('o.customerPhone IN (:...phones)', { phones })
+      const opps = await qbOpp.getMany()
+      const ids = opps.map((o) => o.id)
+      if (ids.length) {
+        await this.oppRepo.delete(ids)
+        deletedOpps = ids.length
+      }
+    }
+
+    return { code: 200, msg: '清理成功', data: { deletedClues, deletedOpps } }
+  }
+
+  /** 开放版清理（开发/演示用途） */
+  @Post('clear-seeded-online/open')
+  async clearSeededOnlineOpen(@Body() body: any) {
+    const storeId = Number(body.storeId || 0)
+    const start = String(body.start || '').trim()
+    const end = String(body.end || '').trim()
+    if (!storeId || !start || !end)
+      return { code: 400, msg: '缺少 storeId/start/end', data: { deletedClues: 0, deletedOpps: 0 } }
+
+    const whereClues: any = {
+      storeId,
+      visitDate: Between(start, end),
+      channelCategory: '线上',
+      businessSource: '线上投放'
+    }
+    const clues = await this.repo.find({ where: whereClues })
+    const phones = Array.from(new Set(clues.map((c) => String(c.customerPhone || '')))).filter((p) => !!p)
+    const clueIds = clues.map((c) => c.id)
+    let deletedClues = 0
+    if (clueIds.length) {
+      await this.repo.delete(clueIds)
+      deletedClues = clueIds.length
+    }
+
+    let deletedOpps = 0
+    if (phones.length) {
+      const qbOpp = this.oppRepo.createQueryBuilder('o')
+      qbOpp.where('1=1')
+      qbOpp.andWhere('o.storeId = :storeId', { storeId })
+      qbOpp.andWhere('o.channelCategory = :online', { online: '线上' })
+      qbOpp.andWhere('o.openDate BETWEEN :start AND :end', { start, end })
+      qbOpp.andWhere('o.customerPhone IN (:...phones)', { phones })
+      const opps = await qbOpp.getMany()
+      const ids = opps.map((o) => o.id)
+      if (ids.length) {
+        await this.oppRepo.delete(ids)
+        deletedOpps = ids.length
+      }
+    }
+
+    return { code: 200, msg: '清理成功', data: { deletedClues, deletedOpps } }
+  }
+
+  @Get('clear-seeded-online/open')
+  async clearSeededOnlineOpenGet(@Query() query: any) {
+    const body = { storeId: Number(query.storeId || 0), start: String(query.start || ''), end: String(query.end || '') }
+    return await this.clearSeededOnlineOpen(body)
+  }
+
   @UseGuards(JwtGuard)
   @Post('save')
   async save(@Req() req: any, @Body() body: any) {
     // 统一布尔解析，避免字符串 "false" 被误判为 true
     const toBool = (v: any): boolean => {
       if (typeof v === 'boolean') return v
-      const s = String(v ?? '').trim().toLowerCase()
+      const s = String(v ?? '')
+        .trim()
+        .toLowerCase()
       return ['1', 'true', 'yes', 'on'].includes(s)
     }
     // 后端功能开关：QUEUE_SAVE_CLUE（默认启用）。
     // 当开关关闭时，走本地直存逻辑，便于本地开发无需 Redis。
-    const useQueue = this.features.isEnabled('QUEUE_SAVE_CLUE', true)
+    const useQueue = this.features.isEnabled('QUEUE_SAVE_CLUE', true) && !!this.clueQueue
     if (!useQueue) {
       // ===== 直存逻辑（严格校验 + 支持编辑更新） =====
       const userId = Number(req?.user?.sub)
@@ -214,7 +395,9 @@ export class ClueController {
               ? Number(body.receptionDuration)
               : existing.receptionDuration,
           visitorCount:
-            typeof body.visitorCount === 'number' ? Number(body.visitorCount) : existing.visitorCount,
+            typeof body.visitorCount === 'number'
+              ? Number(body.visitorCount)
+              : existing.visitorCount,
           receptionStatus: (body.receptionStatus as any) ?? existing.receptionStatus,
           salesConsultant: consultantName || existing.salesConsultant,
           salesConsultantId: salesConsultantIdResolved ?? existing.salesConsultantId,
@@ -243,14 +426,8 @@ export class ClueController {
           userPhoneModel: body.userPhoneModel ?? existing.userPhoneModel,
           currentBrand: body.currentBrand ?? existing.currentBrand,
           currentModel: body.currentModel ?? existing.currentModel,
-          carAge:
-            body.carAge !== undefined
-              ? Number(body.carAge || 0)
-              : existing.carAge,
-          mileage:
-            body.mileage !== undefined
-              ? Number(body.mileage || 0)
-              : existing.mileage,
+          carAge: body.carAge !== undefined ? Number(body.carAge || 0) : existing.carAge,
+          mileage: body.mileage !== undefined ? Number(body.mileage || 0) : existing.mileage,
           livingArea:
             body.livingArea !== undefined
               ? (Array.isArray(body.livingArea)
@@ -272,7 +449,9 @@ export class ClueController {
         const saved = await this.repo.save(existing)
         try {
           await this.oppService.upsertFromClue(saved)
-        } catch {}
+        } catch (err) {
+          void err
+        }
         return { code: 200, msg: '更新成功', data: true }
       }
 
@@ -383,10 +562,89 @@ export class ClueController {
 
     // 队列路径：添加到后台处理（队列可能未初始化，需保护性检查）
     if (!this.clueQueue) {
-      return { code: 500, msg: '后台队列未初始化', data: false }
+      return { code: 200, msg: '队列未初始化，已走直存路径', data: true }
     }
     await this.clueQueue.add('save-clue', { user: req.user, body })
     return { code: 200, msg: '线索保存任务已提交到后台处理', data: true }
+  }
+
+  @UseGuards(JwtGuard)
+  @Get('weekly-visit-count')
+  async weeklyVisitCount(@Req() req: any, @Query() query: any) {
+    const scope = await this.dataScopeService.getScope(req.user)
+    const allowed = await this.dataScopeService.resolveAllowedStoreIds(scope)
+    const storeId = query.storeId ? Number(query.storeId) : undefined
+    const now = new Date()
+    const day = now.getDay()
+    const diffToMonday = (day + 6) % 7
+    const monday = new Date(now)
+    monday.setDate(now.getDate() - diffToMonday)
+    monday.setHours(0, 0, 0, 0)
+    const sunday = new Date(monday)
+    sunday.setDate(monday.getDate() + 6)
+    sunday.setHours(23, 59, 59, 999)
+    const prevMonday = new Date(monday)
+    prevMonday.setDate(monday.getDate() - 7)
+    const prevSunday = new Date(sunday)
+    prevSunday.setDate(sunday.getDate() - 7)
+    const fmt = (d: Date) => d.toISOString().slice(0, 10)
+    const whereCur: any = { visitDate: Between(fmt(monday), fmt(sunday)) }
+    const wherePrev: any = { visitDate: Between(fmt(prevMonday), fmt(prevSunday)) }
+    if (storeId) {
+      if (scope.level !== 'all' && (!allowed.length || !allowed.includes(storeId))) {
+        return { code: 403, msg: '无权访问该门店', data: { count: 0, changePercent: 0 } }
+      }
+      whereCur.storeId = storeId
+      wherePrev.storeId = storeId
+    } else if (allowed.length) {
+      whereCur.storeId = In(allowed)
+      wherePrev.storeId = In(allowed)
+    }
+    const cur = await this.repo.count({ where: whereCur })
+    const prev = await this.repo.count({ where: wherePrev })
+    const changePercent = prev === 0 ? (cur > 0 ? 100 : 0) : Math.round(((cur - prev) / prev) * 100)
+    return { code: 200, msg: 'ok', data: { count: cur, changePercent } }
+  }
+
+  @UseGuards(JwtGuard)
+  @Get('weekly-click-count')
+  async weeklyClickCount(@Req() req: any, @Query() query: any) {
+    const scope = await this.dataScopeService.getScope(req.user)
+    const allowed = await this.dataScopeService.resolveAllowedStoreIds(scope)
+    const storeId = query.storeId ? Number(query.storeId) : undefined
+    const now = new Date()
+    const day = now.getDay()
+    const diffToMonday = (day + 6) % 7
+    const monday = new Date(now)
+    monday.setDate(now.getDate() - diffToMonday)
+    monday.setHours(0, 0, 0, 0)
+    const sunday = new Date(monday)
+    sunday.setDate(monday.getDate() + 6)
+    sunday.setHours(23, 59, 59, 999)
+    const prevMonday = new Date(monday)
+    prevMonday.setDate(monday.getDate() - 7)
+    const prevSunday = new Date(sunday)
+    prevSunday.setDate(sunday.getDate() - 7)
+    const fmt = (d: Date) => d.toISOString().slice(0, 10)
+    const whereCur: any = { visitDate: Between(fmt(monday), fmt(sunday)) }
+    const wherePrev: any = { visitDate: Between(fmt(prevMonday), fmt(prevSunday)) }
+    if (storeId) {
+      if (scope.level !== 'all' && (!allowed.length || !allowed.includes(storeId))) {
+        return { code: 403, msg: '无权访问该门店', data: { count: 0, changePercent: 0 } }
+      }
+      whereCur.storeId = storeId
+      wherePrev.storeId = storeId
+    } else if (allowed.length) {
+      whereCur.storeId = In(allowed)
+      wherePrev.storeId = In(allowed)
+    }
+    const rowsCur = await this.repo.find({ where: whereCur })
+    const rowsPrev = await this.repo.find({ where: wherePrev })
+    const sum = (arr: Clue[]) => arr.reduce((s, r) => s + Number(r.contactTimes || 0), 0)
+    const cur = sum(rowsCur)
+    const prev = sum(rowsPrev)
+    const changePercent = prev === 0 ? (cur > 0 ? 100 : 0) : Math.round(((cur - prev) / prev) * 100)
+    return { code: 200, msg: 'ok', data: { count: cur, changePercent } }
   }
 
   @UseGuards(JwtGuard)
@@ -410,6 +668,8 @@ export class ClueController {
     await this.repo.delete(id)
     return { code: 200, msg: '删除成功', data: true }
   }
+
+  @UseGuards(JwtGuard)
 
   // === 辅助方法 ===
   private async findAncestors(

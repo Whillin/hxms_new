@@ -98,7 +98,9 @@ export class ProductController {
     }
 
     // 品牌过滤回退：若按品牌分类未命中，则回退用 brandName 进行品牌字段过滤
-    const brandFilter = brand || (brandName && (!productIdsByCategory || productIdsByCategory.length === 0) ? brandName : '')
+    const brandFilter =
+      brand ||
+      (brandName && (!productIdsByCategory || productIdsByCategory.length === 0) ? brandName : '')
 
     const where: any = {}
     if (name) where.name = Like(`%${name}%`)

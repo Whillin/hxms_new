@@ -115,3 +115,17 @@ export function fetchGetClueInviterOptions(params: { storeId: number }) {
     params
   })
 }
+
+export function fetchGetClueWeeklyVisitCount(params?: { storeId?: number }) {
+  return request.get<{ count: number; changePercent: number }>({
+    url: '/api/clue/weekly-visit-count',
+    params
+  })
+}
+
+export function fetchGetClueWeeklyClickCount(params?: { storeId?: number }) {
+  return request.get<{ count: number; changePercent: number }>({
+    url: '/api/clue/weekly-click-count',
+    params
+  })
+}

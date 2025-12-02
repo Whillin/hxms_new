@@ -20,7 +20,11 @@
 </template>
 
 <script setup lang="ts">
-  import { reactive } from 'vue'
+  import { reactive, onMounted } from 'vue'
+  import { useUserStore } from '@/store/modules/user'
+  import { fetchGetClueWeeklyVisitCount, fetchGetClueWeeklyClickCount } from '@/api/clue'
+  import { fetchOnlineDailyWeeklyTotal } from '@/api/channel'
+  import { fetchGetCustomerNewWeekCount } from '@/api/customer'
 
   const dataList = reactive([
     {
@@ -56,6 +60,37 @@
       change: '+30%'
     }
   ])
+
+  onMounted(async () => {
+    try {
+      const userStore = useUserStore()
+      const storeIdNum = Number(userStore.info?.storeId || 0)
+      const storeParam = storeIdNum > 0 ? { storeId: storeIdNum } : undefined
+
+      const newWeek = await fetchGetCustomerNewWeekCount(storeParam as any)
+      dataList[3].num = Number((newWeek as any)?.count ?? dataList[3].num)
+      {
+        const vres = await fetchGetClueWeeklyVisitCount(storeParam as any)
+        dataList[0].num = Number((vres as any)?.count ?? dataList[0].num)
+        const vcp = Number((vres as any)?.changePercent ?? 0)
+        dataList[0].change = `${vcp >= 0 ? '+' : ''}${vcp}%`
+      }
+      {
+        const ores = await fetchOnlineDailyWeeklyTotal(storeParam as any)
+        dataList[1].num = Number((ores as any)?.count ?? dataList[1].num)
+        const ocp = Number((ores as any)?.changePercent ?? 0)
+        dataList[1].change = `${ocp >= 0 ? '+' : ''}${ocp}%`
+      }
+      {
+        const cres = await fetchGetClueWeeklyClickCount(storeParam as any)
+        dataList[2].num = Number((cres as any)?.count ?? dataList[2].num)
+        const ccp = Number((cres as any)?.changePercent ?? 0)
+        dataList[2].change = `${ccp >= 0 ? '+' : ''}${ccp}%`
+      }
+    } catch (e) {
+      console.error('[CardList] 加载周度数据失败:', e)
+    }
+  })
 </script>
 
 <style lang="scss" scoped>
