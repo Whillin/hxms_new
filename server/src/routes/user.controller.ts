@@ -22,9 +22,12 @@ export class UserController {
   @UseGuards(JwtGuard)
   @Get('info')
   async info(@Req() req: any) {
-    const userName = req.user?.userName || 'Admin'
+    const userName = req.user?.userName
     const roles = Array.isArray(req.user?.roles) ? req.user.roles : []
-    const userId = req.user?.sub || 1
+    const userId = req.user?.sub
+    if (!userName || !userId) {
+      return { code: 401, msg: '未登录', data: null }
+    }
 
     const sanitizedRoles = await this.userService.sanitizeRoles(roles)
     const rolesSet = new Set<string>(sanitizedRoles)
