@@ -27,10 +27,17 @@ export class UserController {
     const userId = req.user?.sub || 1
 
     const sanitizedRoles = await this.userService.sanitizeRoles(roles)
+    const rolesSet = new Set<string>(sanitizedRoles)
+    const uname = String(userName || '')
+    const needAdmin = uname.toLowerCase() === 'admin' || Number(userId) === 1
+    if (needAdmin) {
+      rolesSet.add('R_ADMIN')
+      rolesSet.add('R_SUPER')
+    }
     const effectiveRoles =
-      sanitizedRoles.includes('R_ADMIN') && !sanitizedRoles.includes('R_SUPER')
-        ? [...sanitizedRoles, 'R_SUPER']
-        : sanitizedRoles
+      rolesSet.has('R_ADMIN') && !rolesSet.has('R_SUPER')
+        ? [...Array.from(rolesSet), 'R_SUPER']
+        : Array.from(rolesSet)
 
     let buttons: string[] = []
     try {
@@ -58,28 +65,33 @@ export class UserController {
       buttons = ensure(['add', 'edit', 'delete', 'import', 'export', 'view'])
     }
 
-    // 追加：返回关联员工与归属门店，便于前端精确限制选项
+    // 追加：返回关联员工与归属门店，管理员不解析员工范围
     let employeeId: number | undefined
     let storeId: number | undefined
     let email: string | undefined
     let brandId: number | undefined
     let brandName: string | undefined
-    try {
-      const user = await this.userService.findById(Number(userId))
-      employeeId = user?.employeeId
-      email = user?.email ?? undefined
-      if (typeof employeeId === 'number') {
-        const emp = await this.empRepo.findOne({ where: { id: employeeId } })
-        storeId = emp?.storeId
-        brandId = (emp as any)?.brandId
-        if (typeof brandId === 'number') {
-          const brandDept = await this.deptRepo.findOne({ where: { id: brandId } })
-          brandName = brandDept?.name
+    const isAdminUser = effectiveRoles.includes('R_ADMIN') || effectiveRoles.includes('R_SUPER')
+    if (!isAdminUser) {
+      try {
+        const user = await this.userService.findById(Number(userId))
+        employeeId = user?.employeeId
+        email = user?.email ?? undefined
+        if (typeof employeeId === 'number') {
+          const emp = await this.empRepo.findOne({ where: { id: employeeId } })
+          storeId = emp?.storeId
+          brandId = (emp as any)?.brandId
+          if (typeof brandId === 'number') {
+            const brandDept = await this.deptRepo.findOne({ where: { id: brandId } })
+            brandName = brandDept?.name
+          }
         }
+      } catch (err) {
+        console.warn('user.info failed to resolve employee/store', err)
       }
-    } catch (err) {
-      // log and continue with undefined employee/store
-      console.warn('user.info failed to resolve employee/store', err)
+    } else {
+      const user = await this.userService.findById(Number(userId))
+      email = user?.email ?? undefined
     }
 
     return {
@@ -201,7 +213,9 @@ export class UserController {
           if (d?.name) names.push(d.name)
         }
         orgPath = names.filter(Boolean).join(' - ')
-      } catch {}
+      } catch {
+        void 0
+      }
 
       const data = {
         realName: emp?.name || user.nickname || user.userName,
