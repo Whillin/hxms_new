@@ -597,9 +597,14 @@
       if (brand) {
         const catsRes: any = await request.get({ url: '/api/category/all' })
         const cats: any[] = Array.isArray(catsRes?.data) ? catsRes.data : []
-        const target = cats.find((c: any) => String(c.level || 0) === '0' && normalizeBrand(String(c.name || '')) === brand)
+        const target = cats.find(
+          (c: any) => String(c.level || 0) === '0' && normalizeBrand(String(c.name || '')) === brand
+        )
         if (target) {
-          const prods: any = await request.get({ url: `/api/category/${Number(target.id)}/products`, params: { includeChildren: 'true' } })
+          const prods: any = await request.get({
+            url: `/api/category/${Number(target.id)}/products`,
+            params: { includeChildren: 'true' }
+          })
           const arr = Array.isArray(prods?.data) ? prods.data : []
           if (arr.length) list = arr
         }
@@ -789,27 +794,28 @@
       return '选择'
     }
 
-  const buildParams = (
-    storeId: number,
-    teamId: number,
-    consultantId: number,
-    modelId: number
-  ): Record<string, any> => {
-    const params: Record<string, any> = { period }
-    if (dateStart && dateEnd) {
-      params.start = dateStart
-      params.end = dateEnd
+    const buildParams = (
+      storeId: number,
+      teamId: number,
+      consultantId: number,
+      modelId: number
+    ): Record<string, any> => {
+      const params: Record<string, any> = { period }
+      if (dateStart && dateEnd) {
+        params.start = dateStart
+        params.end = dateEnd
+      }
+      if (month) params.month = month
+      if (year) params.year = year
+      if (storeId) params.storeId = storeId
+      params.channelCategory = '线上'
+      if (teamId) params.teamId = teamId
+      if (consultantId) params.consultantId = consultantId
+      if (modelId) params.modelId = modelId
+      if (channelType.value) params.channelLevel1 = channelType.value
+      if (channelLevel2.value) params.channelLevel2 = channelLevel2.value
+      return params
     }
-    if (month) params.month = month
-    if (year) params.year = year
-    if (storeId) params.storeId = storeId
-    if (teamId) params.teamId = teamId
-    if (consultantId) params.consultantId = consultantId
-    if (modelId) params.modelId = modelId
-    if (channelType.value) params.channelLevel1 = channelType.value
-    if (channelLevel2.value) params.channelLevel2 = channelLevel2.value
-    return params
-  }
 
     const sid = Number(storeId.value || 0)
     const tid = Number(teamId.value || 0)
@@ -825,13 +831,15 @@
     try {
       const endpointMain = '/api/bi/sales-funnel'
       const endpointOpen = '/api/bi/sales-funnel/open'
-      let respA: { items: { stage: string; percent: number; value: number; mom: number; percentRaw?: number }[] }
-      try {
-        respA = await request.get({ url: endpointMain, params: paramsA })
-      } catch {
-        respA = await request.get({ url: endpointOpen, params: paramsA })
+      let respA: {
+        items: { stage: string; percent: number; value: number; mom: number; percentRaw?: number }[]
       }
-      
+      try {
+        respA = await request.get({ url: endpointMain, params: paramsA, showErrorMessage: false })
+      } catch {
+        respA = await request.get({ url: endpointOpen, params: paramsA, showErrorMessage: false })
+      }
+
       const buildRows = (
         arr: { stage: string; percent: number; value: number; mom: number; percentRaw?: number }[]
       ) => {
@@ -862,7 +870,14 @@
           const baseStage = baseStageMap[stage]
           const baseVal = baseStage ? Math.max(0, Number(valueMap[baseStage] || 0)) : v0
           const v = baseStage ? Math.min(v0, baseVal) : v0
-          const raw0 = typeof it.percentRaw === 'number' ? Number(it.percentRaw) : baseVal > 0 ? (v / baseVal) * 100 : v > 0 ? 100 : 0
+          const raw0 =
+            typeof it.percentRaw === 'number'
+              ? Number(it.percentRaw)
+              : baseVal > 0
+                ? (v / baseVal) * 100
+                : v > 0
+                  ? 100
+                  : 0
           const percent = Math.max(0, Math.min(100, Math.round(raw0)))
           const percentText = String(percent)
           const mom = Number(it.mom || 0)
@@ -899,7 +914,14 @@
           const raw = baseVal > 0 ? (vClamped / baseVal) * 100 : vClamped > 0 ? 100 : 0
           const percent = Math.max(0, Math.min(100, Math.round(raw)))
           const percentText = String(percent)
-          rows.push({ stage, percent, percentText, value: vClamped, momText: '0%', momClass: 'flat' })
+          rows.push({
+            stage,
+            percent,
+            percentText,
+            value: vClamped,
+            momText: '0%',
+            momClass: 'flat'
+          })
         }
         if (!exists('综合试驾')) {
           addRow('综合试驾', (valueMap['首次试驾'] || 0) + (valueMap['再次试驾'] || 0))
@@ -936,11 +958,27 @@
       if (enableCompare.value && (cmpModelId || cmpStoreId || cmpTeamId || cmpConsultantId)) {
         const endpointBMain = '/api/bi/sales-funnel'
         const endpointBOpen = '/api/bi/sales-funnel/open'
-        let respB: { items: { stage: string; percent: number; value: number; mom: number; percentRaw?: number }[] }
+        let respB: {
+          items: {
+            stage: string
+            percent: number
+            value: number
+            mom: number
+            percentRaw?: number
+          }[]
+        }
         try {
-          respB = await request.get({ url: endpointBMain, params: paramsB })
+          respB = await request.get({
+            url: endpointBMain,
+            params: paramsB,
+            showErrorMessage: false
+          })
         } catch {
-          respB = await request.get({ url: endpointBOpen, params: paramsB })
+          respB = await request.get({
+            url: endpointBOpen,
+            params: paramsB,
+            showErrorMessage: false
+          })
         }
         tableRowsRight.value = buildRows(respB.items || [])
         tableRowsRight.value = ensureExtraRows(tableRowsRight.value)
@@ -1027,32 +1065,39 @@
   .bi-sales {
     padding: 12px;
   }
+
   .filters {
     display: flex;
-    align-items: center;
     gap: 8px;
+    align-items: center;
   }
+
   .card-title {
-    font-weight: 600;
     margin-bottom: 8px;
+    font-weight: 600;
   }
+
   .funnel-card {
     margin-bottom: 12px;
   }
+
   .stage-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
   }
+
   .stage-cell {
     display: flex;
-    align-items: center;
     gap: 6px;
+    align-items: center;
   }
+
   .info-icon {
     color: #b3b3b3;
     cursor: help;
   }
+
   .progress {
     position: relative;
     width: 100%;
@@ -1061,9 +1106,11 @@
     background: #eceff3;
     border-radius: 999px;
   }
+
   .progress.stacked {
     margin-top: 4px;
   }
+
   .bar {
     position: relative;
     z-index: 1;
@@ -1073,6 +1120,7 @@
     border-radius: 999px;
     transition: width 0.3s ease;
   }
+
   .bar-overlay-text {
     position: absolute;
     top: 50%;
@@ -1088,46 +1136,57 @@
     pointer-events: none;
     transform: translate(-50%, -50%);
   }
+
   .bar-overlay-text.light {
     color: #ff3b30;
     text-shadow: 0 0 1px rgb(0 0 0 / 15%);
   }
+
   .progress.split .bar {
     position: absolute;
     top: 0;
     left: 0;
   }
+
   .bar.bar-a {
     background: #ff5b79;
   }
+
   .bar.bar-b {
     background: #b7bdc6;
   }
+
   .legend {
     display: flex;
     gap: 12px;
     margin-bottom: 8px;
   }
+
   .legend-dot {
     display: inline-block;
     width: 10px;
     height: 10px;
-    border-radius: 50%;
     margin-right: 4px;
     vertical-align: middle;
+    border-radius: 50%;
   }
+
   .legend-dot.dot-a {
     background: #ff5b79;
   }
+
   .legend-dot.dot-b {
     background: #b7bdc6;
   }
+
   .inc {
     color: var(--el-color-success);
   }
+
   .dec {
     color: var(--el-color-danger);
   }
+
   .flat {
     color: #999;
   }
