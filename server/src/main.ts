@@ -52,6 +52,7 @@ async function bootstrap() {
   try {
     const instance = app.getHttpAdapter().getInstance?.()
     if (instance?.set) instance.set('trust proxy', true)
+    if (instance?.set) instance.set('etag', false)
   } catch (error) {
     console.error('Failed to set trust proxy:', error)
   }
@@ -78,6 +79,29 @@ async function bootstrap() {
       transformOptions: { enableImplicitConversion: true }
     })
   )
+  try {
+    const expressApp: any = app.getHttpAdapter().getInstance?.()
+    if (expressApp?.use) {
+      expressApp.use((req: any, res: any, next: any) => {
+        const p = String(req?.path || req?.originalUrl || '')
+        if (p.startsWith('/api/user/')) {
+          res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private')
+          res.setHeader('Pragma', 'no-cache')
+          res.setHeader('Expires', '0')
+          if (typeof res.append === 'function') {
+            res.append('Vary', 'Authorization')
+          } else {
+            const prev = String(res.getHeader?.('Vary') || '')
+            const val = prev ? `${prev}, Authorization` : 'Authorization'
+            res.setHeader('Vary', val)
+          }
+        }
+        next()
+      })
+    }
+  } catch (e) {
+    void 0
+  }
   const port = Number(process.env.PORT || 3001)
   await app.listen(port)
   console.log(`Nest server is running at http://localhost:${port}`)

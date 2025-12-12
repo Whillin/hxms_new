@@ -20,12 +20,24 @@ export function fetchLogin(params: Api.Auth.LoginParams) {
  */
 export function fetchGetUserInfo() {
   return request.get<Api.Auth.UserInfo>({
-    url: '/api/user/info'
-    // 自定义请求头
-    // headers: {
-    //   'X-Custom-Header': 'your-custom-value'
-    // }
+    url: '/api/user/info',
+    params: { _: Date.now() },
+    headers: { 'Cache-Control': 'no-cache', Pragma: 'no-cache' }
   })
+}
+
+/**
+ * 获取用户信息（可指定token覆盖）
+ */
+export function fetchGetUserInfoWithToken(token?: string) {
+  if (token) {
+    return request.get<Api.Auth.UserInfo>({
+      url: '/api/user/info',
+      params: { _: Date.now() },
+      headers: { Authorization: `Bearer ${token}`, 'Cache-Control': 'no-cache', Pragma: 'no-cache' }
+    })
+  }
+  return fetchGetUserInfo()
 }
 
 /**

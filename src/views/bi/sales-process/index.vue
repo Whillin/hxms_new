@@ -828,19 +828,25 @@
     }
     if (periodType.value === 'year' && dateYear.value) params.year = dateYear.value
 
-    let res: { items: { stage: string; value: number }[] }
+    let res: { items: { stage: string; value: number }[] } | null = null
     try {
       res = await request.get<{ items: { stage: string; value: number }[] }>({
         url: '/api/bi/sales-funnel',
-        params
+        params,
+        showErrorMessage: false
       })
     } catch {
-      res = await request.get<{ items: { stage: string; value: number }[] }>({
-        url: '/api/bi/sales-funnel/open',
-        params
-      })
+      try {
+        res = await request.get<{ items: { stage: string; value: number }[] }>({
+          url: '/api/bi/sales-funnel/open',
+          params,
+          showErrorMessage: false
+        })
+      } catch {
+        res = { items: [] }
+      }
     }
-    const itemsA = Array.isArray(res?.items) ? res.items : []
+    const itemsA = Array.isArray(res?.items) ? res!.items : []
     funnelItems.value = itemsA.map((it) => ({
       stage: normalizeStageLabel(it.stage),
       value: Number(it.value) || 0
@@ -883,19 +889,25 @@
     }
     if (periodType.value === 'year' && dateYear.value) params.year = dateYear.value
 
-    let res: { items: { stage: string; value: number }[] }
+    let res: { items: { stage: string; value: number }[] } | null = null
     try {
       res = await request.get<{ items: { stage: string; value: number }[] }>({
         url: '/api/bi/sales-funnel',
-        params
+        params,
+        showErrorMessage: false
       })
     } catch {
-      res = await request.get<{ items: { stage: string; value: number }[] }>({
-        url: '/api/bi/sales-funnel/open',
-        params
-      })
+      try {
+        res = await request.get<{ items: { stage: string; value: number }[] }>({
+          url: '/api/bi/sales-funnel/open',
+          params,
+          showErrorMessage: false
+        })
+      } catch {
+        res = { items: [] }
+      }
     }
-    const itemsB = Array.isArray(res?.items) ? res.items : []
+    const itemsB = Array.isArray(res?.items) ? res!.items : []
     funnelItemsRight.value = itemsB.map((it) => ({
       stage: normalizeStageLabel(it.stage),
       value: Number(it.value) || 0
@@ -910,19 +922,25 @@
       params2.month = prev
       delete params2.start
       delete params2.end
-      let res2: { items: { stage: string; value: number }[] }
+      let res2: { items: { stage: string; value: number }[] } | null = null
       try {
         res2 = await request.get<{ items: { stage: string; value: number }[] }>({
           url: '/api/bi/sales-funnel',
-          params: params2
+          params: params2,
+          showErrorMessage: false
         })
       } catch {
-        res2 = await request.get<{ items: { stage: string; value: number }[] }>({
-          url: '/api/bi/sales-funnel/open',
-          params: params2
-        })
+        try {
+          res2 = await request.get<{ items: { stage: string; value: number }[] }>({
+            url: '/api/bi/sales-funnel/open',
+            params: params2,
+            showErrorMessage: false
+          })
+        } catch {
+          res2 = { items: [] }
+        }
       }
-      const itemsPrev = Array.isArray(res2?.items) ? res2.items : []
+      const itemsPrev = Array.isArray(res2?.items) ? res2!.items : []
       const map: Record<string, number> = {}
       itemsPrev.forEach((it) => (map[normalizeStageLabel(it.stage)] = Number(it.value) || 0))
       prevMap.value = map
@@ -939,19 +957,25 @@
       params2.month = prev
       delete params2.start
       delete params2.end
-      let res2: { items: { stage: string; value: number }[] }
+      let res2: { items: { stage: string; value: number }[] } | null = null
       try {
         res2 = await request.get<{ items: { stage: string; value: number }[] }>({
           url: '/api/bi/sales-funnel',
-          params: params2
+          params: params2,
+          showErrorMessage: false
         })
       } catch {
-        res2 = await request.get<{ items: { stage: string; value: number }[] }>({
-          url: '/api/bi/sales-funnel/open',
-          params: params2
-        })
+        try {
+          res2 = await request.get<{ items: { stage: string; value: number }[] }>({
+            url: '/api/bi/sales-funnel/open',
+            params: params2,
+            showErrorMessage: false
+          })
+        } catch {
+          res2 = { items: [] }
+        }
       }
-      const itemsPrev = Array.isArray(res2?.items) ? res2.items : []
+      const itemsPrev = Array.isArray(res2?.items) ? res2!.items : []
       const map: Record<string, number> = {}
       itemsPrev.forEach((it) => (map[normalizeStageLabel(it.stage)] = Number(it.value) || 0))
       prevMapRight.value = map

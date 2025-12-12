@@ -112,7 +112,8 @@ export function fetchDeleteClue(id: number | string) {
 export function fetchGetClueInviterOptions(params: { storeId: number }) {
   return request.get<Array<{ label: string; value: string } | string>>({
     url: '/api/clue/inviter-options',
-    params
+    params,
+    showErrorMessage: false
   })
 }
 

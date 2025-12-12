@@ -4,7 +4,7 @@ set -Eeuo pipefail
 TS() { date '+%F %T'; }
 log() { echo "$(TS) $*"; }
 
-cd ~/apps/hxms_new
+cd ~/hxms_new
 
 log '[1/5] 构建并重启 API 容器'
 export DOCKER_BUILDKIT=1 COMPOSE_DOCKER_CLI_BUILD=1
@@ -37,7 +37,8 @@ log '[4/5] 部署前端到 /var/www/hxms_new'
 TARGET_DIR="/var/www/hxms_new"
 mkdir -p "$TARGET_DIR"
 if command -v rsync >/dev/null 2>&1; then
-  rsync -a --delete dist/ "$TARGET_DIR/"
+  # 保留旧版哈希静态资源，避免用户仍在使用旧 index/chunk 时发生 404
+  rsync -a dist/ "$TARGET_DIR/"
 else
   log 'rsync 不存在，使用 cp -r 替代'
   find "$TARGET_DIR" -mindepth 1 -maxdepth 1 -exec rm -rf {} + || true

@@ -14,7 +14,7 @@
       wrap-class="scrollbar-wrapper"
       :horizontal="true"
       @scroll="handleScroll"
-      @wheel="handleWheel"
+      @wheel.passive="handleWheel"
     >
       <div class="scroll-bar">
         <template v-for="item in processedMenuList" :key="item.meta.title">
@@ -176,11 +176,7 @@
    * @param event 滚轮事件
    */
   const handleWheel = (event: WheelEvent): void => {
-    // 立即阻止默认滚动行为和事件冒泡，避免页面滚动
-    event.preventDefault()
-    event.stopPropagation()
-
-    // 直接处理滚动，提升响应性
+    // 直接处理滚动，避免阻塞主线程
     if (!scrollbarRef.value?.wrapRef) return
 
     const { wrapRef } = scrollbarRef.value
@@ -232,6 +228,7 @@
       flex: 1;
       min-width: 0;
       margin: 0 50px 0 30px;
+      overscroll-behavior: contain;
     }
 
     .scroll-bar {

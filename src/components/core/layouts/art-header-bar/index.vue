@@ -141,7 +141,7 @@
                 <div class="user-head">
                   <img class="cover" src="@imgs/user/avatar.webp" style="float: left" />
                   <div class="user-wrap">
-                    <span class="name">{{ userInfo.userName }}</span>
+                    <span class="name">{{ userNameDisplay }}</span>
                     <span class="email">{{ userInfo.email }}</span>
                   </div>
                 </div>
@@ -387,3 +387,20 @@
   @use './style';
   @use './mobile';
 </style>
+  const decodeJwt = (t: string) => {
+    try {
+      const p = t.split('.')[1]
+      const s = decodeURIComponent(escape(window.atob(p)))
+      return JSON.parse(s)
+    } catch {
+      return null
+    }
+  }
+  const userNameDisplay = computed(() => {
+    const name = String(userInfo.value?.userName || '')
+    const token = String(userStore.accessToken || '')
+    const payload = token ? decodeJwt(token) : null
+    const tname = String(payload?.userName || '')
+    if (name && tname && name.toLowerCase() !== tname.toLowerCase()) return tname
+    return name || tname || ''
+  })

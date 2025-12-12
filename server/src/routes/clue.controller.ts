@@ -20,6 +20,7 @@ import { Customer } from '../customers/customer.entity'
 import { Channel } from '../channels/channel.entity'
 import { ProductModel } from '../products/product-model.entity'
 import { Employee } from '../employees/employee.entity'
+import { EmployeeStoreLink } from '../employees/employee-store.entity'
 import { InjectQueue } from '@nestjs/bull'
 import { Queue } from 'bull'
 import { FeatureFlagsService } from '../common/feature-flags.service'
@@ -36,6 +37,7 @@ export class ClueController {
     @InjectRepository(Channel) private readonly channelRepo: Repository<Channel>,
     @InjectRepository(ProductModel) private readonly productModelRepo: Repository<ProductModel>,
     @InjectRepository(Employee) private readonly empRepo: Repository<Employee>,
+    @InjectRepository(EmployeeStoreLink) private readonly empLinkRepo: Repository<EmployeeStoreLink>,
     @Inject(DataScopeService) private readonly dataScopeService: DataScopeService,
     @Inject(UserService) private readonly userService: UserService,
     @Optional() @InjectQueue('clue-processing') private clueQueue: Queue | undefined,
@@ -667,6 +669,60 @@ export class ClueController {
 
     await this.repo.delete(id)
     return { code: 200, msg: '删除成功', data: true }
+  }
+
+  /** 邀约专员选项（按门店） */
+  @UseGuards(JwtGuard)
+  @Get('inviter-options')
+  async inviterOptions(@Req() req: any, @Query() query: any) {
+    const storeId = Number(query.storeId || 0)
+    if (!storeId) return { code: 400, msg: '缺少 storeId', data: [] }
+
+    const scope = await this.dataScopeService.getScope(req.user)
+    const allowed = await this.dataScopeService.resolveAllowedStoreIds(scope)
+    if (allowed.length && !allowed.includes(storeId)) return { code: 403, msg: '无权访问该门店', data: [] }
+
+    const primaryRoles = ['R_APPOINTMENT', 'R_FRONT_DESK']
+    const fallbackRoles = ['R_SALES', 'R_SALES_MANAGER', 'R_STORE_MANAGER']
+
+    // 直接在门店的邀约专员/前台
+    const directPrimary = await this.empRepo.find({
+      where: { storeId, status: '1' as any, role: In(primaryRoles) }
+    })
+
+    // 链接到门店的邀约专员/前台
+    const links = await this.empLinkRepo.find({ where: { storeId } })
+    const linkIds = Array.from(new Set(links.map((l) => Number(l.employeeId)).filter((n) => Number.isFinite(n))))
+    let linkedPrimary: Employee[] = []
+    if (linkIds.length)
+      linkedPrimary = await this.empRepo.find({
+        where: { id: In(linkIds), status: '1' as any, role: In(primaryRoles) }
+      })
+
+    const map = new Map<number, Employee>()
+    for (const e of directPrimary) map.set(Number(e.id), e)
+    for (const e of linkedPrimary) map.set(Number(e.id), e)
+    let all = Array.from(map.values())
+
+    // 若没有邀约专员/前台，兜底返回在职销售相关角色
+    if (all.length === 0) {
+      const directFallback = await this.empRepo.find({
+        where: { storeId, status: '1' as any, role: In(fallbackRoles) }
+      })
+      let linkedFallback: Employee[] = []
+      if (linkIds.length)
+        linkedFallback = await this.empRepo.find({
+          where: { id: In(linkIds), status: '1' as any, role: In(fallbackRoles) }
+        })
+
+      map.clear()
+      for (const e of directFallback) map.set(Number(e.id), e)
+      for (const e of linkedFallback) map.set(Number(e.id), e)
+      all = Array.from(map.values())
+    }
+
+    const options = all.map((e) => ({ label: e.name, value: e.name }))
+    return { code: 200, msg: 'ok', data: options }
   }
 
   @UseGuards(JwtGuard)

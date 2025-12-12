@@ -6,12 +6,9 @@
       <p>API 代理：{{ apiProxyUrl || '未设置' }}</p>
     </div>
 
-    <div class="actions">
-      <ElButton type="primary" @click="testGetDebug">测试 GET /api/auth/debug-di</ElButton>
-      <ElButton type="warning" @click="testPostLogin" style="margin-left: 8px"
-        >测试 POST /api/auth/login</ElButton
-      >
-    </div>
+  <div class="actions">
+    <ElButton type="primary" @click="testGetDebug">测试 GET /api/auth/debug-di</ElButton>
+  </div>
 
     <div class="result" v-if="lastResult">
       <h3>最后一次结果</h3>
@@ -64,10 +61,8 @@
 
   // 页面加载后自动执行一次连通性检查，便于观察代理日志
   onMounted(() => {
-    // 先测 GET，再测 POST
-    testGetDebug().finally(() => {
-      testPostLogin()
-    })
+    // 仅在页面加载时执行 GET 调试，不自动触发登录
+    testGetDebug()
   })
 </script>
 

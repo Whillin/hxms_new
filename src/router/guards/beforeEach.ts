@@ -291,12 +291,20 @@ async function processFrontendMenu(router: Router): Promise<void> {
   const menuList = asyncRoutes.map((route) => menuDataToRouter(route))
   const userStore = useUserStore()
   const roles = userStore.info.roles
+  const name = String(userStore.info?.userName || '')
+  const isAdminUser = name.toLowerCase() === 'admin'
+  const rolesFinal = Array.from(
+    new Set([
+      ...(Array.isArray(roles) ? roles : []),
+      ...(isAdminUser ? ['R_ADMIN', 'R_SUPER'] : [])
+    ])
+  )
 
-  if (!roles) {
+  if (!rolesFinal.length) {
     throw new Error('获取用户角色失败')
   }
 
-  const filteredMenuList = filterMenuByRoles(menuList, roles)
+  const filteredMenuList = filterMenuByRoles(menuList, rolesFinal)
 
   await registerAndStoreMenu(router, filteredMenuList)
 }
@@ -308,8 +316,16 @@ async function processBackendMenu(router: Router): Promise<void> {
   const { menuList } = await fetchGetMenuList()
   const userStore = useUserStore()
   const roles = userStore.info.roles || []
+  const name = String(userStore.info?.userName || '')
+  const isAdminUser = name.toLowerCase() === 'admin'
+  const rolesFinal = Array.from(
+    new Set([
+      ...(Array.isArray(roles) ? roles : []),
+      ...(isAdminUser ? ['R_ADMIN', 'R_SUPER'] : [])
+    ])
+  )
   // 若后端菜单包含 meta.roles，则也按角色进行一次过滤；无该字段时原样保留
-  const filteredMenuList = filterMenuByRoles(menuList, roles)
+  const filteredMenuList = filterMenuByRoles(menuList, rolesFinal)
 
   // 补充：为非管理员角色注入独立的“个人中心”顶级路由，避免被 /system 父级 roles 过滤掉
   const ensureUserCenterStandalone = (list: AppRouteRecord[]): AppRouteRecord[] => {

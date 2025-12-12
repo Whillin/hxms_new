@@ -64,7 +64,6 @@ export function useChart(options: UseChartOptions = {}) {
         comps.TooltipComponent,
         comps.GridComponent,
         comps.LegendComponent,
-        comps.DataZoomComponent,
         comps.MarkPointComponent,
         comps.MarkLineComponent,
         comps.ToolboxComponent,

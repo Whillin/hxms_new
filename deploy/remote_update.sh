@@ -47,10 +47,30 @@ cat .env.development | head -5
 
 # Ensure backend port is 3001
   echo "[+] Ensuring backend port is 3001..."
-  if ! grep -q "PORT=3001" server/.env; then
+  if ! grep -q "^PORT=3001" server/.env; then
       echo "Updating PORT to 3001 in server/.env"
-      sed -i 's/PORT=.*/PORT=3001/' server/.env
+      sed -i 's/^PORT=.*/PORT=3001/' server/.env || true
       echo "Updated server/.env PORT to 3001"
+  fi
+
+  echo "[+] Ensuring MySQL port is 3306 (fix misconfigured 3001)..."
+  if grep -q "^MYSQL_PORT=3001" server/.env; then
+      echo "Fixing MYSQL_PORT from 3001 -> 3306"
+      sed -i 's/^MYSQL_PORT=.*/MYSQL_PORT=3306/' server/.env || true
+  fi
+  if ! grep -q "^MYSQL_PORT=3306" server/.env; then
+      echo "Setting MYSQL_PORT=3306"
+      echo "MYSQL_PORT=3306" >> server/.env
+  fi
+
+  echo "[+] Ensuring Redis port is 6379 (fix misconfigured 3001)..."
+  if grep -q "^REDIS_PORT=3001" server/.env; then
+      echo "Fixing REDIS_PORT from 3001 -> 6379"
+      sed -i 's/^REDIS_PORT=.*/REDIS_PORT=6379/' server/.env || true
+  fi
+  if ! grep -q "^REDIS_PORT=6379" server/.env; then
+      echo "Setting REDIS_PORT=6379"
+      echo "REDIS_PORT=6379" >> server/.env
   fi
 
   # Ensure env_file for docker compose exists (fallback to server/.env)

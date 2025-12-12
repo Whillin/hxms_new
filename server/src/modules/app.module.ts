@@ -77,7 +77,8 @@ import { DbEnsureService } from '../common/db-ensure.service'
           ],
           synchronize: String(process.env.TYPEORM_SYNC || '').toLowerCase() === 'true',
           maxQueryExecutionTime: Number(process.env.TYPEORM_MAX_MS || 2000),
-          logger: 'advanced-console'
+          logger: 'advanced-console',
+          charset: 'utf8mb4'
         }
 
         const loggingRaw = String(process.env.TYPEORM_LOGGING || '').trim()

@@ -132,7 +132,7 @@
   import { useI18n } from 'vue-i18n'
   import { HttpError } from '@/utils/http/error'
   import { themeAnimation } from '@/utils/theme/animation'
-  import { fetchLogin, fetchGetUserInfo } from '@/api/auth'
+  import { fetchLogin, fetchGetUserInfoWithToken } from '@/api/auth'
   import { useHeaderBar } from '@/composables/useHeaderBar'
   import type { FormInstance, FormRules } from 'element-plus'
   import { ElNotification } from 'element-plus'
@@ -204,10 +204,6 @@
 
   const loading = ref(false)
 
-  onMounted(() => {
-    setupAccount('super')
-  })
-
   // 设置账号
   const setupAccount = (key: AccountKey) => {
     const selectedAccount = accounts.value.find((account: Account) => account.key === key)
@@ -248,9 +244,22 @@
 
       // 存储token和用户信息
       userStore.setToken(token, refreshToken)
-      const userInfo = await fetchGetUserInfo()
+      const userInfo = await fetchGetUserInfoWithToken(token)
+      const loggedName = String(userInfo?.userName || '')
+      const typedName = String(username || '')
+      if (loggedName && typedName && loggedName.toLowerCase() !== typedName.toLowerCase()) {
+        ElMessage.error('登录异常：账号不一致，请重新登录')
+        userStore.logOut()
+        return
+      }
       userStore.setUserInfo(userInfo)
       userStore.setLoginStatus(true)
+      console.info(
+        '[Login] user:',
+        userInfo?.userName,
+        'roles:',
+        Array.isArray(userInfo?.roles) ? userInfo.roles.join(',') : ''
+      )
 
       // 登录成功处理
       showLoginSuccessNotice()

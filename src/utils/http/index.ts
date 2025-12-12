@@ -59,8 +59,12 @@ const axiosInstance = axios.create({
 /** 请求拦截器 */
 axiosInstance.interceptors.request.use(
   (request: InternalAxiosRequestConfig) => {
-    const { accessToken } = useUserStore()
-    if (accessToken) request.headers.set('Authorization', `Bearer ${accessToken}`)
+    const store = useUserStore()
+    const token =
+      typeof (store as any).accessToken === 'string'
+        ? (store as any).accessToken
+        : String((store as any).accessToken?.value || '')
+    if (token) request.headers.set('Authorization', `Bearer ${token}`)
 
     if (request.data && !(request.data instanceof FormData) && !request.headers['Content-Type']) {
       request.headers.set('Content-Type', 'application/json')
@@ -141,10 +145,14 @@ async function attemptRefreshAndRetry(
 ) {
   try {
     await ensureRefreshed()
-    const { accessToken } = useUserStore()
-    if (accessToken) {
+    const store = useUserStore()
+    const token =
+      typeof (store as any).accessToken === 'string'
+        ? (store as any).accessToken
+        : String((store as any).accessToken?.value || '')
+    if (token) {
       originalConfig.headers = originalConfig.headers || {}
-      originalConfig.headers['Authorization'] = `Bearer ${accessToken}`
+      originalConfig.headers['Authorization'] = `Bearer ${token}`
     }
     return axiosInstance.request(originalConfig)
   } catch {

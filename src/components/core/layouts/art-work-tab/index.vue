@@ -276,9 +276,7 @@
 
     const handleWheelScroll = (event: WheelEvent) => {
       if (!scrollRef.value || !tabsRef.value) return
-
-      event.preventDefault()
-
+      // 不再阻止默认滚动行为，依赖 CSS overscroll-behavior 控制滚动链
       if (tabsRef.value.offsetWidth <= scrollRef.value.offsetWidth) return
 
       const xMax = 0
@@ -315,7 +313,7 @@
 
     const setupEventListeners = () => {
       if (tabsRef.value) {
-        tabsRef.value.addEventListener('wheel', handleWheelScroll, { passive: false })
+        tabsRef.value.addEventListener('wheel', handleWheelScroll, { passive: true })
         tabsRef.value.addEventListener('touchstart', handleTouchStart, { passive: true })
         tabsRef.value.addEventListener('touchmove', handleTouchMove, { passive: true })
         tabsRef.value.addEventListener('touchend', handleTouchEnd, { passive: true })

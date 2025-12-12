@@ -14,6 +14,50 @@ export class CustomerController {
     @InjectRepository(Department) private readonly deptRepo: Repository<Department>
   ) {}
 
+  private async seedDemoOrgIfEmpty(): Promise<void> {
+    const countStores = await this.deptRepo.count({ where: { type: 'store' as any } })
+    if (countStores > 0) return
+
+    const group = this.deptRepo.create({ name: '华星名仕集团', type: 'group', enabled: true })
+    const savedGroup = await this.deptRepo.save(group)
+
+    const brand = this.deptRepo.create({
+      name: '华星名仕品牌',
+      type: 'brand' as any,
+      parentId: savedGroup.id,
+      enabled: true,
+      code: '01'
+    })
+    const savedBrand = await this.deptRepo.save(brand)
+
+    const dept = this.deptRepo.create({
+      name: '销售部门',
+      type: 'department' as any,
+      parentId: savedBrand.id,
+      enabled: true,
+      code: '01'
+    })
+    const savedDept = await this.deptRepo.save(dept)
+
+    const region = this.deptRepo.create({
+      name: '成都区域',
+      type: 'region' as any,
+      parentId: savedDept.id,
+      enabled: true,
+      code: '0101'
+    })
+    const savedRegion = await this.deptRepo.save(region)
+
+    const store = this.deptRepo.create({
+      name: '成都一店',
+      type: 'store' as any,
+      parentId: savedRegion.id,
+      enabled: true,
+      code: '010101'
+    })
+    await this.deptRepo.save(store)
+  }
+
   @UseGuards(JwtGuard)
   @Get('list')
   async list(@Req() req: any, @Query() query: any) {
@@ -108,6 +152,7 @@ export class CustomerController {
     const isAdmin = roles.includes('R_ADMIN') || roles.includes('R_SUPER') || roles.includes('R_INFO')
     if (!this.dataScopeService) {
       if (isAdmin) {
+        await this.seedDemoOrgIfEmpty()
         const allStores = await this.deptRepo.find({ where: { type: 'store' as any } })
         const options = allStores.map((s) => ({ id: s.id, name: s.name }))
         return { code: 200, msg: 'ok', data: options }
@@ -119,6 +164,7 @@ export class CustomerController {
       const scope = await this.dataScopeService.getScope(req.user)
       const allowedStoreIds = await this.dataScopeService.resolveAllowedStoreIds(scope)
       if (scope.level === 'all') {
+        await this.seedDemoOrgIfEmpty()
         const allStores = await this.deptRepo.find({ where: { type: 'store' as any } })
         const options = allStores.map((s) => ({ id: s.id, name: s.name }))
         return { code: 200, msg: 'ok', data: options }
@@ -129,6 +175,7 @@ export class CustomerController {
       return { code: 200, msg: 'ok', data: options }
     } catch (err) {
       if (isAdmin) {
+        await this.seedDemoOrgIfEmpty()
         const allStores = await this.deptRepo.find({ where: { type: 'store' as any } })
         const options = allStores.map((s) => ({ id: s.id, name: s.name }))
         return { code: 200, msg: 'ok', data: options }

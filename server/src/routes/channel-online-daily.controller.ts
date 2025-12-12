@@ -96,14 +96,35 @@ export class ChannelOnlineDailyController {
     )
   }
 
+  private canViewDaily(roles: string[]): boolean {
+    const list = Array.isArray(roles) ? roles : []
+    const allow = new Set([
+      'R_STORE_MANAGER',
+      'R_STORE_DIRECTOR',
+      'R_ADMIN',
+      'R_SUPER',
+      'R_SALES_MANAGER',
+      'R_SALES',
+      'R_APPOINTMENT',
+      'R_FRONT_DESK',
+      'R_BRAND_GM',
+      'R_REGION_GM',
+      'R_INFO'
+    ])
+    for (const r of list) {
+      if (allow.has(r)) return true
+    }
+    return false
+  }
+
   /** 获取当日该店所有渠道的填报数据；为空则返回字典结构 */
   @UseGuards(JwtGuard)
   @SkipThrottle()
   @Get('list')
   async list(@Req() req: any, @Query() query: any) {
     const roles: string[] = Array.isArray(req.user?.roles) ? req.user.roles : []
-    if (!this.isManagerOrDirector(roles)) {
-      return { code: 403, msg: '仅店长/总监可访问', data: { records: [] } }
+    if (!this.canViewDaily(roles)) {
+      return { code: 403, msg: '无权查看', data: { records: [] } }
     }
 
     const scope = await this.dataScopeService.getScope(req.user)

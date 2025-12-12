@@ -897,7 +897,7 @@
     referrer: '',
     contactTimes: 1,
     opportunityLevel: 'A',
-    userGender: '未知',
+    userGender: '' as any,
     userAge: 0,
     buyExperience: '首购',
     userPhoneModel: '',
@@ -999,8 +999,29 @@
         })
       }
     } catch {
-      inviterOptions.value = []
-      console.debug('[inviter-options] error, set empty', { storeId: storeIdNum })
+      try {
+        const empResp: any = await fetchGetEmployeeList({
+          storeId: storeIdNum,
+          role: 'R_APPOINTMENT',
+          status: '1',
+          current: 1,
+          size: 50
+        })
+        const list: Api.SystemManage.EmployeeItem[] =
+          (empResp?.data?.records as any) || (empResp?.records as any) || []
+        inviterOptions.value = (Array.isArray(list) ? list : []).map((e) => ({
+          label: `${e.name}（邀约专员）`,
+          value: e.name
+        }))
+        console.debug('[inviter-options-fallback]', {
+          storeId: storeIdNum,
+          count: inviterOptions.value.length,
+          via: 'employee.list'
+        })
+      } catch {
+        inviterOptions.value = []
+        console.debug('[inviter-options] error, set empty', { storeId: storeIdNum })
+      }
     } finally {
       loadingInviter.value = false
     }
@@ -1359,8 +1380,7 @@
       props: {
         options: [
           { label: '男', value: '男' },
-          { label: '女', value: '女' },
-          { label: '未知', value: '未知' }
+          { label: '女', value: '女' }
         ]
       }
     },
@@ -1801,7 +1821,7 @@
     return undefined
   }
   const AUDI_BRANDS = ['上汽奥迪', '一汽奥迪']
-  const INVITER_CHANNELS = ['DCC/ADC到店', '新媒体开发']
+  const INVITER_CHANNELS = ['垂媒', '新媒体开发']
   const isInviterRequiredRef = computed(() => {
     const sid = Number(
       typeof addForm.value.storeId === 'number'

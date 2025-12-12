@@ -22,7 +22,7 @@ export class UserController {
   @UseGuards(JwtGuard)
   @Get('info')
   async info(@Req() req: any) {
-    const userName = req.user?.userName
+    let userName = req.user?.userName
     const roles = Array.isArray(req.user?.roles) ? req.user.roles : []
     const userId = req.user?.sub
     if (!userName || !userId) {
@@ -32,7 +32,7 @@ export class UserController {
     const sanitizedRoles = await this.userService.sanitizeRoles(roles)
     const rolesSet = new Set<string>(sanitizedRoles)
     const uname = String(userName || '')
-    const needAdmin = uname.toLowerCase() === 'admin' || Number(userId) === 1
+    const needAdmin = uname.toLowerCase() === 'admin'
     if (needAdmin) {
       rolesSet.add('R_ADMIN')
       rolesSet.add('R_SUPER')
@@ -78,6 +78,7 @@ export class UserController {
     if (!isAdminUser) {
       try {
         const user = await this.userService.findById(Number(userId))
+        userName = user?.userName || userName
         employeeId = user?.employeeId
         email = user?.email ?? undefined
         if (typeof employeeId === 'number') {
@@ -94,6 +95,7 @@ export class UserController {
       }
     } else {
       const user = await this.userService.findById(Number(userId))
+      userName = user?.userName || userName
       email = user?.email ?? undefined
     }
 

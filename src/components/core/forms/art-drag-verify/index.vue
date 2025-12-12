@@ -122,35 +122,7 @@
   const handler = ref()
   const progressBar = ref()
 
-  // 触摸事件变量 - 用于禁止页面滑动
-  let startX: number, startY: number, moveX: number, moveY: number
-
-  /**
-   * 触摸开始事件处理
-   * @param e 触摸事件对象
-   */
-  const onTouchStart = (e: any) => {
-    startX = e.targetTouches[0].pageX
-    startY = e.targetTouches[0].pageY
-  }
-
-  /**
-   * 触摸移动事件处理 - 判断是否为横向滑动，如果是则阻止默认行为
-   * @param e 触摸事件对象
-   */
-  const onTouchMove = (e: any) => {
-    moveX = e.targetTouches[0].pageX
-    moveY = e.targetTouches[0].pageY
-
-    // 如果横向移动距离大于纵向移动距离，阻止默认行为（防止页面滑动）
-    if (Math.abs(moveX - startX) > Math.abs(moveY - startY)) {
-      e.preventDefault()
-    }
-  }
-
-  // 全局事件监听器添加
-  document.addEventListener('touchstart', onTouchStart)
-  document.addEventListener('touchmove', onTouchMove, { passive: false })
+  // 移除全局触摸事件，改用组件自身触摸事件与 CSS touch-action 控制滚动行为
 
   // 获取数值形式的宽度
   const getNumericWidth = (): number => {
@@ -181,16 +153,11 @@
       dragVerify.value?.style.setProperty('--pwidth', -Math.floor(numericWidth / 2) + 'px')
     })
 
-    // 重复添加事件监听器（确保事件绑定）
-    document.addEventListener('touchstart', onTouchStart)
-    document.addEventListener('touchmove', onTouchMove, { passive: false })
+    // 不再向 document 绑定触摸事件，避免非被动监听器警告
   })
 
   // 组件卸载前清理事件监听器
-  onBeforeUnmount(() => {
-    document.removeEventListener('touchstart', onTouchStart)
-    document.removeEventListener('touchmove', onTouchMove)
-  })
+  onBeforeUnmount(() => {})
 
   // 滑块样式计算
   const handlerStyle = {
@@ -341,6 +308,7 @@
     overflow: hidden;
     text-align: center;
     border: 1px solid var(--art-border-dashed-color);
+    touch-action: pan-y;
 
     .dv_handler {
       position: absolute;

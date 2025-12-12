@@ -31,11 +31,26 @@ export class AuthController {
       const userName = body?.userName || body?.username || ''
       const password = body?.password || ''
       const user = await this.userService.findByUserName(userName)
-      if (!user || !this.userService.verifyPassword(user, password) || !user.enabled) {
-        return { code: 401, msg: '用户名或密码错误', data: null }
-      }
+console.log('Login attempt - userName:', userName);
+console.log('Found user:', user ? { id: user.id, userName: user.userName, enabled: user.enabled, roles: user.roles, passwordHash: user.passwordHash } : 'null');
+const match = user ? this.userService.verifyPassword(user, password) : false;
+console.log('Password match:', match);
+if (user) console.log('Stored hash:', user.passwordHash);
+if (!user || !match || !user.enabled) {
+  return { code: 401, msg: '用户名或密码错误', data: null }
+}
 
-      const payload = { sub: user.id, userName: user.userName, roles: user.roles }
+      const rawRoles = Array.isArray(user.roles) ? user.roles : []
+      const sanitized = await this.userService.sanitizeRoles(rawRoles)
+      const uname = String(user.userName || '')
+      const needAdmin = uname.toLowerCase() === 'admin'
+      const rolesSet = new Set<string>(sanitized)
+      if (needAdmin) {
+        rolesSet.add('R_ADMIN')
+        rolesSet.add('R_SUPER')
+      }
+      const roles = Array.from(rolesSet)
+      const payload = { sub: user.id, userName: user.userName, roles }
       const token = this.authService.signToken(payload)
       const refreshToken = this.authService.signRefreshToken(payload)
       this.setRefreshCookie(res, refreshToken)
@@ -84,11 +99,21 @@ export class AuthController {
         : null
       const record = byId || byName
 
-      const roles = Array.isArray(record?.roles)
+      const rolesIncoming = Array.isArray(record?.roles)
         ? record!.roles
         : Array.isArray((payload as any)?.roles)
           ? (payload as any).roles
           : []
+      const sanitized = await this.userService.sanitizeRoles(rolesIncoming)
+      const uname = String((record?.userName ?? (payload as any)?.userName) || '')
+      const uid = Number(record?.id ?? (payload as any)?.sub)
+      const needAdmin = uname.toLowerCase() === 'admin'
+      const rolesSet = new Set<string>(sanitized)
+      if (needAdmin) {
+        rolesSet.add('R_ADMIN')
+        rolesSet.add('R_SUPER')
+      }
+      const roles = Array.from(rolesSet)
       const cleanPayload = {
         sub: record?.id ?? (payload as any)?.sub,
         userName: record?.userName ?? (payload as any)?.userName,
@@ -104,13 +129,13 @@ export class AuthController {
     }
   }
 
-  /** 从请求体、头与 Cookie 中提取刷新令牌（优先级：体 > 头 > Cookie） */
+  /** 从请求体与请求头提取刷新令牌（不再从 Cookie 回退，避免跨账号污染） */
   private getRefreshTokenFromReq(req: any, body: any): string {
     const fromBody = body?.refreshToken || ''
     const hdr = req?.headers?.['x-refresh-token']
     const fromHeader = Array.isArray(hdr) ? hdr[0] : hdr
-    const fromCookie = this.getCookieValue(req?.headers?.cookie, 'refresh_token') || ''
-    return fromBody || fromHeader || fromCookie || ''
+    if (fromBody || fromHeader) return fromBody || fromHeader
+    return ''
   }
 
   /** 解析 Cookie 头中的指定键 */

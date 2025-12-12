@@ -59,7 +59,6 @@
           <ElSelect v-model="editForm.userGender" placeholder="请选择性别">
             <ElOption label="男" value="男" />
             <ElOption label="女" value="女" />
-            <ElOption label="未知" value="未知" />
           </ElSelect>
         </ElFormItem>
         <ElFormItem label="使用者年龄">
@@ -128,7 +127,7 @@
     id: number
     userName: string
     userPhone: string
-    userGender: '男' | '女' | '未知'
+    userGender: '男' | '女'
     userAge: number
     buyExperience: '首购' | '换购' | '增购'
     userPhoneModel: string
@@ -218,8 +217,7 @@
       props: {
         options: [
           { label: '男', value: '男' },
-          { label: '女', value: '女' },
-          { label: '未知', value: '未知' }
+          { label: '女', value: '女' }
         ]
       }
     },
@@ -361,7 +359,7 @@
       id: (editForm.value as any).id,
       userName: String(editForm.value.userName || ''),
       userPhone: String(editForm.value.userPhone || ''),
-      userGender: String(editForm.value.userGender || '未知') as any,
+      userGender: String(editForm.value.userGender || '') as any,
       userAge: Number(editForm.value.userAge || 0),
       buyExperience: String(editForm.value.buyExperience || '首购') as any,
       userPhoneModel: editForm.value.userPhoneModel || '',

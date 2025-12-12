@@ -12,6 +12,7 @@
   .scroll-view {
     width: 100%;
     overflow: hidden;
+    overscroll-behavior: contain;
 
     .tabs {
       float: left;

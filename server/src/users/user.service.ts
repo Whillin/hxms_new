@@ -31,7 +31,12 @@ export class UserService implements OnModuleInit {
   }
 
   async findByUserName(userName: string): Promise<User | null> {
-    return (await this.repo.findOne({ where: { userName } })) || null
+    console.log('Searching for userName:', userName);
+    console.log('Length:', userName.length);
+    console.log('Hex:', Buffer.from(userName, 'utf8').toString('hex'));
+    const user = await this.repo.findOne({ where: { userName } });
+    console.log('Found user:', user ? user.id : 'null');
+    return user || null;
   }
 
   verifyPassword(user: User, password: string): boolean {
