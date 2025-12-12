@@ -88,12 +88,21 @@ export function clearStore(storeId: string): void {
 /**
  * 工具：稳定字符串化查询参数（按 key 排序，过滤分页键）
  */
-export function stableParamsKey(params: Record<string, unknown> = {}): string {
-  const omitKeys = new Set(['current', 'size'])
+export function stableParamsKey(
+  params: Record<string, unknown> = {},
+  includePagination: boolean = false
+): string {
+  const omitKeys = includePagination ? new Set<string>() : new Set(['current', 'size'])
   const entries = Object.entries(params)
     .filter(([k, v]) => !omitKeys.has(k) && v !== undefined)
     .sort(([a], [b]) => (a > b ? 1 : a < b ? -1 : 0))
-  return entries.map(([k, v]) => `${k}=${String(v)}`).join('&')
+  const base = entries.map(([k, v]) => `${k}=${String(v)}`).join('&')
+  if (includePagination) {
+    const c = params.current !== undefined ? String(params.current) : '1'
+    const s = params.size !== undefined ? String(params.size) : '10'
+    return `p:${c},${s}|${base}`
+  }
+  return base
 }
 
 /** 默认 TTL：12 小时 */

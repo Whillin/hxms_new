@@ -123,7 +123,7 @@ export function fetchGetEmployeeList(
 ) {
   const useCache = shouldUseCache(params, options)
   if (useCache) {
-    const key = stableParamsKey(params as unknown as Record<string, unknown>)
+    const key = stableParamsKey(params as unknown as Record<string, unknown>, true)
     const cached = getCache<Api.SystemManage.EmployeeList>(EMP_CACHE_ID, key)
     if (cached) return Promise.resolve(cached)
   }
@@ -136,7 +136,7 @@ export function fetchGetEmployeeList(
     .then((res) => {
       if (useCache) {
         const ttlMs = (options?.ttlHours || DEFAULT_TTL_MS / 3600000) * 3600000
-        const key = stableParamsKey(params as unknown as Record<string, unknown>)
+        const key = stableParamsKey(params as unknown as Record<string, unknown>, true)
         setCache(EMP_CACHE_ID, key, res, ttlMs)
       }
       return res
