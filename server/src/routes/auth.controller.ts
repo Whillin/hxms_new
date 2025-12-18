@@ -31,14 +31,25 @@ export class AuthController {
       const userName = body?.userName || body?.username || ''
       const password = body?.password || ''
       const user = await this.userService.findByUserName(userName)
-console.log('Login attempt - userName:', userName);
-console.log('Found user:', user ? { id: user.id, userName: user.userName, enabled: user.enabled, roles: user.roles, passwordHash: user.passwordHash } : 'null');
-const match = user ? this.userService.verifyPassword(user, password) : false;
-console.log('Password match:', match);
-if (user) console.log('Stored hash:', user.passwordHash);
-if (!user || !match || !user.enabled) {
-  return { code: 401, msg: '用户名或密码错误', data: null }
-}
+      console.log('Login attempt - userName:', userName)
+      console.log(
+        'Found user:',
+        user
+          ? {
+              id: user.id,
+              userName: user.userName,
+              enabled: user.enabled,
+              roles: user.roles,
+              passwordHash: user.passwordHash
+            }
+          : 'null'
+      )
+      const match = user ? this.userService.verifyPassword(user, password) : false
+      console.log('Password match:', match)
+      if (user) console.log('Stored hash:', user.passwordHash)
+      if (!user || !match || !user.enabled) {
+        return { code: 401, msg: '用户名或密码错误', data: null }
+      }
 
       const rawRoles = Array.isArray(user.roles) ? user.roles : []
       const sanitized = await this.userService.sanitizeRoles(rawRoles)

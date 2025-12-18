@@ -58,3 +58,17 @@ export function fetchDeleteProduct(id: number, options?: { showSuccessMessage?: 
 export function fetchGetProductCategories(id: number) {
   return request.get<number[]>({ url: `/api/product/${id}/categories` })
 }
+
+export function fetchGetProductsCategories(ids: number[]) {
+  return request.get<Record<number, number[]>>({
+    url: '/api/product/categories',
+    params: { ids: ids.join(',') }
+  })
+}
+
+export function fetchGetModelsByStore(storeId: number) {
+  return request.get<Array<{ id: number; name: string }>>({
+    url: '/api/product/models/by-store',
+    params: { storeId }
+  })
+}

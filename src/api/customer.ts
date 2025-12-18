@@ -77,3 +77,18 @@ export function fetchGetCustomerNewWeekCount(params?: { storeId?: number }) {
     params
   })
 }
+
+export function fetchRepairCustomers(data?: { storeId?: number; size?: number }) {
+  return request.post<{
+    scanned: number
+    updated: number
+    fixedStoreId: number
+    merged: number
+    skippedNoClue: number
+    skippedConflict: number
+  }>({
+    url: '/api/customer/repair',
+    data,
+    showSuccessMessage: true
+  })
+}

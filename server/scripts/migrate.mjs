@@ -350,6 +350,31 @@ async function mig008_online_channel_tables(conn, db) {
   await markApplied(conn, db, version)
 }
 
+// 009: 创建线上渠道日报车型拆分规范化表
+async function mig009_online_daily_model(conn, db) {
+  const version = '009_online_daily_model_breakdown'
+  if (await wasApplied(conn, db, version)) return
+
+  await conn.query(`
+    CREATE TABLE IF NOT EXISTS online_channel_daily_model (
+      id INT NOT NULL AUTO_INCREMENT,
+      dailyId INT NOT NULL,
+      modelId INT NULL,
+      modelName VARCHAR(120) NULL,
+      count INT NOT NULL DEFAULT 0,
+      uniqueKey VARCHAR(191) NOT NULL,
+      createdAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updatedAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      PRIMARY KEY (id),
+      UNIQUE KEY uniq_daily_model_compound (uniqueKey),
+      KEY idx_daily_model_daily (dailyId),
+      KEY idx_daily_model_mid (modelId)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+  `)
+
+  await markApplied(conn, db, version)
+}
+
 // 007: 删除 online_channel_daily_allocation.roleCode，并将唯一键改为 (dailyId, employeeId)
 async function mig007_alloc_remove_role_and_unique_on_daily_employee(conn, db) {
   const version = '007_alloc_remove_role_and_unique_on_daily_employee'
@@ -437,6 +462,7 @@ async function main() {
     await mig005_clues_snapshots(conn, db)
     await mig006_clues_visit_times_and_counts(conn, db)
     await mig008_online_channel_tables(conn, db)
+    await mig009_online_daily_model(conn, db)
     await mig007_alloc_remove_role_and_unique_on_daily_employee(conn, db)
     console.log('[OK] migrations applied')
   } finally {

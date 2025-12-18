@@ -381,7 +381,7 @@
   import { fetchGetCustomerStoreOptions } from '@/api/customer'
   import { fetchGetEmployeeList } from '@/api/system-manage'
   import { fetchGetDepartmentList } from '@/api/system-manage'
-  import { fetchGetProductList } from '@/api/product'
+  import { fetchGetProductList, fetchGetModelsByStore } from '@/api/product'
   import { fetchChannelOptions } from '@/api/channel'
   import { useUserStore } from '@/store/modules/user'
 
@@ -594,7 +594,12 @@
     try {
       const brand = currentBrand.value
       let list: any[] = []
-      if (brand) {
+      const sidNum = Number(storeId.value || 0)
+      if (Number.isFinite(sidNum) && sidNum > 0) {
+        const byStore = await fetchGetModelsByStore(sidNum)
+        const arr = Array.isArray(byStore) ? byStore : []
+        if (arr.length) list = arr
+      } else if (brand) {
         const catsRes: any = await request.get({ url: '/api/category/all' })
         const cats: any[] = Array.isArray(catsRes?.data) ? catsRes.data : []
         const target = cats.find(
@@ -620,8 +625,8 @@
         const idNum = Number(m.id)
         const label = String(m.name || m.modelName || idNum)
         const brandRaw = String(m.brand || (m as any).series || '')
-        const brand = normalizeBrand(brandRaw)
-        if (Number.isFinite(idNum)) opts.push({ label, value: idNum, brand })
+        const b = normalizeBrand(brandRaw) || brand
+        if (Number.isFinite(idNum)) opts.push({ label, value: idNum, brand: b })
       })
       modelsAll.value = opts
       models.value = opts.map((m) => ({ label: m.label, value: m.value }))

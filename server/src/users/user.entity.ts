@@ -27,7 +27,34 @@ export class User {
   @Column('varchar', { length: 255, nullable: true })
   avatar?: string
 
-  @Column('simple-json', { nullable: true })
+  @Column('text', {
+    nullable: true,
+    transformer: {
+      to: (value?: string[] | null) => {
+        if (!value || !Array.isArray(value)) return '[]'
+        try {
+          return JSON.stringify(value)
+        } catch {
+          return '[]'
+        }
+      },
+      from: (value?: string | null) => {
+        if (!value) return []
+        const raw = String(value)
+        try {
+          const parsed = JSON.parse(raw)
+          return Array.isArray(parsed) ? parsed.filter((s) => typeof s === 'string') : []
+        } catch {
+          const cleaned = raw.replace(/[\[\]"]+/g, '')
+          const parts = cleaned
+            .split(/[,;|]/)
+            .map((s) => s.trim())
+            .filter(Boolean)
+          return parts
+        }
+      }
+    }
+  })
   roles!: string[]
 
   @Column('tinyint', { default: true })

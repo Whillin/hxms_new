@@ -304,10 +304,9 @@
         return records.map((item, index: number) => {
           return {
             ...item,
-            avatar:
-              `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURIComponent(
-                String(item.userName || `user-${index}`)
-              )}`
+            avatar: `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURIComponent(
+              String(item.userName || `user-${index}`)
+            )}`
           }
         })
       }

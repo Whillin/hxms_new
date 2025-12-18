@@ -46,7 +46,10 @@ export const useUserStore = defineStore(
      * @param newInfo 新的用户信息
      */
     const setUserInfo = (newInfo: Api.Auth.UserInfo) => {
-      info.value = newInfo
+      info.value = {
+        ...newInfo,
+        roles: Array.isArray(newInfo.roles) ? newInfo.roles.filter((code) => code !== 'R_USER') : []
+      }
     }
 
     /**

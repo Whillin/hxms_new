@@ -37,7 +37,8 @@ export class ClueController {
     @InjectRepository(Channel) private readonly channelRepo: Repository<Channel>,
     @InjectRepository(ProductModel) private readonly productModelRepo: Repository<ProductModel>,
     @InjectRepository(Employee) private readonly empRepo: Repository<Employee>,
-    @InjectRepository(EmployeeStoreLink) private readonly empLinkRepo: Repository<EmployeeStoreLink>,
+    @InjectRepository(EmployeeStoreLink)
+    private readonly empLinkRepo: Repository<EmployeeStoreLink>,
     @Inject(DataScopeService) private readonly dataScopeService: DataScopeService,
     @Inject(UserService) private readonly userService: UserService,
     @Optional() @InjectQueue('clue-processing') private clueQueue: Queue | undefined,
@@ -184,7 +185,11 @@ export class ClueController {
     for (const ch of dict) {
       for (let i = 0; i < count; i++) {
         seq += 1
-        const phone = `139${String(storeId).padStart(2, '0')}${String(ch.id).padStart(3, '0')}${String(i).padStart(4, '0')}`.slice(0, 11)
+        const phone =
+          `139${String(storeId).padStart(2, '0')}${String(ch.id).padStart(3, '0')}${String(i).padStart(4, '0')}`.slice(
+            0,
+            11
+          )
         const clue = this.repo.create({
           visitDate: date,
           customerName: `测试用户${seq}`,
@@ -234,7 +239,11 @@ export class ClueController {
         }
       }
     }
-    return { code: 200, msg: 'ok', data: { storeId, date, channels: dict.length, perChannel: count, created: savedIds.length } }
+    return {
+      code: 200,
+      msg: 'ok',
+      data: { storeId, date, channels: dict.length, perChannel: count, created: savedIds.length }
+    }
   }
 
   /** 批量清理线上投放的测试线索及其对应商机（按门店与日期范围） */
@@ -259,7 +268,9 @@ export class ClueController {
       businessSource: '线上投放'
     }
     const clues = await this.repo.find({ where: whereClues })
-    const phones = Array.from(new Set(clues.map((c) => String(c.customerPhone || '')))).filter((p) => !!p)
+    const phones = Array.from(new Set(clues.map((c) => String(c.customerPhone || '')))).filter(
+      (p) => !!p
+    )
     const clueIds = clues.map((c) => c.id)
     let deletedClues = 0
     if (clueIds.length) {
@@ -302,7 +313,9 @@ export class ClueController {
       businessSource: '线上投放'
     }
     const clues = await this.repo.find({ where: whereClues })
-    const phones = Array.from(new Set(clues.map((c) => String(c.customerPhone || '')))).filter((p) => !!p)
+    const phones = Array.from(new Set(clues.map((c) => String(c.customerPhone || '')))).filter(
+      (p) => !!p
+    )
     const clueIds = clues.map((c) => c.id)
     let deletedClues = 0
     if (clueIds.length) {
@@ -331,7 +344,11 @@ export class ClueController {
 
   @Get('clear-seeded-online/open')
   async clearSeededOnlineOpenGet(@Query() query: any) {
-    const body = { storeId: Number(query.storeId || 0), start: String(query.start || ''), end: String(query.end || '') }
+    const body = {
+      storeId: Number(query.storeId || 0),
+      start: String(query.start || ''),
+      end: String(query.end || '')
+    }
     return await this.clearSeededOnlineOpen(body)
   }
 
@@ -432,9 +449,9 @@ export class ClueController {
           mileage: body.mileage !== undefined ? Number(body.mileage || 0) : existing.mileage,
           livingArea:
             body.livingArea !== undefined
-              ? (Array.isArray(body.livingArea)
-                  ? (body.livingArea as any[]).join('/')
-                  : String(body.livingArea))
+              ? Array.isArray(body.livingArea)
+                ? (body.livingArea as any[]).join('/')
+                : String(body.livingArea)
               : existing.livingArea,
           convertOrRetentionModel: body.convertOrRetentionModel ?? existing.convertOrRetentionModel,
           referrer: body.referrer ?? existing.referrer,
@@ -457,8 +474,15 @@ export class ClueController {
         return { code: 200, msg: '更新成功', data: true }
       }
 
-      // 部门层级解析：获取品牌/大区
-      const ancestors = await this.findAncestors(Number(storeId))
+      const sid = Number(storeId)
+      if (!Number.isFinite(sid) || sid <= 0) {
+        return { code: 400, msg: '缺少或无效的门店ID', data: false }
+      }
+      const storeDept = await this.deptRepo.findOne({ where: { id: sid } })
+      if (!storeDept || storeDept.type !== 'store') {
+        return { code: 400, msg: '归属门店必须为“门店”类型', data: false }
+      }
+      const ancestors = await this.findAncestors(sid)
 
       // 客户表：如不存在则创建，存在则忽略
       let customer = await this.customerRepo.findOne({
@@ -472,12 +496,22 @@ export class ClueController {
         customer = this.customerRepo.create({
           storeId: Number(storeId),
           name: String(customerName),
-          phone: String(customerPhone)
+          phone: String(customerPhone),
+          gender: (body.userGender || '未知') as any,
+          age: Number(body.userAge || 0),
+          buyExperience: (body.buyExperience || '首购') as any,
+          phoneModel: body.userPhoneModel || undefined,
+          currentBrand: body.currentBrand || undefined,
+          currentModel: body.currentModel || undefined,
+          carAge: Number(body.carAge || 0),
+          mileage: Number(body.mileage || 0),
+          livingArea: Array.isArray(body.livingArea)
+            ? (body.livingArea as any[]).join('/')
+            : String(body.livingArea || '')
         })
         try {
           customer = await this.customerRepo.save(customer)
         } catch {
-          // 并发或唯一约束冲突时，重新查询拿到记录
           customer = await this.customerRepo.findOne({
             where: {
               storeId: Number(storeId),
@@ -486,6 +520,20 @@ export class ClueController {
             }
           })
         }
+      }
+      if (customer) {
+        customer.gender = (body.userGender as any) ?? customer.gender
+        customer.age = typeof body.userAge === 'number' ? Number(body.userAge) : customer.age
+        customer.buyExperience = (body.buyExperience as any) ?? customer.buyExperience
+        customer.phoneModel = body.userPhoneModel ?? customer.phoneModel
+        customer.currentBrand = body.currentBrand ?? customer.currentBrand
+        customer.currentModel = body.currentModel ?? customer.currentModel
+        customer.carAge = body.carAge !== undefined ? Number(body.carAge || 0) : customer.carAge
+        customer.mileage = body.mileage !== undefined ? Number(body.mileage || 0) : customer.mileage
+        customer.livingArea = Array.isArray(body.livingArea)
+          ? (body.livingArea as any[]).join('/')
+          : String(body.livingArea || customer.livingArea || '')
+        await this.customerRepo.save(customer)
       }
 
       // 构建线索并保存（确保类型与实体声明匹配）
@@ -513,14 +561,12 @@ export class ClueController {
         visitorCount: body.visitorCount !== undefined ? Number(body.visitorCount || 1) : undefined,
         receptionStatus: (body.receptionStatus as any) || 'sales',
         // 关注/成交相关字段（直存路径补齐，确保商机可根据成交直接闭环）
-        focusModelId:
-          typeof body.focusModelId === 'number' ? Number(body.focusModelId) : undefined,
+        focusModelId: typeof body.focusModelId === 'number' ? Number(body.focusModelId) : undefined,
         focusModelName: body.focusModelName ? String(body.focusModelName) : undefined,
         testDrive: toBool(body.testDrive),
         bargaining: toBool(body.bargaining),
         dealDone: toBool(body.dealDone),
-        dealModelId:
-          typeof body.dealModelId === 'number' ? Number(body.dealModelId) : undefined,
+        dealModelId: typeof body.dealModelId === 'number' ? Number(body.dealModelId) : undefined,
         dealModelName: body.dealModelName ? String(body.dealModelName) : undefined,
         businessSource: String(body.businessSource || '自然到店'),
         channelCategory: String(body.channelCategory || '线下'),
@@ -680,7 +726,8 @@ export class ClueController {
 
     const scope = await this.dataScopeService.getScope(req.user)
     const allowed = await this.dataScopeService.resolveAllowedStoreIds(scope)
-    if (allowed.length && !allowed.includes(storeId)) return { code: 403, msg: '无权访问该门店', data: [] }
+    if (allowed.length && !allowed.includes(storeId))
+      return { code: 403, msg: '无权访问该门店', data: [] }
 
     const primaryRoles = ['R_APPOINTMENT', 'R_FRONT_DESK']
     const fallbackRoles = ['R_SALES', 'R_SALES_MANAGER', 'R_STORE_MANAGER']
@@ -692,7 +739,9 @@ export class ClueController {
 
     // 链接到门店的邀约专员/前台
     const links = await this.empLinkRepo.find({ where: { storeId } })
-    const linkIds = Array.from(new Set(links.map((l) => Number(l.employeeId)).filter((n) => Number.isFinite(n))))
+    const linkIds = Array.from(
+      new Set(links.map((l) => Number(l.employeeId)).filter((n) => Number.isFinite(n)))
+    )
     let linkedPrimary: Employee[] = []
     if (linkIds.length)
       linkedPrimary = await this.empRepo.find({

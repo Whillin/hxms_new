@@ -232,6 +232,7 @@
   import { regionData } from 'element-china-area-data'
   import { useProductCategoryStore } from '@/store/modules/productCategory'
   import { useProductStore } from '@/store/modules/product'
+  import { fetchGetModelsByStore } from '@/api/product'
   import { storeToRefs } from 'pinia'
   import { useUserStore } from '@/store/modules/user'
   import { useAuth } from '@/composables/useAuth'
@@ -264,42 +265,57 @@
     } catch (e: any) {
       console.error('[fetchChannelOptions] failed:', e)
     }
-    // 动态加载关注/成交车型选项（来自商品管理，优先按分类ID过滤，失败则按品牌名回退）
     try {
-      const brand = (info.value as any)?.brandName || (info.value as any)?.brand || undefined
-      let categoryId: number | undefined
-      if (brand) {
-        try {
-          await categoryStore.loadFromApi()
-        } catch (err) {
-          console.warn('[categoryStore.loadFromApi] failed (onMounted):', err)
-        }
-        const tree: any[] = (categoryStore as any).tree || []
-        const node: any = tree.find((n: any) => n?.level === 1 && String(n?.name) === brand)
-        if (node && typeof node.id === 'number') categoryId = node.id
-      }
-      if (typeof categoryId === 'number') {
-        await productStore.loadProductsByCategoryId(categoryId, true)
+      const sid = Number((info.value as any)?.storeId)
+      if (Number.isFinite(sid) && sid > 0) {
+        await productStore.loadProductsByStoreId(sid)
+        await rebuildModelOptionsByStore(sid)
       } else {
-        await productStore.loadProducts(brand)
+        const brand = (info.value as any)?.brandName || (info.value as any)?.brand || undefined
+        let categoryId: number | undefined
+        if (brand) {
+          try {
+            await categoryStore.loadFromApi()
+          } catch (err) {
+            void err
+          }
+          const tree: any[] = (categoryStore as any).tree || []
+          const node: any = tree.find((n: any) => n?.level === 1 && String(n?.name) === brand)
+          if (node && typeof node.id === 'number') categoryId = node.id
+        }
+        if (typeof categoryId === 'number') {
+          await productStore.loadProductsByCategoryId(categoryId, true)
+        } else {
+          await productStore.loadProducts(brand)
+        }
+        modelOptionsRef.value = nameOptions.value
       }
     } catch (e: any) {
-      console.error('[productStore.loadProductsByCategoryId] failed:', e)
+      void e
     }
   })
 
   // 监听品牌变化（中文brandName或英文brand），实时刷新关注/成交车型选项（按分类ID）
   watch(
-    [() => (info.value as any)?.brandName, () => (info.value as any)?.brand],
-    async ([brandName, brand]) => {
+    [
+      () => (info.value as any)?.storeId,
+      () => (info.value as any)?.brandName,
+      () => (info.value as any)?.brand
+    ],
+    async ([sid, brandName, brand]) => {
       try {
+        const sidNum = Number(sid)
+        if (Number.isFinite(sidNum) && sidNum > 0) {
+          await productStore.loadProductsByStoreId(sidNum)
+          return
+        }
         const b = brandName || brand || undefined
         let categoryId: number | undefined
         if (b) {
           try {
             await categoryStore.loadFromApi()
           } catch (err) {
-            console.warn('[categoryStore.loadFromApi] failed (watch brand):', err)
+            void err
           }
           const tree: any[] = (categoryStore as any).tree || []
           const node: any = tree.find((n: any) => n?.level === 1 && String(n?.name) === b)
@@ -311,7 +327,7 @@
           await productStore.loadProducts(b)
         }
       } catch (e: any) {
-        console.error('[productStore.loadProductsByCategoryId] failed:', e)
+        void e
       }
     }
   )
@@ -911,6 +927,29 @@
   const editingId = ref<string | null>(null)
   const productStore = useProductStore()
   const { nameOptions } = storeToRefs(productStore)
+  const modelOptionsRef = ref<Array<{ label: string; value: string | number }>>([
+    { label: '请选择', value: '' }
+  ])
+  const rebuildModelOptionsByStore = async (sid?: number) => {
+    const idNum = Number(sid)
+    if (!Number.isFinite(idNum) || idNum <= 0) {
+      modelOptionsRef.value = nameOptions.value
+      return
+    }
+    try {
+      const list = await fetchGetModelsByStore(idNum)
+      const arr = Array.isArray(list) ? list : []
+      const opts: Array<{ label: string; value: number | '' }> = [{ label: '全部车型', value: '' }]
+      arr.forEach((m: any) => {
+        const id = Number(m.id)
+        const label = String(m.name || id)
+        if (Number.isFinite(id)) opts.push({ label, value: id })
+      })
+      modelOptionsRef.value = opts as any
+    } catch {
+      modelOptionsRef.value = [{ label: '全部车型', value: '' }] as any
+    }
+  }
   const ALLOWED_PRIMARY_REFERRER = ['转化开发', '保客开发']
   const ALLOWED_REFERRER = ['转化开发', '保客开发', '转介绍开发']
 
@@ -1249,7 +1288,7 @@
       label: '关注车型',
       key: 'focusModelName',
       type: 'select',
-      props: { options: nameOptions.value }
+      props: { options: modelOptionsRef }
     },
     {
       label: '是否试驾',
@@ -1289,7 +1328,7 @@
       label: '成交车型',
       key: 'dealModelName',
       type: 'select',
-      props: { options: nameOptions.value }
+      props: { options: modelOptionsRef }
     },
     { label: '渠道分析', key: 'grp_channel', type: 'divider', span: 24 },
     {
@@ -1578,6 +1617,16 @@
     const opts = storeOptions.value
     if (Array.isArray(opts) && opts.length === 1) {
       addForm.value.storeId = opts[0].value
+    }
+    try {
+      const sid = Number(addForm.value.storeId || info.value?.storeId || 0)
+      if (Number.isFinite(sid) && sid > 0) {
+        // 初次打开新增弹窗时，按门店重建车型下拉，避免“未手动切换门店”导致下拉未刷新
+        void productStore.loadProductsByStoreId(sid)
+        void rebuildModelOptionsByStore(sid)
+      }
+    } catch (err) {
+      void err
     }
     addDialogVisible.value = true
   }
@@ -1870,6 +1919,15 @@
   watch(
     () => addForm.value.storeId,
     async (newId, oldId) => {
+      const sidNum = Number(newId as any)
+      if (Number.isFinite(sidNum) && sidNum > 0) {
+        try {
+          await productStore.loadProductsByStoreId(sidNum)
+          await rebuildModelOptionsByStore(sidNum)
+        } catch (err) {
+          void err
+        }
+      }
       // 记录当前所选销售顾问，便于在编辑时保留
       const prevConsultant = addForm.value.salesConsultant
       await loadSalesConsultants()
@@ -1961,23 +2019,28 @@
         return undefined
       }
 
+      // 若按门店已成功加载车型，则不再回退到“按品牌/分类”，避免跨品牌混入；
+      // 仅当门店接口返回空列表时，才尝试按品牌/分类回退
       const brandName = findBrandNameOfStore(deptTree.value, storeIdNum)
       try {
-        let categoryId: number | undefined
-        if (brandName) {
-          try {
-            await categoryStore.loadFromApi()
-          } catch (err) {
-            console.warn('[categoryStore.loadFromApi] failed (dept store brand):', err)
+        if ((productStore as any).products?.length === 0) {
+          let categoryId: number | undefined
+          if (brandName) {
+            try {
+              await categoryStore.loadFromApi()
+            } catch (err) {
+              console.warn('[categoryStore.loadFromApi] failed (dept store brand):', err)
+            }
+            const tree: any[] = (categoryStore as any).tree || []
+            const node: any = tree.find((n: any) => n?.level === 1 && String(n?.name) === brandName)
+            if (node && typeof node.id === 'number') categoryId = node.id
           }
-          const tree: any[] = (categoryStore as any).tree || []
-          const node: any = tree.find((n: any) => n?.level === 1 && String(n?.name) === brandName)
-          if (node && typeof node.id === 'number') categoryId = node.id
-        }
-        if (typeof categoryId === 'number') {
-          await productStore.loadProductsByCategoryId(categoryId, true)
-        } else if (brandName) {
-          await productStore.loadProducts(brandName)
+          if (typeof categoryId === 'number') {
+            await productStore.loadProductsByCategoryId(categoryId, true)
+          } else if (brandName) {
+            await productStore.loadProducts(brandName)
+          }
+          modelOptionsRef.value = nameOptions.value
         }
       } catch (e: any) {
         console.error('[convertOrRetentionModel] load by store brand failed:', e)

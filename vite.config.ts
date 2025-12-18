@@ -16,20 +16,14 @@ import { visualizer } from 'rollup-plugin-visualizer'
 export default ({ mode }: { mode: string }) => {
   const root = process.cwd()
   const env = loadEnv(mode, root)
-  const {
-    VITE_VERSION,
-    VITE_PORT,
-    VITE_BASE_URL,
-    VITE_API_URL,
-    VITE_API_PROXY_URL
-  } = env
+  const { VITE_VERSION, VITE_PORT, VITE_BASE_URL, VITE_API_URL, VITE_API_PROXY_URL } = env
   // 移除 mock 开关和相关逻辑，直接启用代理
   const useProxy = true
   // 优先从 VITE_API_URL 计算代理目标（取其 origin），否则回退到 VITE_API_PROXY_URL 或默认 3001
   const devApiTarget = VITE_API_URL
     ? new URL(VITE_API_URL).origin
-    : (VITE_API_PROXY_URL || 'http://localhost:3001')
-  
+    : VITE_API_PROXY_URL || 'http://localhost:3001'
+
   // 移除 mock 相关的日志
   console.log(`🚀 API_URL = ${VITE_API_URL}`)
   console.log(`🚀 VERSION = ${VITE_VERSION}`)
@@ -141,7 +135,7 @@ export default ({ mode }: { mode: string }) => {
         }
       },
       // 开发自检插件：已禁用，避免在后端未准备时产生不必要的请求与错误日志
-      
+
       // 自动按需导入 API
       AutoImport({
         imports: ['vue', 'vue-router', '@vueuse/core', 'pinia'],

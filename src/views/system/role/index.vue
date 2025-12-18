@@ -68,6 +68,10 @@
   import { ElTag, ElMessageBox, ElMessage } from 'element-plus'
   import { h } from 'vue'
   import { asyncRoutes } from '@/router/routes/asyncRoutes'
+  import { fetchGetUserInfo } from '@/api/auth'
+  import { useUserStore } from '@/store/modules/user'
+  import { resetRouterState } from '@/router/guards/beforeEach'
+  import { router } from '@/router'
 
   defineOptions({ name: 'Role' })
 
@@ -380,6 +384,11 @@
         }
 
         await fetchSaveRolePermissions({ roleId: r.roleId, keys })
+        try {
+          if (r?.roleCode && r?.roleId) {
+            localStorage.setItem(`role_perm_id:${String(r.roleCode)}`, String(r.roleId))
+          }
+        } catch {}
         console.log('[初始化权限] 角色已写入:', {
           roleId: r.roleId,
           roleCode: code,
@@ -389,6 +398,12 @@
       }
 
       ElMessage.success('所有角色权限已初始化')
+      try {
+        const info = await fetchGetUserInfo()
+        useUserStore().setUserInfo(info)
+      } catch {}
+      resetRouterState()
+      router.replace(router.currentRoute.value.fullPath)
       refreshData()
     } catch (e) {
       console.error('初始化角色权限失败:', e)

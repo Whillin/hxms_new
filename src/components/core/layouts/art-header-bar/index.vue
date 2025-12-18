@@ -249,6 +249,24 @@
   // 始终显示完整系统名，避免窄屏被缩略导致标题不完整
   const displayName = computed(() => fullName)
 
+  const decodeJwt = (t: string) => {
+    try {
+      const p = t.split('.')[1]
+      const s = decodeURIComponent(escape(window.atob(p)))
+      return JSON.parse(s)
+    } catch {
+      return null
+    }
+  }
+  const userNameDisplay = computed(() => {
+    const name = String(userInfo.value?.userName || '')
+    const token = String(userStore.accessToken || '')
+    const payload: any = token ? decodeJwt(token) : null
+    const tname = String(payload?.userName || '')
+    if (name && tname && name.toLowerCase() !== tname.toLowerCase()) return tname
+    return name || tname || ''
+  })
+
   /**
    * 切换全屏状态
    */
@@ -387,20 +405,3 @@
   @use './style';
   @use './mobile';
 </style>
-  const decodeJwt = (t: string) => {
-    try {
-      const p = t.split('.')[1]
-      const s = decodeURIComponent(escape(window.atob(p)))
-      return JSON.parse(s)
-    } catch {
-      return null
-    }
-  }
-  const userNameDisplay = computed(() => {
-    const name = String(userInfo.value?.userName || '')
-    const token = String(userStore.accessToken || '')
-    const payload = token ? decodeJwt(token) : null
-    const tname = String(payload?.userName || '')
-    if (name && tname && name.toLowerCase() !== tname.toLowerCase()) return tname
-    return name || tname || ''
-  })

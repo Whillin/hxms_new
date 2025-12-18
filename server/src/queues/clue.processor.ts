@@ -32,7 +32,9 @@ export class ClueProcessor {
     // 统一布尔解析，避免字符串 "false" 被误判为 true
     const toBool = (v: any): boolean => {
       if (typeof v === 'boolean') return v
-      const s = String(v ?? '').trim().toLowerCase()
+      const s = String(v ?? '')
+        .trim()
+        .toLowerCase()
       return ['1', 'true', 'yes', 'on'].includes(s)
     }
 
@@ -84,8 +86,12 @@ export class ClueProcessor {
         throw new Error('无权编辑该线索')
       }
 
-      // 若门店变更，重新解析归属品牌/大区
-      const targetStoreId = typeof body.storeId === 'number' ? Number(body.storeId) : existing.storeId
+      const targetStoreId =
+        typeof body.storeId === 'number' ? Number(body.storeId) : existing.storeId
+      const targetStoreDept = await this.deptRepo.findOne({ where: { id: Number(targetStoreId) } })
+      if (!targetStoreDept || targetStoreDept.type !== 'store') {
+        throw new Error('归属门店必须为“门店”类型，请重新选择')
+      }
       const ancestors = await this.findAncestors(Number(targetStoreId))
 
       // 解析销售顾问ID（仅当前门店在职员工）
@@ -103,7 +109,9 @@ export class ClueProcessor {
         enterTime: body.enterTime ?? existing.enterTime,
         leaveTime: body.leaveTime ?? existing.leaveTime,
         receptionDuration:
-          typeof body.receptionDuration === 'number' ? Number(body.receptionDuration) : existing.receptionDuration,
+          typeof body.receptionDuration === 'number'
+            ? Number(body.receptionDuration)
+            : existing.receptionDuration,
         visitorCount:
           typeof body.visitorCount === 'number' ? Number(body.visitorCount) : existing.visitorCount,
         receptionStatus: (body.receptionStatus as any) ?? existing.receptionStatus,
@@ -141,7 +149,8 @@ export class ClueProcessor {
             : existing.livingArea,
         convertOrRetentionModel: body.convertOrRetentionModel ?? existing.convertOrRetentionModel,
         referrer: body.referrer ?? existing.referrer,
-        contactTimes: body.contactTimes !== undefined ? Number(body.contactTimes || 1) : existing.contactTimes,
+        contactTimes:
+          body.contactTimes !== undefined ? Number(body.contactTimes || 1) : existing.contactTimes,
         // 归属维度（门店变动时更新 brand/region）
         storeId: Number(targetStoreId),
         regionId: ancestors.regionId,
@@ -175,20 +184,41 @@ export class ClueProcessor {
     const phone = String(body.customerPhone || '').trim()
     const name = String(body.customerName || '').trim() || '未命名客户'
     let customerRow: Customer | undefined
+    const livingAreaForCustomer = Array.isArray(body.livingArea)
+      ? (body.livingArea as any[]).join('/')
+      : String(body.livingArea || '')
     if (phone) {
       const existCustomer = await this.customerRepo.findOne({ where: { phone, storeId, name } })
       if (existCustomer) {
-        // 更新
         existCustomer.name = name || existCustomer.name
-        // ... 其他字段更新
+        existCustomer.gender = (body.userGender as any) ?? existCustomer.gender
+        existCustomer.age =
+          typeof body.userAge === 'number' ? Number(body.userAge) : existCustomer.age
+        existCustomer.buyExperience = (body.buyExperience as any) ?? existCustomer.buyExperience
+        existCustomer.phoneModel = body.userPhoneModel ?? existCustomer.phoneModel
+        existCustomer.currentBrand = body.currentBrand ?? existCustomer.currentBrand
+        existCustomer.currentModel = body.currentModel ?? existCustomer.currentModel
+        existCustomer.carAge =
+          body.carAge !== undefined ? Number(body.carAge || 0) : existCustomer.carAge
+        existCustomer.mileage =
+          body.mileage !== undefined ? Number(body.mileage || 0) : existCustomer.mileage
+        existCustomer.livingArea = livingAreaForCustomer || existCustomer.livingArea
         customerRow = await this.customerRepo.save(existCustomer)
         customerId = customerRow.id
       } else {
         const created = this.customerRepo.create({
           name,
           phone,
-          storeId: storeId!
-          // ... 其他字段
+          storeId: storeId!,
+          gender: (body.userGender as any) || '未知',
+          age: Number(body.userAge || 0),
+          buyExperience: (body.buyExperience as any) || '首购',
+          phoneModel: body.userPhoneModel || undefined,
+          currentBrand: body.currentBrand || undefined,
+          currentModel: body.currentModel || undefined,
+          carAge: Number(body.carAge || 0),
+          mileage: Number(body.mileage || 0),
+          livingArea: livingAreaForCustomer || undefined
         })
         customerRow = await this.customerRepo.save(created)
         customerId = customerRow.id

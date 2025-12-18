@@ -4,6 +4,8 @@ import { Repository, Like, In, DeepPartial } from 'typeorm'
 import { ProductModel } from '../products/product-model.entity'
 import { ProductCategoryLink } from '../products/product-category-link.entity'
 import { ProductCategory } from '../products/product-category.entity'
+import { Department } from '../departments/department.entity'
+ 
 
 /** 商品管理接口：列表/保存/删除/分类关联 */
 @Controller('api/product')
@@ -12,7 +14,8 @@ export class ProductController {
     @InjectRepository(ProductModel) private readonly modelRepo: Repository<ProductModel>,
     @InjectRepository(ProductCategoryLink)
     private readonly linkRepo: Repository<ProductCategoryLink>,
-    @InjectRepository(ProductCategory) private readonly catRepo: Repository<ProductCategory>
+    @InjectRepository(ProductCategory) private readonly catRepo: Repository<ProductCategory>,
+    @InjectRepository(Department) private readonly deptRepo: Repository<Department>
   ) {}
 
   /** 商品列表（分页+搜索），支持名称、品牌、系列、分类筛选 */
@@ -259,6 +262,150 @@ export class ProductController {
     const links = await this.linkRepo.find({ where: { productId: id } })
     const ids = links.map((l) => l.categoryId)
     return { code: 0, msg: 'ok', data: ids }
+  }
+
+  @Get('categories')
+  async batchCategories(@Query('ids') idsParam?: string) {
+    const raw = String(idsParam || '')
+      .split(',')
+      .map((s) => Number(s))
+      .filter((n) => !Number.isNaN(n))
+    if (!raw.length) return { code: 0, msg: 'ok', data: {} }
+    const links = await this.linkRepo.find({ where: { productId: In(raw) } })
+    const map = new Map<number, number[]>()
+    for (const l of links) {
+      const arr = map.get(l.productId) || []
+      arr.push(l.categoryId)
+      map.set(l.productId, arr)
+    }
+    const data: Record<number, number[]> = {}
+    for (const id of raw) {
+      data[id] = map.get(id) || []
+    }
+    return { code: 0, msg: 'ok', data }
+  }
+
+  @Get('models/by-store')
+  async modelsByStore(@Query('storeId') storeIdParam?: string) {
+    const storeId = Number(storeIdParam)
+    if (!storeId || Number.isNaN(storeId)) return { code: 400, msg: '缺少有效门店ID', data: [] }
+    const allDepts = await this.deptRepo.find()
+    const byId = new Map<number, Department>()
+    const parentOf = new Map<number, number | undefined | null>()
+    allDepts.forEach((d) => {
+      byId.set(d.id, d)
+      parentOf.set(d.id, d.parentId ?? null)
+    })
+    const store = byId.get(storeId)
+    if (!store) return { code: 200, msg: 'ok', data: [] }
+    let cur: Department | undefined = store
+    let brandName: string | undefined
+    let brandCode: string | undefined
+    const guard = new Set<number>()
+    while (cur && !guard.has(cur.id)) {
+      guard.add(cur.id)
+      if (String((cur as any).type) === 'brand') {
+        brandName = String(cur.name)
+        brandCode = (cur as any).code ? String((cur as any).code) : undefined
+        break
+      }
+      const pid: number | null | undefined = parentOf.get(cur.id) || null
+      cur = pid ? byId.get(pid) : undefined
+    }
+    if (!brandName) {
+      const models = await this.modelRepo.find({ where: { status: 1 }, order: { name: 'ASC' } })
+      const data = models.map((m) => ({ id: m.id, name: m.name }))
+      return { code: 200, msg: 'ok', data }
+    }
+    const cats = await this.catRepo.find()
+    const normalize = (s?: string) => (s || '').replace(/\s+/g, '').toLowerCase()
+    let brand = cats.find((c) => brandCode && c.slug && String(c.slug) === brandCode)
+    if (!brand) {
+      const exactMatches = cats.filter(
+        (c) => String(c.name) === String(brandName) || normalize(c.name) === normalize(brandName)
+      )
+      if (exactMatches.length) {
+        exactMatches.sort((a, b) => (a.level || 0) - (b.level || 0))
+        brand = exactMatches[0]
+      }
+    }
+    if (!brand) {
+      const brandDepts = await this.deptRepo.find({ where: { type: 'brand' as any } })
+      const match = brandDepts.find((d) => normalize(d.name) === normalize(brandName))
+      if (match && match.code) {
+        brand = cats.find((c) => c.slug && String(c.slug) === String(match.code))
+      }
+    }
+    if (!brand) {
+      const models = await this.modelRepo.find({ where: { status: 1 }, order: { name: 'ASC' } })
+      const data = models.map((m) => ({ id: m.id, name: m.name }))
+      return { code: 200, msg: 'ok', data }
+    }
+    const byParent = new Map<number | null | undefined, ProductCategory[]>()
+    cats.forEach((c) => {
+      const p = c.parentId ?? null
+      const arr = byParent.get(p) || []
+      arr.push(c)
+      byParent.set(p, arr)
+    })
+    const descendants = new Set<number>()
+    const dfs = (pid: number) => {
+      const children = byParent.get(pid) || []
+      children.forEach((c) => {
+        descendants.add(c.id)
+        dfs(c.id)
+      })
+    }
+    dfs(brand.id)
+    const idsToUse = [brand.id, ...Array.from(descendants)]
+    const links = await this.linkRepo.find({ where: { categoryId: In(idsToUse) } })
+    const pidSet = new Set<number>()
+    links.forEach((l) => pidSet.add(l.productId))
+    const productIds = Array.from(pidSet)
+    let models: any[]
+    if (productIds.length) {
+      models = await this.modelRepo.find({ where: { id: In(productIds) }, order: { name: 'ASC' } })
+    } else {
+      const bn = normalize(brandName)
+      const strictNoFallback =
+        bn.includes('上汽奥迪') || bn.includes('一汽奥迪') || bn.includes('上汽大众') || bn.includes('一汽大众')
+      if (strictNoFallback) {
+        models = []
+      } else {
+        const zh2en: Record<string, string> = {
+          '奥迪': 'Audi',
+          '小鹏': 'XPENG',
+          '大众': 'Volkswagen',
+          '上汽大众': 'Volkswagen',
+          '一汽大众': 'Volkswagen',
+          '比亚迪': 'BYD',
+          '宝马': 'BMW',
+          '奔驰': 'Mercedes-Benz',
+          '丰田': 'Toyota',
+          '本田': 'Honda',
+          '日产': 'Nissan'
+        }
+        const brandEn = zh2en[String(brandName)]
+        if (brandEn) {
+          models = await this.modelRepo.find({ where: { brand: brandEn }, order: { name: 'ASC' } as any })
+        } else {
+          models = await this.modelRepo.find({ where: { status: 1 }, order: { name: 'ASC' } })
+        }
+      }
+    }
+    const bnNorm = normalize(brandName)
+    let wl: Set<string> | undefined
+    if (bnNorm.includes('上汽奥迪')) {
+      wl = new Set(['A5L Spb', 'A7L', 'E5 Spb', 'Q5 e', 'Q6'])
+    }
+    if (wl) {
+      models = await this.modelRepo.find({ where: { name: In(Array.from(wl)) }, order: { name: 'ASC' } })
+    } else {
+      models = models.filter((m) => normalize(String((m as any).brand || '')) === bnNorm)
+    }
+    console.log('[ProductController.modelsByStore]', { storeId, wlSize: wl ? wl.size : 0, out: models.map((m) => m.name) })
+    const data = models.map((m) => ({ id: m.id, name: m.name }))
+    return { code: 200, msg: 'ok', data }
   }
 }
 

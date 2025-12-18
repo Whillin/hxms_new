@@ -5,13 +5,15 @@ import { JwtGuard } from '../auth/jwt.guard'
 import { Customer } from '../customers/customer.entity'
 import { DataScopeService } from '../common/data-scope.service'
 import { Department } from '../departments/department.entity'
+import { Clue } from '../clues/clue.entity'
 
 @Controller('api/customer')
 export class CustomerController {
   constructor(
     @InjectRepository(Customer) private readonly repo: Repository<Customer>,
     @Inject(DataScopeService) private readonly dataScopeService: DataScopeService,
-    @InjectRepository(Department) private readonly deptRepo: Repository<Department>
+    @InjectRepository(Department) private readonly deptRepo: Repository<Department>,
+    @InjectRepository(Clue) private readonly clueRepo: Repository<Clue>
   ) {}
 
   private async seedDemoOrgIfEmpty(): Promise<void> {
@@ -149,7 +151,8 @@ export class CustomerController {
   @Get('store-options')
   async storeOptions(@Req() req: any) {
     const roles: string[] = Array.isArray(req.user?.roles) ? req.user.roles : []
-    const isAdmin = roles.includes('R_ADMIN') || roles.includes('R_SUPER') || roles.includes('R_INFO')
+    const isAdmin =
+      roles.includes('R_ADMIN') || roles.includes('R_SUPER') || roles.includes('R_INFO')
     if (!this.dataScopeService) {
       if (isAdmin) {
         await this.seedDemoOrgIfEmpty()
@@ -252,6 +255,138 @@ export class CustomerController {
     return { code: 200, msg: '删除成功', data: true }
   }
 
+  /** 批量修复客户画像与无效门店（从线索回填） */
+  @UseGuards(JwtGuard)
+  @Post('repair')
+  async repair(@Req() req: any, @Body() body: any) {
+    const roles: string[] = Array.isArray(req.user?.roles) ? req.user.roles : []
+    const excluded = ['R_SALES', 'R_SALES_MANAGER', 'R_APPOINTMENT', 'R_FRONT_DESK']
+    const hasExcluded = roles.some((r) => excluded.includes(String(r).trim()))
+    if (hasExcluded) return { code: 403, msg: '无权限修复客户', data: false }
+
+    const scope = await this.dataScopeService.getScope(req.user)
+    const allowedStoreIds = await this.dataScopeService.resolveAllowedStoreIds(scope)
+    const targetStoreId =
+      body.storeId !== undefined && body.storeId !== '' ? Number(body.storeId) : undefined
+    const pageSize = Math.max(50, Math.min(1000, Number(body.size || 500)))
+
+    const stat = {
+      scanned: 0,
+      updated: 0,
+      fixedStoreId: 0,
+      merged: 0,
+      skippedNoClue: 0,
+      skippedConflict: 0
+    }
+
+    const buildWhereForValidStores = (): any => {
+      const where: any = {}
+      if (scope.level === 'all') {
+        if (typeof targetStoreId === 'number' && !Number.isNaN(targetStoreId))
+          where.storeId = targetStoreId
+      } else {
+        if (typeof targetStoreId === 'number' && !Number.isNaN(targetStoreId)) {
+          if (!allowedStoreIds.includes(targetStoreId)) {
+            return { storeId: In([-1]) }
+          }
+          where.storeId = targetStoreId
+        } else {
+          where.storeId = In(allowedStoreIds.length ? allowedStoreIds : [-1])
+        }
+      }
+      return where
+    }
+
+    const applyFromClue = (c: Clue, cust: Customer): void => {
+      cust.gender = (c.userGender as any) ?? cust.gender
+      cust.age = typeof c.userAge === 'number' ? Number(c.userAge) : cust.age
+      cust.buyExperience = (c.buyExperience as any) ?? cust.buyExperience
+      cust.phoneModel = c.userPhoneModel ?? cust.phoneModel
+      cust.currentBrand = c.currentBrand ?? cust.currentBrand
+      cust.currentModel = c.currentModel ?? cust.currentModel
+      cust.carAge = typeof c.carAge === 'number' ? Number(c.carAge) : cust.carAge
+      cust.mileage = typeof c.mileage === 'number' ? Number(c.mileage) : cust.mileage
+      cust.livingArea = c.livingArea ?? cust.livingArea
+    }
+
+    // 分页遍历有效门店客户
+    let page = 1
+    while (true) {
+      const [rows, total] = await this.repo.findAndCount({
+        where: buildWhereForValidStores(),
+        order: { updatedAt: 'DESC' },
+        skip: (page - 1) * pageSize,
+        take: pageSize
+      })
+      stat.scanned += rows.length
+      for (const cust of rows) {
+        const latest = await this.clueRepo.findOne({
+          where: { storeId: cust.storeId, customerPhone: cust.phone, customerName: cust.name },
+          order: { visitDate: 'DESC', updatedAt: 'DESC', id: 'DESC' }
+        })
+        if (!latest) {
+          stat.skippedNoClue += 1
+          continue
+        }
+        applyFromClue(latest, cust)
+        await this.repo.save(cust)
+        stat.updated += 1
+      }
+      if (page * pageSize >= total) break
+      page += 1
+    }
+
+    // 修复 storeId<=0 的客户（不限定范围）
+    let pageInvalid = 1
+    while (true) {
+      const [rows, total] = await this.repo.findAndCount({
+        where: { storeId: In([0, -1]) },
+        order: { updatedAt: 'DESC' },
+        skip: (pageInvalid - 1) * pageSize,
+        take: pageSize
+      })
+      stat.scanned += rows.length
+      for (const cust of rows) {
+        const latest = await this.clueRepo.findOne({
+          where: { customerPhone: cust.phone, customerName: cust.name },
+          order: { visitDate: 'DESC', updatedAt: 'DESC', id: 'DESC' }
+        })
+        if (!latest) {
+          stat.skippedNoClue += 1
+          continue
+        }
+        // 验证线索门店类型
+        const dept = await this.deptRepo.findOne({ where: { id: latest.storeId } })
+        if (!dept || dept.type !== 'store') {
+          stat.skippedConflict += 1
+          continue
+        }
+        // 若目标门店已有同名同号客户，合并并重指线索
+        const conflict = await this.repo.findOne({
+          where: { storeId: latest.storeId, phone: cust.phone, name: cust.name }
+        })
+        if (conflict && conflict.id !== cust.id) {
+          applyFromClue(latest, conflict)
+          await this.repo.save(conflict)
+          await this.clueRepo.update({ customerId: cust.id }, { customerId: conflict.id })
+          await this.repo.delete(cust.id)
+          stat.merged += 1
+          continue
+        }
+        // 无冲突：修复门店并回填画像
+        cust.storeId = latest.storeId
+        applyFromClue(latest, cust)
+        await this.repo.save(cust)
+        stat.fixedStoreId += 1
+        stat.updated += 1
+      }
+      if (pageInvalid * pageSize >= total) break
+      pageInvalid += 1
+    }
+
+    return { code: 200, msg: '修复完成', data: stat }
+  }
+
   @UseGuards(JwtGuard)
   @Get('new-week-count')
   async newWeekCount(@Req() req: any, @Query() query: any) {
@@ -275,7 +410,10 @@ export class CustomerController {
     const whereCur: any = { createdAt: Between(fmtFull(monday), fmtFull(sunday)) }
     const wherePrev: any = { createdAt: Between(fmtFull(prevMonday), fmtFull(prevSunday)) }
     if (storeId) {
-      if (scope.level !== 'all' && (!allowedStoreIds.length || !allowedStoreIds.includes(storeId))) {
+      if (
+        scope.level !== 'all' &&
+        (!allowedStoreIds.length || !allowedStoreIds.includes(storeId))
+      ) {
         return { code: 403, msg: '无权访问该门店', data: { count: 0, changePercent: 0 } }
       }
       whereCur.storeId = storeId

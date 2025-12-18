@@ -2,6 +2,7 @@ import request from '@/utils/http'
 import { AppRouteRecord } from '@/types/router'
 import { asyncRoutes } from '@/router/routes/asyncRoutes'
 import { menuDataToRouter } from '@/router/utils/menuToRouter'
+import { getCache, setCache, DEFAULT_TTL_MS } from '@/utils/storage/ttl-cache'
 import type { ApiResponse } from '@/utils/table/tableCache'
 import {
   getCache,
@@ -173,19 +174,40 @@ export function fetchDeleteEmployee(id: number) {
 
 // 角色权限：获取键列表
 export function fetchGetRolePermissions(params: Api.SystemManage.RolePermissionsGetParams) {
-  return request.get<Api.SystemManage.RolePermissionKeys>({
-    url: '/api/role/permissions',
-    params
-  })
+  const CACHE_ID = 'role_perm'
+  return request
+    .get<Api.SystemManage.RolePermissionKeys>({
+      url: '/api/role/permissions',
+      params
+    })
+    .then((keys) => {
+      const arr = Array.isArray(keys) ? (keys as string[]) : []
+      setCache<string[]>(CACHE_ID, String(params.roleId), arr, DEFAULT_TTL_MS)
+      return arr
+    })
 }
 
 // 角色权限：保存键列表（全量覆盖）
 export function fetchSaveRolePermissions(data: Api.SystemManage.RolePermissionsSaveParams) {
-  return request.post<boolean>({
-    url: '/api/role/permissions/save',
-    data,
-    showSuccessMessage: true
-  })
+  const CACHE_ID = 'role_perm'
+  return request
+    .post<boolean>({
+      url: '/api/role/permissions/save',
+      data,
+      showSuccessMessage: true
+    })
+    .then((ok) => {
+      const success = (ok as any)?.data === true || ok === true
+      if (success) {
+        const keys = Array.isArray((data as any)?.keys)
+          ? ((data as any).keys as string[])
+          : Array.isArray((data as any)?.permissionKeys)
+            ? ((data as any).permissionKeys as string[])
+            : []
+        setCache<string[]>(CACHE_ID, String((data as any).roleId), keys, DEFAULT_TTL_MS)
+      }
+      return ok
+    })
 }
 
 // 保存角色（新增/编辑）
@@ -210,19 +232,24 @@ interface MenuResponse {
   menuList: AppRouteRecord[]
 }
 
-// 获取菜单数据（模拟）
-// 当前使用本地模拟路由数据，实际项目中请求接口返回 asyncRoutes.ts 文件的数据
-export async function fetchGetMenuList(delay = 300): Promise<MenuResponse> {
+// 获取菜单数据（后端优先，失败回退本地）
+export async function fetchGetMenuList(delay = 200): Promise<MenuResponse> {
   try {
-    // 模拟接口返回的菜单数据
-    const menuData = asyncRoutes
-    // 处理菜单数据
-    const menuList = menuData.map((route) => menuDataToRouter(route))
-    // 模拟接口延迟
-    await new Promise((resolve) => setTimeout(resolve, delay))
-
+    const resp = await request.get<{ menuList: AppRouteRecord[] } | AppRouteRecord[]>({
+      url: '/api/menu/list',
+      params: { _: Date.now() },
+      headers: { 'Cache-Control': 'no-cache', Pragma: 'no-cache' },
+      showErrorMessage: false
+    })
+    const rawList = Array.isArray((resp as any)?.data)
+      ? (resp as any).data
+      : (resp as any)?.menuList || resp
+    const menuList = (rawList as AppRouteRecord[]).map((route) => menuDataToRouter(route))
     return { menuList }
   } catch (error) {
-    throw error instanceof Error ? error : new Error('获取菜单失败')
+    const menuData = asyncRoutes
+    const menuList = menuData.map((route) => menuDataToRouter(route))
+    await new Promise((resolve) => setTimeout(resolve, delay))
+    return { menuList }
   }
 }

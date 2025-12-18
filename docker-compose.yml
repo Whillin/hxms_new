@@ -75,6 +75,18 @@ services:
     networks:
       - hxms_net
 
+  web:
+    build:
+      context: .
+      dockerfile: deploy/web.Dockerfile
+    container_name: hxms_web
+    depends_on:
+      - api
+    ports:
+      - '80:80'
+    networks:
+      - hxms_net
+
   mysql-replica:
     image: mysql:8.0
     container_name: hxms_new-mysql-replica

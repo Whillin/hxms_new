@@ -26,46 +26,81 @@
       </div>
     </el-card>
 
-    <!-- 渠道总数（组织结构图样式） -->
+    <!-- 渠道总数（表格样式） -->
     <el-card shadow="never" class="mb16">
       <div class="card-title">渠道总数</div>
-      <div class="org-chart">
-        <div v-for="group in groupedItems" :key="group.level1" class="org-group">
-          <div class="org-level1">
-            <span class="org-title">{{ group.level1 }}</span>
-            <el-tag type="info" class="sum-tag">合计：{{ level1Sum(group.level1) }}</el-tag>
-          </div>
-          <div class="org-connect"><span class="line" /></div>
-          <div class="org-level2-row">
-            <div v-for="it in group.items" :key="it.compoundKey" class="org-level2">
-              <span class="connector" />
-              <div class="box">
-                <div class="label">{{ it.level2 }}</div>
+      <el-table :data="tableData" stripe style="width: 100%" :span-method="tableSpanMethod">
+        <el-table-column prop="level1" label="一级渠道" width="160" />
+        <el-table-column prop="level2" label="二级渠道" width="180" />
+        <el-table-column label="渠道总数" width="160">
+          <template #default="{ row }">
+            <el-input-number
+              v-model="row.count"
+              :controls="false"
+              :min="0"
+              :max="100000"
+              @blur="onCountBlur(row, 0, 100000)"
+              @change="onCountBlur(row, 0, 100000)"
+              @keydown="digitsKeydown"
+              @paste="digitsPaste"
+            />
+          </template>
+        </el-table-column>
+        <el-table-column label="车型拆分" min-width="520">
+          <template #default="{ row }">
+            <div class="model-editor">
+              <div v-for="(m, mi) in (row.modelBreakdown || [])" :key="mi" class="model-row">
+                <el-select
+                  v-model="row.modelBreakdown![mi].modelId"
+                  placeholder="选择或输入车型"
+                  filterable
+                  allow-create
+                  default-first-option
+                  style="width: 240px"
+                  :teleported="true"
+                  placement="bottom-start"
+                  @change="onModelSelectChange(row, mi, $event)"
+                >
+                  <el-option
+                    v-for="opt in modelOptions"
+                    :key="opt.id"
+                    :label="opt.name"
+                    :value="opt.id"
+                    :disabled="isModelTaken(row, opt.id, mi)"
+                  />
+                </el-select>
                 <el-input-number
-                  v-model="it.count"
-                  size="small"
+                  v-model="row.modelBreakdown![mi].count"
                   :controls="false"
                   :min="0"
                   :max="100000"
-                  class="matrix-input"
-                  @blur="onCountBlur(it, 0, 100000)"
-                  @change="onCountBlur(it, 0, 100000)"
+                  @blur="onCountBlur(row.modelBreakdown![mi], 0, 100000)"
+                  @change="onCountBlur(row.modelBreakdown![mi], 0, 100000)"
                   @keydown="digitsKeydown"
                   @paste="digitsPaste"
                 />
+                <el-button link type="danger" @click="removeModelRow(row, mi)">移除</el-button>
+              </div>
+              <div class="model-actions">
+                <el-button type="primary" link @click="addModelRow(row)">+ 添加车型拆分</el-button>
+                <el-tag type="info" class="remain-tag">合计：{{ modelBreakdownSum(row) }}</el-tag>
+                <el-tag v-if="modelBreakdownSum(row) !== Number(row.count)" type="warning" class="remain-tag">
+                  与渠道数不一致
+                </el-tag>
               </div>
             </div>
-          </div>
-        </div>
-      </div>
+          </template>
+        </el-table-column>
+      </el-table>
     </el-card>
 
     <!-- 分配明细表（竖排） -->
     <el-card shadow="never">
       <div class="card-title">分配明细</div>
-      <el-table :data="items" stripe style="width: 100%">
+      <el-table :data="tableData" stripe style="width: 100%" :span-method="tableSpanMethod">
         <el-table-column prop="level1" label="一级渠道" width="160" />
         <el-table-column prop="level2" label="二级渠道" width="180" />
+        
         <el-table-column label="已分配/总数" width="180">
           <template #default="{ row }">
             <span>{{ assignedTotal(row) }}/{{ row.count }}</span>
@@ -154,7 +189,9 @@
     saveOnlineDaily,
     fetchOnlineDailyMissingDays
   } from '@/api/channel'
-  import { fetchGetEmployeeList } from '@/api/system-manage'
+  import { fetchGetModelsByStore } from '@/api/product'
+  import { fetchGetEmployeeList, fetchGetDepartmentList } from '@/api/system-manage'
+  import { fetchGetProductList } from '@/api/product'
   import { useUserStore } from '@/store/modules/user'
 
   interface DailyItem {
@@ -163,6 +200,7 @@
     level2: string
     count: number
     allocations?: { employeeId: number | undefined; count: number }[]
+    modelBreakdown?: { modelId?: number; modelName?: string; count: number }[]
   }
 
   const storeOptions = ref<Array<{ id: number; name: string }>>([])
@@ -175,8 +213,17 @@
   const date = ref<string>('')
   const missingDates = ref<string[]>([])
   const items = ref<DailyItem[]>([])
+  const tableData = computed(() => {
+    const arr = (items.value || []).slice()
+    arr.sort((a, b) => {
+      if (a.level1 === b.level1) return a.level2.localeCompare(b.level2)
+      return a.level1.localeCompare(b.level1)
+    })
+    return arr
+  })
   const submitted = ref<boolean>(false)
   const backfillMode = ref(false)
+  const modelOptions = ref<Array<{ id: number; name: string }>>([])
   const allocDialog = ref<{
     visible: boolean
     row?: DailyItem
@@ -212,8 +259,91 @@
       if (!storeId.value && storeOptions.value.length) {
         storeId.value = storeOptions.value[0].id
       }
+      if (storeId.value) await loadModelOptions()
     } catch (e) {
       console.error('[store-options] failed:', e)
+    }
+  }
+
+  async function loadModelOptions() {
+    if (!storeId.value) return
+    try {
+      const res = await fetchGetModelsByStore(storeId.value)
+      modelOptions.value = Array.isArray(res) ? res : []
+      if (!modelOptions.value.length) {
+        const brandName = await detectBrandNameByStore()
+        if (brandName) {
+          try {
+            const listRes = await fetchGetProductList({
+              current: 1,
+              size: 200,
+              brandName,
+              includeChildren: true
+            })
+            const records = (listRes as any)?.records || []
+            if (records.length) {
+              modelOptions.value = records.map((p: any) => ({ id: Number(p.id), name: String(p.name || p.modelName || p.id) }))
+            }
+          } catch (err) {
+            void err
+          }
+        }
+      }
+      if (!modelOptions.value.length) {
+        try {
+          const listRes = await fetchGetProductList({ current: 1, size: 200 })
+          const records = (listRes as any)?.records || []
+          modelOptions.value = records.map((p: any) => ({ id: Number(p.id), name: String(p.name || p.modelName || p.id) }))
+        } catch (err) {
+          void err
+        }
+      }
+    } catch (e) {
+      modelOptions.value = []
+    }
+  }
+
+  function normalizeBrand(text: string) {
+    const t = String(text || '').toLowerCase().replace(/\s+/g, '')
+    if (/小鹏|xpeng/.test(t)) return '小鹏'
+    if (/奥迪|audi/.test(t)) return '奥迪'
+    if (/比亚迪|byd/.test(t)) return '比亚迪'
+    if (/特斯拉|tesla/.test(t)) return '特斯拉'
+    return ''
+  }
+
+  async function detectBrandNameByStore(): Promise<string | ''> {
+    try {
+      const res = await fetchGetDepartmentList({})
+      const tree: any[] = Array.isArray(res as any) ? (res as any as any[]) : (res as any)?.data || []
+      const targetId = Number(storeId.value || 0)
+      let brandName = ''
+      const walk = (arr: any[], pathNames: string[] = []) => {
+        for (const n of arr) {
+          const nodeName = String(n?.name || '')
+          const nextPath = [...pathNames, nodeName]
+          if (Number(n?.id) === targetId && String(n?.type || '') === 'store') {
+            for (const nm of nextPath) {
+              const b = normalizeBrand(nm)
+              if (b) {
+                brandName = b
+                break
+              }
+            }
+            if (brandName) return true
+          }
+          const children = Array.isArray((n as any)?.children) ? (n as any).children : []
+          if (children.length) {
+            const found = walk(children, nextPath)
+            if (found) return true
+          }
+        }
+        return false
+      }
+      walk(tree)
+      return brandName
+    } catch (e) {
+      return ''
     }
   }
 
@@ -241,6 +371,7 @@
     if (!storeId.value || !date.value) return
     backfillMode.value = date.value !== todayStr()
     await loadEmployees()
+    await loadModelOptions()
     try {
       const resp = await fetchOnlineDailyList({ storeId: storeId.value, date: date.value })
       submitted.value = !!resp.submitted
@@ -252,7 +383,14 @@
         allocations: (it.allocations || []).map((a: any) => ({
           employeeId: a.employeeId,
           count: a.count
-        }))
+        })),
+        modelBreakdown: Array.isArray(it.modelBreakdown)
+          ? it.modelBreakdown.map((x: any) => ({
+              modelId: typeof x?.modelId === 'number' ? Number(x.modelId) : undefined,
+              modelName: x?.modelName ? String(x.modelName) : undefined,
+              count: Number(x?.count || 0)
+            }))
+          : []
       }))
     } catch (e) {
       console.error('[fetchOnlineDailyList] failed:', e)
@@ -465,6 +603,19 @@
       .reduce((s, it) => s + (Number(it.count) || 0), 0)
   }
 
+  function tableSpanMethod({ row, column, rowIndex, columnIndex }: any) {
+    if (columnIndex !== 0) return { rowspan: 1, colspan: 1 }
+    const arr = tableData.value
+    // 计算连续相同 level1 的行跨度
+    let start = rowIndex
+    while (start > 0 && arr[start - 1].level1 === arr[rowIndex].level1) start--
+    let end = rowIndex
+    while (end + 1 < arr.length && arr[end + 1].level1 === arr[rowIndex].level1) end++
+    const span = end - start + 1
+    if (rowIndex === start) return { rowspan: span, colspan: 1 }
+    return { rowspan: 0, colspan: 0 }
+  }
+
   function remaining(row: DailyItem) {
     const used = (row.allocations || []).reduce((sum, a) => sum + (Number(a.count) || 0), 0)
     return Math.max(0, Number(row.count || 0) - used)
@@ -476,6 +627,19 @@
 
   function validateAll(submit: boolean): boolean {
     for (const it of items.value) {
+      // 车型拆分校验：提交时必须等于渠道总数；草稿不超过
+      const modelSum = modelBreakdownSum(it)
+      if (submit) {
+        if (modelSum !== Number(it.count)) {
+          ElMessage.error(`【${it.level1}/${it.level2}】车型拆分合计必须等于渠道总数`)
+          return false
+        }
+      } else {
+        if (modelSum > Number(it.count)) {
+          ElMessage.error(`【${it.level1}/${it.level2}】车型拆分合计不能超过渠道总数`)
+          return false
+        }
+      }
       // 校验角色与员工
       for (const a of it.allocations || []) {
         if (!a.employeeId) {
@@ -524,6 +688,13 @@
           level1: it.level1,
           level2: it.level2,
           count: it.count,
+          modelBreakdown: Array.isArray(it.modelBreakdown)
+            ? it.modelBreakdown.map((x) => ({
+                modelId: typeof x.modelId === 'number' ? x.modelId : undefined,
+                modelName: x.modelName,
+                count: Number(x.count) || 0
+              }))
+            : [],
           allocations: (it.allocations || []).map((a) => ({
             employeeId: a.employeeId!,
             count: Number(a.count) || 0
@@ -547,6 +718,42 @@
     const emp = employeeOptions.value.find((e) => e.id === id)
     return emp?.name || String(id)
   }
+
+  function addModelRow(row: DailyItem) {
+    if (!Array.isArray(row.modelBreakdown)) row.modelBreakdown = []
+    row.modelBreakdown.push({ modelId: undefined, modelName: undefined, count: 1 })
+  }
+
+  function removeModelRow(row: DailyItem, idx: number) {
+    const list = Array.isArray(row.modelBreakdown) ? row.modelBreakdown : []
+    row.modelBreakdown = list.filter((_, i) => i !== idx)
+  }
+
+  function isModelTaken(row: DailyItem, modelId: number, excludeIdx?: number) {
+    const list = Array.isArray(row.modelBreakdown) ? row.modelBreakdown : []
+    return list.some(
+      (m, i) => i !== excludeIdx && Number(m.modelId || -1) === Number(modelId || -2)
+    )
+  }
+
+  function onModelSelectChange(row: DailyItem, idx: number, val: any) {
+    const item = row.modelBreakdown![idx]
+    if (typeof val === 'string') {
+      item.modelId = undefined
+      item.modelName = String(val)
+    } else {
+      const opt = modelOptions.value.find((m) => Number(m.id) === Number(val))
+      item.modelId = typeof val === 'number' ? val : Number(val)
+      item.modelName = opt?.name
+    }
+  }
+
+  function modelBreakdownSum(row: DailyItem) {
+    const list = Array.isArray(row.modelBreakdown) ? row.modelBreakdown : []
+    return list.reduce((s, m) => s + (Number(m.count) || 0), 0)
+  }
+
+  
 
   function openAllocDialog(row: DailyItem) {
     allocDialog.value.row = row
@@ -689,6 +896,25 @@
     gap: 8px;
   }
 
+  .model-editor {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .model-row {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 6px;
+  }
+
+  .model-actions {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+  }
+
   .alloc-summary {
     display: flex;
     flex-direction: column;
@@ -704,91 +930,6 @@
 
   .sum-tag {
     margin-left: 8px;
-  }
-
-  /* 组织结构图样式 */
-  .org-chart {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-  }
-
-  .org-group {
-    padding: 8px 12px;
-    background: #fafafa;
-    border: 1px solid #ebeef5;
-    border-radius: 8px;
-  }
-
-  .org-level1 {
-    display: flex;
-    gap: 12px;
-    align-items: center;
-    justify-content: center;
-    margin-bottom: 8px;
-  }
-
-  .org-title {
-    padding: 6px 10px;
-    font-size: 15px;
-    font-weight: 600;
-    color: #333;
-    background: #fff;
-    border: 1px solid #cdd0d6;
-    border-radius: 6px;
-  }
-
-  .org-connect {
-    position: relative;
-    height: 16px;
-  }
-
-  .org-connect .line {
-    position: absolute;
-    top: 6px;
-    right: 10%;
-    left: 10%;
-    display: block;
-    height: 0;
-    border-top: 1px solid #cdd0d6;
-  }
-
-  .org-level2-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 16px;
-    justify-content: center;
-  }
-
-  .org-level2 {
-    position: relative;
-    padding-top: 12px;
-  }
-
-  .org-level2 .connector {
-    position: absolute;
-    top: 0;
-    left: 50%;
-    width: 0;
-    height: 12px;
-    border-left: 1px solid #cdd0d6;
-    transform: translateX(-50%);
-  }
-
-  .org-level2 .box {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-    min-width: 160px;
-    padding: 8px 10px;
-    background: #fff;
-    border: 1px solid #cdd0d6;
-    border-radius: 6px;
-  }
-
-  .org-level2 .label {
-    flex: 1;
-    color: #333;
   }
 
   .matrix-input {

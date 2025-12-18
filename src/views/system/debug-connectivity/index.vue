@@ -6,9 +6,9 @@
       <p>API 代理：{{ apiProxyUrl || '未设置' }}</p>
     </div>
 
-  <div class="actions">
-    <ElButton type="primary" @click="testGetDebug">测试 GET /api/auth/debug-di</ElButton>
-  </div>
+    <div class="actions">
+      <ElButton type="primary" @click="testGetDebug">测试 GET /api/auth/debug-di</ElButton>
+    </div>
 
     <div class="result" v-if="lastResult">
       <h3>最后一次结果</h3>

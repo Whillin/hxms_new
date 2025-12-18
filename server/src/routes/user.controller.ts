@@ -33,14 +33,12 @@ export class UserController {
     const rolesSet = new Set<string>(sanitizedRoles)
     const uname = String(userName || '')
     const needAdmin = uname.toLowerCase() === 'admin'
+    // 仅在用户名为 admin 时，确保拥有 R_ADMIN；不再默认追加 R_SUPER
     if (needAdmin) {
       rolesSet.add('R_ADMIN')
-      rolesSet.add('R_SUPER')
     }
-    const effectiveRoles =
-      rolesSet.has('R_ADMIN') && !rolesSet.has('R_SUPER')
-        ? [...Array.from(rolesSet), 'R_SUPER']
-        : Array.from(rolesSet)
+    // 角色以数据库与 sanitize 为准，不进行超管自动提升
+    const effectiveRoles = Array.from(rolesSet)
 
     let buttons: string[] = []
     try {

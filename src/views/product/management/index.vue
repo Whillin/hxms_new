@@ -63,17 +63,7 @@
       <!-- 数据表格 -->
       <ElTable v-loading="loading" :data="filteredTableData" style="width: 100%; margin-top: 20px">
         <ElTableColumn type="index" label="序号" width="60" />
-        <ElTableColumn prop="image" label="车型图片" width="100">
-          <template #default="{ row }">
-            <ElImage
-              :src="row.image"
-              :preview-src-list="[row.image]"
-              fit="cover"
-              style="width: 60px; height: 60px; border-radius: 4px"
-              preview-teleported
-            />
-          </template>
-        </ElTableColumn>
+        
         <ElTableColumn prop="name" label="车型名称" min-width="200" show-overflow-tooltip />
         <ElTableColumn prop="categoryName" label="商品分类" width="150" />
         <ElTableColumn prop="price" label="指导价" width="120">
@@ -130,40 +120,23 @@
     <!-- 车型详情对话框 -->
     <ElDialog v-model="detailVisible" title="车型详情" width="800px">
       <div v-if="currentProduct" class="product-detail">
-        <ElRow :gutter="20">
-          <ElCol :span="8">
-            <ElImage
-              :src="currentProduct.image"
-              fit="cover"
-              style="width: 100%; height: 200px; border-radius: 8px"
-            />
-          </ElCol>
-          <ElCol :span="16">
-            <ElDescriptions :column="2" border>
-              <ElDescriptionsItem label="车型名称">{{ currentProduct.name }}</ElDescriptionsItem>
-              <ElDescriptionsItem label="商品分类">{{
-                currentProduct.categoryName
-              }}</ElDescriptionsItem>
-              <ElDescriptionsItem label="指导价"
-                >¥{{ currentProduct.price.toLocaleString() }}</ElDescriptionsItem
-              >
-              <ElDescriptionsItem label="动力类型">
-                <ElTag :type="currentProduct.engineType === 'NEV' ? 'success' : 'primary'">
-                  {{ currentProduct.engineType }}
-                </ElTag>
-              </ElDescriptionsItem>
-              <ElDescriptionsItem label="销量">{{ currentProduct.sales }}</ElDescriptionsItem>
-              <ElDescriptionsItem label="状态">
-                <ElTag :type="currentProduct.status === 1 ? 'success' : 'danger'">
-                  {{ currentProduct.status === 1 ? '上架' : '下架' }}
-                </ElTag>
-              </ElDescriptionsItem>
-              <ElDescriptionsItem label="创建时间" :span="2">{{
-                currentProduct.createTime
-              }}</ElDescriptionsItem>
-            </ElDescriptions>
-          </ElCol>
-        </ElRow>
+        <ElDescriptions :column="2" border>
+          <ElDescriptionsItem label="车型名称">{{ currentProduct.name }}</ElDescriptionsItem>
+          <ElDescriptionsItem label="商品分类">{{ currentProduct.categoryName }}</ElDescriptionsItem>
+          <ElDescriptionsItem label="指导价">¥{{ currentProduct.price.toLocaleString() }}</ElDescriptionsItem>
+          <ElDescriptionsItem label="动力类型">
+            <ElTag :type="currentProduct.engineType === 'NEV' ? 'success' : 'primary'">
+              {{ currentProduct.engineType }}
+            </ElTag>
+          </ElDescriptionsItem>
+          <ElDescriptionsItem label="销量">{{ currentProduct.sales }}</ElDescriptionsItem>
+          <ElDescriptionsItem label="状态">
+            <ElTag :type="currentProduct.status === 1 ? 'success' : 'danger'">
+              {{ currentProduct.status === 1 ? '上架' : '下架' }}
+            </ElTag>
+          </ElDescriptionsItem>
+          <ElDescriptionsItem label="创建时间" :span="2">{{ currentProduct.createTime }}</ElDescriptionsItem>
+        </ElDescriptions>
         <div style="margin-top: 20px">
           <h4>车型描述</h4>
           <p>{{ currentProduct.description || '暂无描述' }}</p>
@@ -239,34 +212,7 @@
               />
             </ElFormItem>
           </ElCol>
-          <ElCol :span="24">
-            <ElFormItem label="车型图片">
-              <div class="image-upload-section">
-                <ElRadioGroup v-model="imageUploadType" @change="handleImageTypeChange">
-                  <ElRadio label="url">URL链接</ElRadio>
-                  <ElRadio label="upload">本地上传</ElRadio>
-                </ElRadioGroup>
-
-                <div v-if="imageUploadType === 'url'" class="mt-2">
-                  <ElInput v-model="addForm.image" placeholder="请输入车型图片URL" />
-                </div>
-
-                <div v-else class="mt-2">
-                  <ElUpload
-                    class="image-uploader"
-                    action="#"
-                    :show-file-list="false"
-                    :before-upload="beforeImageUpload"
-                    :http-request="handleImageUpload"
-                  >
-                    <img v-if="addForm.image" :src="addForm.image" class="uploaded-image" />
-                    <ElIcon v-else class="image-uploader-icon"><Plus /></ElIcon>
-                  </ElUpload>
-                  <div class="upload-tip">支持 jpg、png 格式，大小不超过 2MB</div>
-                </div>
-              </div>
-            </ElFormItem>
-          </ElCol>
+          
           <ElCol :span="24">
             <ElFormItem label="车型描述">
               <ElInput
@@ -329,7 +275,7 @@
               </ElInput>
             </ElFormItem>
           </ElCol>
-          <!-- 原价与库存字段已移除 -->>
+          
           <ElCol :span="12">
             <ElFormItem label="动力类型">
               <ElSelect v-model="form.engineType" placeholder="请选择动力类型" style="width: 100%">
@@ -385,7 +331,8 @@
     fetchGetProductList,
     fetchSaveProduct,
     fetchDeleteProduct,
-    fetchGetProductCategories
+    fetchGetProductCategories,
+    fetchGetProductsCategories
   } from '@/api/product'
 
   defineOptions({ name: 'ProductManagement' })
@@ -401,7 +348,6 @@
     price: number
     sales: number
     status: number
-    image: string
     description: string
     createTime: string
   }
@@ -446,7 +392,6 @@
     engineType: undefined as 'ICE' | 'NEV' | 'HEV' | undefined,
     price: undefined as number | undefined,
     status: 1,
-    image: '',
     description: ''
   })
 
@@ -458,7 +403,6 @@
     form.engineType = undefined
     form.price = undefined
     form.status = 1
-    form.image = ''
     form.description = ''
   }
 
@@ -473,7 +417,6 @@
         : undefined,
       price: typeof row.price === 'number' ? row.price : undefined,
       status: typeof row.status === 'number' ? row.status : 1,
-      image: row.image || '',
       description: row.description || ''
     })
     dialogVisible.value = true
@@ -509,7 +452,6 @@
     price: Number(m.price ?? 0),
     sales: Number(m.sales ?? 0),
     status: Number(m.status ?? 1),
-    image: `https://picsum.photos/200/200?random=${m.id}`,
     description: '',
     createTime: m.createdAt ? new Date(m.createdAt).toLocaleString('zh-CN') : ''
   })
@@ -518,21 +460,18 @@
   const enrichCategoryNames = async (rows: any[]) => {
     const flat = flatCategoryOptions.value || []
     const idToName = (id?: number) => flat.find((c: any) => c.id === id)?.name || ''
-    await Promise.all(
-      rows.map(async (row) => {
-        try {
-          const ids = await fetchGetProductCategories(Number(row.id))
-          const arr = Array.isArray(ids) ? ids : []
-          row.categoryId = arr[0]
-          row.categoryName = arr
-            .map((cid: number) => idToName(cid))
-            .filter(Boolean)
-            .join(' / ')
-        } catch {
-          // 忽略分类获取失败，保持为空
-        }
+    try {
+      const ids = rows.map((r) => Number(r.id))
+      const mapping = await fetchGetProductsCategories(ids)
+      rows.forEach((row) => {
+        const arr = Array.isArray((mapping as any)[row.id]) ? (mapping as any)[row.id] : []
+        row.categoryId = arr[0]
+        row.categoryName = arr
+          .map((cid: number) => idToName(cid))
+          .filter(Boolean)
+          .join(' / ')
       })
-    )
+    } catch {}
   }
 
   // 方法
@@ -559,22 +498,14 @@
   }
 
   // 图片类型切换（避免未定义事件处理）
-  const handleImageTypeChange = (val: string | number | boolean | undefined) => {
-    if (val === 'url' || val === 'upload') {
-      imageUploadType.value = val
-    }
-  }
-
   const addDialogVisible = ref(false)
   const addFormRef = ref<any>(null)
-  const imageUploadType = ref<'url' | 'upload'>('url')
   const addForm = reactive({
     name: '',
     categoryId: undefined as number | undefined,
     engineType: '',
     price: undefined as number | undefined,
     status: 1,
-    image: '',
     description: ''
   })
   const addFormRules = {
@@ -590,9 +521,7 @@
     addForm.engineType = ''
     addForm.price = undefined
     addForm.status = 1
-    addForm.image = ''
     addForm.description = ''
-    imageUploadType.value = 'url'
   }
 
   const handleAdd = async () => {
@@ -607,18 +536,7 @@
     addDialogVisible.value = true
   }
 
-  const beforeImageUpload = (file: File) => {
-    const isAllowedType = ['image/jpeg', 'image/png'].includes(file.type)
-    const isLt2M = file.size / 1024 / 1024 < 2
-    if (!isAllowedType) ElMessage.error('仅支持 JPG/PNG 格式图片')
-    if (!isLt2M) ElMessage.error('图片大小不能超过 2MB')
-    return isAllowedType && isLt2M
-  }
-
-  const handleImageUpload = async (opts: { file: File }) => {
-    // 演示：直接使用本地预览地址。实际项目可上传到服务器并使用返回的 URL。
-    addForm.image = URL.createObjectURL(opts.file)
-  }
+  
 
   const handleSearch = () => {
     pagination.current = 1
@@ -817,49 +735,6 @@
       }
     }
 
-    .image-upload-section {
-      .mt-2 {
-        margin-top: 8px;
-      }
-
-      .image-uploader {
-        :deep(.el-upload) {
-          position: relative;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 148px;
-          height: 148px;
-          overflow: hidden;
-          cursor: pointer;
-          border: 1px dashed var(--el-border-color);
-          border-radius: 6px;
-          transition: var(--el-transition-duration-fast);
-
-          &:hover {
-            border-color: var(--el-color-primary);
-          }
-        }
-
-        .image-uploader-icon {
-          font-size: 28px;
-          color: #8c939d;
-          text-align: center;
-        }
-
-        .uploaded-image {
-          display: block;
-          width: 148px;
-          height: 148px;
-          object-fit: cover;
-        }
-      }
-
-      .upload-tip {
-        margin-top: 4px;
-        font-size: 12px;
-        color: var(--el-text-color-regular);
-      }
-    }
+    
   }
 </style>

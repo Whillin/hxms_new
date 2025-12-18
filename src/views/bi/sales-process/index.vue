@@ -383,7 +383,7 @@
   import { fetchGetCustomerStoreOptions } from '@/api/customer'
   import { fetchGetEmployeeList } from '@/api/system-manage'
   import { fetchGetDepartmentList } from '@/api/system-manage'
-  import { fetchGetProductList } from '@/api/product'
+  import { fetchGetProductList, fetchGetModelsByStore } from '@/api/product'
   import { fetchChannelOptions } from '@/api/channel'
   import { useUserStore } from '@/store/modules/user'
 
@@ -617,24 +617,39 @@
 
   const loadModelsAndOem = async () => {
     try {
-      const res = await fetchGetProductList({ current: 1, size: 200 })
-      const records = (res as any)?.records || []
+      const sid = Number(storeId.value || 0)
       const modelOpts: Array<{ label: string; value: number | ''; brand?: string }> = [
         { label: '全部车型', value: '' }
       ]
-      const brandSet = new Set<string>()
-      records.forEach((p: any) => {
-        const idNum = Number(p.id)
-        const label = String(p.name || idNum)
-        const brandVal = normalizeBrand(String(p.brand || ''))
-        if (Number.isFinite(idNum)) modelOpts.push({ label, value: idNum, brand: brandVal })
-        if (p.brand) brandSet.add(String(p.brand))
-      })
+      if (Number.isFinite(sid) && sid > 0) {
+        const list = await fetchGetModelsByStore(sid)
+        const arr = Array.isArray(list) ? list : []
+        arr.forEach((m: any) => {
+          const idNum = Number(m.id)
+          const label = String(m.name || idNum)
+          if (Number.isFinite(idNum)) modelOpts.push({ label, value: idNum })
+        })
+        const oemOpts: Array<{ label: string; value: string }> = [{ label: '全部OEM', value: '' }]
+        const brandVal = storeBrandById.value[sid] || accountBrand.value || ''
+        if (brandVal) oemOpts.push({ label: brandVal, value: brandVal })
+        oems.value = oemOpts
+      } else {
+        const res = await fetchGetProductList({ current: 1, size: 200 })
+        const records = (res as any)?.records || []
+        const brandSet = new Set<string>()
+        records.forEach((p: any) => {
+          const idNum = Number(p.id)
+          const label = String(p.name || idNum)
+          const brandVal = normalizeBrand(String(p.brand || ''))
+          if (Number.isFinite(idNum)) modelOpts.push({ label, value: idNum, brand: brandVal })
+          if (p.brand) brandSet.add(String(p.brand))
+        })
+        const oemOpts: Array<{ label: string; value: string }> = [{ label: '全部OEM', value: '' }]
+        Array.from(brandSet).forEach((b) => oemOpts.push({ label: b, value: b }))
+        oems.value = oemOpts
+      }
       modelsAll.value = modelOpts
       models.value = modelsView.value
-      const oemOpts: Array<{ label: string; value: string }> = [{ label: '全部OEM', value: '' }]
-      Array.from(brandSet).forEach((b) => oemOpts.push({ label: b, value: b }))
-      oems.value = oemOpts
     } catch (e) {
       void e
     }
@@ -656,6 +671,7 @@
 
   watch(storeId, () => {
     loadConsultants()
+    loadModelsAndOem()
     const ids = modelsView.value.map((m) => m.value)
     if (!ids.includes(modelId.value)) modelId.value = ''
     if (!ids.includes(compareModelId.value)) compareModelId.value = ''

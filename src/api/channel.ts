@@ -28,6 +28,7 @@ export function fetchOnlineDailyList(params: { storeId: number; date: string }) 
       level1: string
       level2: string
       count: number
+      modelBreakdown?: { modelId?: number; modelName?: string; count: number }[]
       allocations?: { employeeId: number; count: number }[]
     }[]
     submitted: boolean
@@ -45,6 +46,7 @@ export function fetchOnlineDailyListQuiet(params: { storeId: number; date: strin
       level1: string
       level2: string
       count: number
+      modelBreakdown?: { modelId?: number; modelName?: string; count: number }[]
       allocations?: { employeeId: number; count: number }[]
     }[]
     submitted: boolean
@@ -63,6 +65,7 @@ export function saveOnlineDaily(data: {
     level1: string
     level2: string
     count: number
+    modelBreakdown?: { modelId?: number; modelName?: string; count: number }[]
     allocations?: { employeeId: number; count: number }[]
   }[]
   submitted?: boolean

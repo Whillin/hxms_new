@@ -153,7 +153,7 @@
           <ElCol :span="12">
             <ElFormItem label="关注车型" prop="focusModelName">
               <ElSelect v-model="formModel.focusModelName" placeholder="请选择">
-                <ElOption v-for="opt in nameOptions" :key="opt.value" v-bind="opt" />
+                <ElOption v-for="opt in modelOptionsRef" :key="opt.value" v-bind="opt" />
               </ElSelect>
             </ElFormItem>
           </ElCol>
@@ -336,6 +336,7 @@
     fetchDeleteOpportunity
   } from '@/api/opportunity'
   import { fetchGetCustomerList } from '@/api/customer'
+  import { fetchGetModelsByStore } from '@/api/product'
 
   defineOptions({ name: 'OpportunityList' })
 
@@ -376,6 +377,29 @@
 
   const productStore = useProductStore()
   const { nameOptions } = storeToRefs(productStore)
+  const modelOptionsRef = ref<Array<{ label: string; value: string | number }>>([
+    { label: '全部车型', value: '' }
+  ])
+  const rebuildModelOptionsByStore = async (sidOverride?: number) => {
+    const sid = Number(typeof sidOverride === 'number' ? sidOverride : (info.value as any)?.storeId)
+    if (!Number.isFinite(sid) || sid <= 0) {
+      modelOptionsRef.value = nameOptions.value
+      return
+    }
+    try {
+      const list = await fetchGetModelsByStore(sid)
+      const arr = Array.isArray(list) ? list : []
+      const opts: Array<{ label: string; value: number | '' }> = [{ label: '全部车型', value: '' }]
+      arr.forEach((m: any) => {
+        const id = Number(m.id)
+        const label = String(m.name || id)
+        if (Number.isFinite(id)) opts.push({ label, value: id })
+      })
+      modelOptionsRef.value = opts as any
+    } catch {
+      modelOptionsRef.value = [{ label: '全部车型', value: '' }] as any
+    }
+  }
   const categoryStore = useProductCategoryStore()
   const userStore = useUserStore()
   const { info } = storeToRefs(userStore)
@@ -400,41 +424,56 @@
     } catch (e: any) {
       console.error('[fetchChannelOptions] failed:', e)
     }
-    // 动态加载关注车型选项（来自商品管理，优先按分类ID过滤，失败则按品牌名回退）
     try {
-      const brand = (info.value as any)?.brandName || (info.value as any)?.brand || undefined
-      let categoryId: number | undefined
-      if (brand) {
-        try {
-          await categoryStore.loadFromApi()
-        } catch (err) {
-          console.warn('[categoryStore.loadFromApi] failed (onMounted):', err)
-        }
-        const tree: any[] = (categoryStore as any).tree || []
-        const node: any = tree.find((n: any) => n?.level === 1 && String(n?.name) === brand)
-        if (node && typeof node.id === 'number') categoryId = node.id
-      }
-      if (typeof categoryId === 'number') {
-        await productStore.loadProductsByCategoryId(categoryId, true)
+      const sid = Number((info.value as any)?.storeId)
+      if (Number.isFinite(sid) && sid > 0) {
+        await productStore.loadProductsByStoreId(sid)
+        await rebuildModelOptionsByStore(sid)
       } else {
-        await productStore.loadProducts(brand)
+        const brand = (info.value as any)?.brandName || (info.value as any)?.brand || undefined
+        let categoryId: number | undefined
+        if (brand) {
+          try {
+            await categoryStore.loadFromApi()
+          } catch (err) {
+            void err
+          }
+          const tree: any[] = (categoryStore as any).tree || []
+          const node: any = tree.find((n: any) => n?.level === 1 && String(n?.name) === brand)
+          if (node && typeof node.id === 'number') categoryId = node.id
+        }
+        if (typeof categoryId === 'number') {
+          await productStore.loadProductsByCategoryId(categoryId, true)
+        } else {
+          await productStore.loadProducts(brand)
+        }
+        modelOptionsRef.value = nameOptions.value
       }
     } catch (e: any) {
-      console.error('[productStore.loadProductsByCategoryId] failed:', e)
+      void e
     }
   })
-  // 品牌变化时（中文brandName或英文brand），刷新关注车型选项（按分类ID）
   watch(
-    [() => (info.value as any)?.brandName, () => (info.value as any)?.brand],
-    async ([brandName, brand]) => {
+    [
+      () => (info.value as any)?.storeId,
+      () => (info.value as any)?.brandName,
+      () => (info.value as any)?.brand
+    ],
+    async ([sid, brandName, brand]) => {
       try {
+        const sidNum = Number(sid)
+        if (Number.isFinite(sidNum) && sidNum > 0) {
+          await productStore.loadProductsByStoreId(sidNum)
+          await rebuildModelOptionsByStore(sidNum)
+          return
+        }
         const b = brandName || brand || undefined
         let categoryId: number | undefined
         if (b) {
           try {
             await categoryStore.loadFromApi()
           } catch (err) {
-            console.warn('[categoryStore.loadFromApi] failed (watch brand):', err)
+            void err
           }
           const tree: any[] = (categoryStore as any).tree || []
           const node: any = tree.find((n: any) => n?.level === 1 && String(n?.name) === b)
@@ -445,8 +484,18 @@
         } else {
           await productStore.loadProducts(b)
         }
+        modelOptionsRef.value = nameOptions.value
       } catch (e: any) {
-        console.error('[productStore.loadProductsByCategoryId] failed:', e)
+        void e
+      }
+    }
+  )
+  watch(
+    () => dialogVisible.value,
+    (v) => {
+      if (v) {
+        const sid = Number((info.value as any)?.storeId)
+        if (Number.isFinite(sid) && sid > 0) void rebuildModelOptionsByStore(sid)
       }
     }
   )
@@ -517,7 +566,7 @@
       label: '关注车型',
       key: 'focusModelName',
       type: 'select',
-      props: { options: nameOptions.value }
+      props: { options: modelOptionsRef }
     },
     {
       label: '商机级别',
@@ -910,6 +959,21 @@
       return
     }
     await formRef.value?.validate?.()
+    // 统一解析关注车型：兼容选择的是“车型ID”或“车型名称”
+    const rawFocus = formModel.value.focusModelName as any
+    let focusModelIdResolved: number | undefined
+    let focusModelNameResolved: string | undefined
+    if (rawFocus !== undefined && rawFocus !== null && rawFocus !== '') {
+      const num = Number(rawFocus)
+      if (Number.isFinite(num)) {
+        focusModelIdResolved = num
+        const hit = modelOptionsRef.value.find((o) => Number(o.value) === num)
+        focusModelNameResolved = hit ? String(hit.label) : undefined
+      } else {
+        focusModelNameResolved = String(rawFocus)
+      }
+    }
+
     const dataForSave: any = {
       id: Number(editingId.value),
       storeId: Number(info.value.storeId || 0),
@@ -918,7 +982,8 @@
       customerName: formModel.value.customerName,
       customerPhone: formModel.value.customerPhone,
       opportunityLevel: formModel.value.opportunityLevel,
-      focusModelName: formModel.value.focusModelName,
+      focusModelId: focusModelIdResolved,
+      focusModelName: focusModelNameResolved,
       testDrive: !!formModel.value.testDrive,
       bargaining: !!formModel.value.bargaining,
       latestStatus: formModel.value.latestStatus,

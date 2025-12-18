@@ -137,6 +137,7 @@
   import type { FormInstance, FormRules } from 'element-plus'
   import { ElNotification } from 'element-plus'
   import { useSettingStore } from '@/store/modules/setting'
+  import { useMenuStore } from '@/store/modules/menu'
 
   defineOptions({ name: 'Login' })
 
@@ -263,7 +264,13 @@
 
       // 登录成功处理
       showLoginSuccessNotice()
-      router.push('/')
+      try {
+        const menuStore = useMenuStore()
+        const target = menuStore.getHomePath() || RoutesAlias.Dashboard
+        router.push(target)
+      } catch {
+        router.push(RoutesAlias.Dashboard)
+      }
     } catch (error) {
       // 处理 HttpError
       if (error instanceof HttpError) {

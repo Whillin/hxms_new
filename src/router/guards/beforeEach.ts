@@ -6,7 +6,7 @@ import { useUserStore } from '@/store/modules/user'
 import { useMenuStore } from '@/store/modules/menu'
 import { setWorktab } from '@/utils/navigation'
 import { setPageTitle } from '../utils/utils'
-import { fetchGetMenuList } from '@/api/system-manage'
+import { fetchGetMenuList, fetchGetRoleList, fetchGetRolePermissions } from '@/api/system-manage'
 import { registerDynamicRoutes } from '../utils/registerRoutes'
 import { AppRouteRecord } from '@/types/router'
 import { RoutesAlias } from '../routesAlias'
@@ -290,21 +290,31 @@ async function getMenuData(router: Router): Promise<void> {
 async function processFrontendMenu(router: Router): Promise<void> {
   const menuList = asyncRoutes.map((route) => menuDataToRouter(route))
   const userStore = useUserStore()
-  const roles = userStore.info.roles
+  const rolesRaw = Array.isArray(userStore.info.roles) ? userStore.info.roles : []
+  const rolesNoUser = rolesRaw.filter((r) => r !== 'R_USER')
   const name = String(userStore.info?.userName || '')
   const isAdminUser = name.toLowerCase() === 'admin'
   const rolesFinal = Array.from(
-    new Set([
-      ...(Array.isArray(roles) ? roles : []),
-      ...(isAdminUser ? ['R_ADMIN', 'R_SUPER'] : [])
-    ])
+    new Set([...rolesNoUser, ...(isAdminUser ? ['R_ADMIN', 'R_SUPER'] : [])])
   )
 
   if (!rolesFinal.length) {
     throw new Error('获取用户角色失败')
   }
 
-  const filteredMenuList = filterMenuByRoles(menuList, rolesFinal)
+  let filteredMenuList = filterMenuByRoles(menuList, rolesFinal)
+
+  const allowedNames = await getAllowedRouteNamesForCurrentUser()
+  const isExplicitSuper =
+    rolesFinal.includes('R_SUPER') && (!rolesFinal.includes('R_ADMIN') || isAdminUser)
+  if (isExplicitSuper) {
+    // 超级管理员跳过权限键过滤，默认全菜单
+    if (!filteredMenuList || filteredMenuList.length < 5) {
+      filteredMenuList = asyncRoutes.map((route) => menuDataToRouter(route))
+    }
+  } else if (allowedNames) {
+    filteredMenuList = filterMenuByPermissionNames(filteredMenuList, allowedNames)
+  }
 
   await registerAndStoreMenu(router, filteredMenuList)
 }
@@ -315,7 +325,8 @@ async function processFrontendMenu(router: Router): Promise<void> {
 async function processBackendMenu(router: Router): Promise<void> {
   const { menuList } = await fetchGetMenuList()
   const userStore = useUserStore()
-  const roles = userStore.info.roles || []
+  const rolesRaw = Array.isArray(userStore.info.roles) ? userStore.info.roles : []
+  const roles = rolesRaw.filter((r) => r !== 'R_USER')
   const name = String(userStore.info?.userName || '')
   const isAdminUser = name.toLowerCase() === 'admin'
   const rolesFinal = Array.from(
@@ -324,8 +335,14 @@ async function processBackendMenu(router: Router): Promise<void> {
       ...(isAdminUser ? ['R_ADMIN', 'R_SUPER'] : [])
     ])
   )
+  // 超级管理员/管理员优先使用本地完整菜单，避免后端返回的“裁剪列表”限制超管视图
+  const sourceMenu =
+    rolesFinal.includes('R_SUPER') || rolesFinal.includes('R_ADMIN')
+      ? asyncRoutes.map((route) => menuDataToRouter(route))
+      : menuList
+
   // 若后端菜单包含 meta.roles，则也按角色进行一次过滤；无该字段时原样保留
-  const filteredMenuList = filterMenuByRoles(menuList, rolesFinal)
+  let filteredMenuList = filterMenuByRoles(sourceMenu, rolesFinal)
 
   // 补充：为非管理员角色注入独立的“个人中心”顶级路由，避免被 /system 父级 roles 过滤掉
   const ensureUserCenterStandalone = (list: AppRouteRecord[]): AppRouteRecord[] => {
@@ -356,6 +373,18 @@ async function processBackendMenu(router: Router): Promise<void> {
     }
 
     return [...list, userCenterRoute]
+  }
+
+  const allowedNames = await getAllowedRouteNamesForCurrentUser()
+  const isExplicitSuper =
+    rolesFinal.includes('R_SUPER') && (!rolesFinal.includes('R_ADMIN') || isAdminUser)
+  if (isExplicitSuper) {
+    // 超级管理员跳过权限键过滤，默认全菜单
+    if (!filteredMenuList || filteredMenuList.length < 5) {
+      filteredMenuList = asyncRoutes.map((route) => menuDataToRouter(route))
+    }
+  } else if (allowedNames) {
+    filteredMenuList = filterMenuByPermissionNames(filteredMenuList, allowedNames)
   }
 
   const finalMenuList = ensureUserCenterStandalone(filteredMenuList)
@@ -404,6 +433,26 @@ async function registerAndStoreMenu(router: Router, menuList: AppRouteRecord[]):
   const menuStore = useMenuStore()
   // 递归过滤掉为空的菜单项
   const list = filterEmptyMenus(menuList)
+  try {
+    const exists = (routes: AppRouteRecord[], target: string): boolean => {
+      return routes.some((r) => {
+        if (r.path === target) return true
+        if (Array.isArray(r.children) && r.children.length) return exists(r.children, target)
+        return false
+      })
+    }
+    const hasSystemUserCenter = exists(list, '/system/user-center')
+    const hasStandalone = exists(list, '/user-center')
+    if (!hasSystemUserCenter && hasStandalone) {
+      const userCenterAlias: AppRouteRecord = {
+        path: '/system/user-center',
+        name: 'UserCenterAlias',
+        component: RoutesAlias.UserCenter,
+        meta: { title: 'menus.system.userCenter', isHide: true, keepAlive: true, isHideTab: true }
+      }
+      list.push(userCenterAlias)
+    }
+  } catch {}
 
   // 动态设置“线索管理”红点提示：店长/总监（含管理员）且当日未完成填报
   try {
@@ -487,6 +536,149 @@ function isValidMenuList(menuList: AppRouteRecord[]): boolean {
 }
 
 /**
+ * 依据角色权限键派生允许的路由 name 集合
+ * - 权限键格式：RouteName 或 RouteName_action（取前半段）
+ * - 多角色用户：合并（并集）
+ */
+async function getAllowedRouteNamesForCurrentUser(): Promise<Set<string> | null> {
+  try {
+    const userStore = useUserStore()
+    const codesRaw = Array.isArray(userStore.info?.roles) ? userStore.info!.roles : []
+    const codes = codesRaw.filter((c) => c !== 'R_USER')
+    console.debug('[权限派生] 用户角色', { raw: codesRaw, codes })
+    if (!codes.length) return null
+
+    const uname = String(userStore.info?.userName || '').toLowerCase()
+    const isExplicitSuper =
+      codes.includes('R_SUPER') && (!codes.includes('R_ADMIN') || uname === 'admin')
+    if (isExplicitSuper) return null
+
+    const res = await fetchGetRoleList({ current: 1, size: 9999 } as any)
+    const records = (res as any)?.data?.records ?? (res as any)?.records ?? []
+    const codeToId: Record<string, number> = {}
+    const nameToId: Record<string, number> = {}
+    if (Array.isArray(records)) {
+      records.forEach((r: any) => {
+        if (r?.roleCode && typeof r?.roleId === 'number') codeToId[r.roleCode] = r.roleId
+        if (r?.roleName && typeof r?.roleId === 'number') nameToId[r.roleName] = r.roleId
+      })
+    }
+    console.debug('[权限派生] 角色列表映射', { codeToId, nameToId })
+
+    const normalize = (v: string) => {
+      if (v === '管理员') return 'R_ADMIN'
+      if (v === '超级管理员') return 'R_SUPER'
+      return v
+    }
+
+    const getIdFromLocal = (code: string): number | undefined => {
+      try {
+        const v = localStorage.getItem(`role_perm_id:${code}`)
+        const n = v ? Number(v) : NaN
+        return Number.isFinite(n) ? n : undefined
+      } catch {
+        return undefined
+      }
+    }
+
+    const keysByRole: Record<string, Set<string>> = {}
+    for (const raw of codes) {
+      const codeNorm = normalize(raw)
+      const roleId =
+        codeToId[codeNorm] ??
+        nameToId[codeNorm] ??
+        codeToId[raw] ??
+        nameToId[raw] ??
+        getIdFromLocal(codeNorm) ??
+        getIdFromLocal(raw)
+      console.debug('[权限派生] 角色映射', { raw, code: codeNorm, roleId })
+      if (!roleId) continue
+      const resp = await fetchGetRolePermissions({ roleId })
+      const keys: string[] = (resp as any)?.data ?? (Array.isArray(resp) ? (resp as any) : [])
+      console.debug('[权限派生] 权限键', {
+        roleId,
+        count: Array.isArray(keys) ? keys.length : 0,
+        keys
+      })
+      if (Array.isArray(keys) && keys.length) {
+        keysByRole[codeNorm] = new Set(keys.map((x) => String(x)))
+      }
+    }
+
+    const roleCodes = Object.keys(keysByRole)
+    if (roleCodes.length === 0) return null
+
+    // 优先：如果管理员/超管有配置，使用其配置（满足你的“管理员也可被限制”的诉求）
+    const adminSet = keysByRole['R_ADMIN'] || keysByRole['管理员']
+    const superSet = keysByRole['R_SUPER'] || keysByRole['超级管理员']
+    const preferSet = adminSet || superSet
+    let finalSet: Set<string>
+    if (preferSet) {
+      finalSet = preferSet
+    } else {
+      // 否则：对所有有配置的角色做“交集”，确保多角色不会因为并集而越权
+      finalSet = roleCodes
+        .map((c) => keysByRole[c])
+        .reduce(
+          (acc, cur) => {
+            if (!acc) return new Set(cur)
+            const next = new Set<string>()
+            cur.forEach((k) => {
+              if (acc.has(k)) next.add(k)
+            })
+            return next
+          },
+          undefined as unknown as Set<string>
+        )
+      // 交集为空则回退到“并集”，避免误把菜单清空
+      if (!finalSet || finalSet.size === 0) {
+        finalSet = roleCodes
+          .map((c) => keysByRole[c])
+          .reduce((acc, cur) => {
+            cur.forEach((k) => acc.add(k))
+            return acc
+          }, new Set<string>())
+      }
+    }
+
+    const names = new Set<string>()
+    finalSet.forEach((k) => {
+      const base = String(k).split('_')[0]
+      if (base) names.add(base)
+    })
+    console.debug('[权限派生] 路由名', { size: names.size, names: Array.from(names) })
+    return names
+  } catch (e) {
+    console.warn('派生权限路由名失败:', e)
+    return null
+  }
+}
+
+/**
+ * 按允许的路由 name 过滤菜单
+ * - 保留自身命中或子孙命中节点
+ */
+function filterMenuByPermissionNames(
+  menu: AppRouteRecord[],
+  allowedNames: Set<string>
+): AppRouteRecord[] {
+  const walk = (nodes: AppRouteRecord[]): AppRouteRecord[] => {
+    return nodes
+      .map((n) => {
+        const cloned = { ...n }
+        if (Array.isArray(cloned.children) && cloned.children.length) {
+          cloned.children = walk(cloned.children)
+        }
+        const selfHit = !!cloned.name && allowedNames.has(String(cloned.name))
+        const childHit = Array.isArray(cloned.children) && cloned.children.length > 0
+        return selfHit || childHit ? cloned : null
+      })
+      .filter((x): x is AppRouteRecord => !!x)
+  }
+  return walk(menu)
+}
+
+/**
  * 重置路由相关状态
  */
 export function resetRouterState(): void {
@@ -502,10 +694,9 @@ export function resetRouterState(): void {
 function handleRootPathRedirect(to: RouteLocationNormalized, next: NavigationGuardNext): boolean {
   if (to.path === '/') {
     const { homePath } = useCommon()
-    if (homePath.value && homePath.value !== '/') {
-      next({ path: homePath.value, replace: true })
-      return true
-    }
+    const target = homePath.value && homePath.value !== '/' ? homePath.value : RoutesAlias.Dashboard
+    next({ path: target, replace: true })
+    return true
   }
   return false
 }

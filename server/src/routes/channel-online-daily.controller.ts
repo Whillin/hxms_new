@@ -6,6 +6,7 @@ import { JwtGuard } from '../auth/jwt.guard'
 import { OnlineChannel } from '../channels/online-channel.entity'
 import { OnlineChannelDaily } from '../channels/online-channel-daily.entity'
 import { OnlineChannelDailyAllocation } from '../channels/online-channel-daily-allocation.entity'
+import { OnlineChannelDailyModel } from '../channels/online-channel-daily-model.entity'
 import { Employee } from '../employees/employee.entity'
 import { EmployeeStoreLink } from '../employees/employee-store.entity'
 import { DataScopeService } from '../common/data-scope.service'
@@ -17,6 +18,7 @@ type DailyItem = {
   level2: string
   count: number
   allocations?: AllocationItem[]
+  modelBreakdown?: { modelId?: number; modelName?: string; count: number }[]
 }
 
 @SkipThrottle()
@@ -28,6 +30,8 @@ export class ChannelOnlineDailyController {
     @InjectRepository(OnlineChannel) private readonly dictRepo: Repository<OnlineChannel>,
     @InjectRepository(OnlineChannelDailyAllocation)
     private readonly allocRepo: Repository<OnlineChannelDailyAllocation>,
+    @InjectRepository(OnlineChannelDailyModel)
+    private readonly modelRepo: Repository<OnlineChannelDailyModel>,
     @InjectRepository(Employee) private readonly empRepo: Repository<Employee>,
     @InjectRepository(EmployeeStoreLink)
     private readonly empLinkRepo: Repository<EmployeeStoreLink>,
@@ -152,12 +156,21 @@ export class ChannelOnlineDailyController {
           list.push({ employeeId: a.employeeId, count: a.count })
           allocByDailyId.set(a.dailyId, list)
         }
+        const { In } = await import('typeorm')
+        const modelRows = await this.modelRepo.find({ where: { dailyId: In(dailyIds) } as any })
+        const modelsByDaily = new Map<number, { modelId?: number; modelName?: string; count: number }[]>()
+        for (const m of modelRows) {
+          const list = modelsByDaily.get(m.dailyId) || []
+          list.push({ modelId: m.modelId ?? undefined, modelName: m.modelName ?? undefined, count: Number(m.count || 0) })
+          modelsByDaily.set(m.dailyId, list)
+        }
         const items = records.map((r) => ({
           compoundKey: r.compoundKey,
           level1: r.level1,
           level2: r.level2,
           count: r.count,
-          allocations: allocByDailyId.get(r.id) || []
+          allocations: allocByDailyId.get(r.id) || [],
+          modelBreakdown: modelsByDaily.get(r.id) || []
         }))
         const submitted = records.some((r) => r.submitted)
         return { code: 200, msg: '获取成功', data: { items, submitted } }
@@ -180,10 +193,10 @@ export class ChannelOnlineDailyController {
           if (r.level2 && r.level2.trim() !== '') l2set.add(r.level2)
         }
         if (l2set.size === 0) {
-          items.push({ compoundKey: `${l1}|`, level1: l1, level2: '', count: 0 })
+          items.push({ compoundKey: `${l1}|`, level1: l1, level2: '', count: 0, modelBreakdown: [] })
         } else {
           for (const l2 of l2set)
-            items.push({ compoundKey: `${l1}|${l2}`, level1: l1, level2: l2, count: 0 })
+            items.push({ compoundKey: `${l1}|${l2}`, level1: l1, level2: l2, count: 0, modelBreakdown: [] })
         }
       }
       return { code: 200, msg: '获取成功', data: { items, submitted: false } }
@@ -212,7 +225,8 @@ export class ChannelOnlineDailyController {
     const start = String(body.start || '').trim()
     const end = String(body.end || '').trim()
     if (!storeId) return { code: 400, msg: '缺少 storeId', data: { deleted: 0 } }
-    if (!allowed.includes(storeId)) return { code: 403, msg: '无权访问该门店', data: { deleted: 0 } }
+    if (!allowed.includes(storeId))
+      return { code: 403, msg: '无权访问该门店', data: { deleted: 0 } }
 
     const where: any = { storeId }
     if (date) where.date = date
@@ -247,7 +261,12 @@ export class ChannelOnlineDailyController {
 
   @Get('clear/open')
   async clearOpenGet(@Query() query: any) {
-    const body = { storeId: Number(query.storeId || 0), date: String(query.date || ''), start: String(query.start || ''), end: String(query.end || '') }
+    const body = {
+      storeId: Number(query.storeId || 0),
+      date: String(query.date || ''),
+      start: String(query.start || ''),
+      end: String(query.end || '')
+    }
     return await this.clearOpen(body)
   }
 
@@ -411,6 +430,39 @@ export class ChannelOnlineDailyController {
         )
       }
       if (toInsert.length) await this.allocRepo.save(toInsert)
+    }
+
+    // 保存车型拆分（幂等替换）：若提供 modelBreakdown，则替换当前 dailyId 的拆分集
+    for (const it of items) {
+      const row = savedByCompound.get(it.compoundKey)
+      if (!row) continue
+      const breakdown = Array.isArray((it as any).modelBreakdown) ? (it as any).modelBreakdown : []
+      // 若提交，校验合计与渠道总数一致；草稿允许不超过
+      const sum = breakdown.reduce((s: number, x: any) => s + Math.max(0, Number(x?.count || 0)), 0)
+      if (submitted && sum !== Number(row.count)) {
+        return { code: 400, msg: `车型拆分合计必须等于该渠道总数：${it.compoundKey}`, data: false }
+      }
+      if (!submitted && sum > Number(row.count)) {
+        return { code: 400, msg: `车型拆分合计不能超过渠道总数：${it.compoundKey}`, data: false }
+      }
+      await this.modelRepo.delete({ dailyId: row.id })
+      const inserts: OnlineChannelDailyModel[] = []
+      for (const x of breakdown) {
+        const mid = typeof x?.modelId === 'number' ? Number(x.modelId) : undefined
+        const mname = x?.modelName !== undefined && x?.modelName !== null ? String(x.modelName) : undefined
+        const cnt = Math.max(0, Number(x?.count || 0))
+        const uniqueKey = `${row.id}|${mid ?? ''}|${mname ?? ''}`
+        inserts.push(
+          this.modelRepo.create({
+            dailyId: row.id,
+            modelId: mid,
+            modelName: mname,
+            count: cnt,
+            uniqueKey
+          })
+        )
+      }
+      if (inserts.length) await this.modelRepo.save(inserts)
     }
 
     return { code: 200, msg: '保存成功', data: true }

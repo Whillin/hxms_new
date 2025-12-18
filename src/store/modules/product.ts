@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { fetchGetProductList } from '@/api/product'
+import { fetchGetProductList, fetchGetModelsByStore } from '@/api/product'
 import { useProductCategoryStore } from '@/store/modules/productCategory'
 
 export interface ProductItem {
@@ -21,6 +21,7 @@ export interface ProductItem {
 export const useProductStore = defineStore('productStore', () => {
   // 车型数据从后端动态加载
   const products = ref<ProductItem[]>([])
+  const source = ref<'store' | 'brand' | 'category' | null>(null)
 
   // 规范化中文品牌名：去除常见后缀（汽车/集团/公司/品牌），转为根品牌名
   const normalizeBrandChinese = (name: string = ''): string => {
@@ -29,7 +30,28 @@ export const useProductStore = defineStore('productStore', () => {
     // 去除常见后缀
     const stripped = raw.replace(/(汽车|集团|公司|品牌)$/i, '')
     // 若仍包含已知根品牌关键词，则提取根词
-    const roots = ['小鹏', '奥迪', '比亚迪', '蔚来', '理想', '极氪', '吉利', '大众', '丰田', '本田', '宝马', '奔驰', '特斯拉', '长城', '奇瑞', '福特', '日产', '现代', '长安', '广汽']
+    const roots = [
+      '小鹏',
+      '奥迪',
+      '比亚迪',
+      '蔚来',
+      '理想',
+      '极氪',
+      '吉利',
+      '大众',
+      '丰田',
+      '本田',
+      '宝马',
+      '奔驰',
+      '特斯拉',
+      '长城',
+      '奇瑞',
+      '福特',
+      '日产',
+      '现代',
+      '长安',
+      '广汽'
+    ]
     const hit = roots.find((r) => stripped.includes(r))
     return hit || stripped
   }
@@ -83,11 +105,17 @@ export const useProductStore = defineStore('productStore', () => {
   // 动态加载产品模型（状态为上架，分页拉取较大 size）
   const loadProducts = async (brand?: string) => {
     try {
+      if (source.value === 'store' && products.value.length) return
       const params: any = { current: 1, size: 500, status: 1 }
       if (brand) {
         // 若传入的是中文品牌名称，优先按分类树过滤；找不到节点则回退为 brandName 参数
         const isChinese = /[\u4e00-\u9fa5]/.test(brand)
         const normalized = isChinese ? normalizeBrandChinese(brand) : brand
+        // OEM 分品牌：上汽/一汽 不做“回退到根品牌”，避免跨品牌混入
+        if (isChinese && /(上汽奥迪|一汽奥迪|上汽大众|一汽大众)/.test(String(brand))) {
+          products.value = []
+          return
+        }
         if (isChinese) {
           const categoryStore = useProductCategoryStore()
           try {
@@ -135,6 +163,7 @@ export const useProductStore = defineStore('productStore', () => {
         image: '',
         description: ''
       }))
+      source.value = brand ? 'brand' : null
     } catch (e) {
       // 加载失败时保持已有值（空数组）
       console.error('[productStore] loadProducts failed:', e)
@@ -144,6 +173,7 @@ export const useProductStore = defineStore('productStore', () => {
   // 新增：按分类ID加载车型（优先使用后端分类ID并包含子分类）
   const loadProductsByCategoryId = async (categoryId?: number, includeChildren = true) => {
     try {
+      if (source.value === 'store' && products.value.length) return
       const params: any = { current: 1, size: 500, status: 1 }
       if (typeof categoryId === 'number') {
         params.categoryId = categoryId
@@ -164,13 +194,43 @@ export const useProductStore = defineStore('productStore', () => {
         image: '',
         description: ''
       }))
+      source.value = typeof categoryId === 'number' ? 'category' : null
     } catch (e) {
       console.error('[productStore] loadProductsByCategoryId failed:', e)
+    }
+  }
+
+  const loadProductsByStoreId = async (storeId?: number) => {
+    try {
+      const sid = Number(storeId)
+      if (!Number.isFinite(sid) || sid <= 0) {
+        products.value = []
+        source.value = null
+        return
+      }
+      const list = await fetchGetModelsByStore(sid)
+      const rows = Array.isArray(list) ? list : []
+      products.value = rows.map((m: any) => ({
+        id: Number(m.id),
+        name: String(m.name || ''),
+        categoryId: 0,
+        categoryName: '',
+        brandName: '',
+        price: undefined,
+        engineType: '',
+        sales: undefined,
+        status: undefined,
+        image: '',
+        description: ''
+      }))
+      source.value = 'store'
+    } catch (e) {
+      console.error('[productStore] loadProductsByStoreId failed:', e)
     }
   }
 
   // 车型名称下拉选项（以商品管理的车型名称为准）
   const nameOptions = computed(() => products.value.map((p) => ({ label: p.name, value: p.name })))
 
-  return { products, nameOptions, loadProducts, loadProductsByCategoryId }
+  return { products, nameOptions, loadProducts, loadProductsByCategoryId, loadProductsByStoreId, source }
 })

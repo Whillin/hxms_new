@@ -28,9 +28,7 @@ export class OpportunityService {
 
     // 找到最近商机
     const latest = await this.repo.findOne({
-      where: customerId
-        ? { customerId, storeId }
-        : ({ customerPhone: phone, storeId } as any),
+      where: customerId ? { customerId, storeId } : ({ customerPhone: phone, storeId } as any),
       order: { createdAt: 'DESC' }
     })
 
@@ -104,14 +102,13 @@ export class OpportunityService {
 
     // 解析顾问（按名称+门店，限定在职）
     const consultantName = String(body.salesConsultant || body.ownerName || '').trim()
-    let ownerResolved:
-      | { id?: number; name?: string; departmentId?: number }
-      | undefined
+    let ownerResolved: { id?: number; name?: string; departmentId?: number } | undefined
     if (consultantName && storeId) {
       const emp = await this.empRepo.findOne({
         where: { name: consultantName, storeId, status: '1' as any }
       })
-      if (emp) ownerResolved = { id: emp.id, name: emp.name, departmentId: (emp as any).departmentId }
+      if (emp)
+        ownerResolved = { id: emp.id, name: emp.name, departmentId: (emp as any).departmentId }
       else ownerResolved = { name: consultantName }
     }
 
@@ -128,7 +125,9 @@ export class OpportunityService {
       exist.focusModelId =
         typeof body.focusModelId === 'number' ? Number(body.focusModelId) : exist.focusModelId
       exist.focusModelName =
-        body.focusModelName !== undefined ? String(body.focusModelName || '') || null : exist.focusModelName
+        body.focusModelName !== undefined
+          ? String(body.focusModelName || '') || null
+          : exist.focusModelName
       exist.testDrive = body.testDrive !== undefined ? !!body.testDrive : exist.testDrive
       exist.bargaining = body.bargaining !== undefined ? !!body.bargaining : exist.bargaining
       exist.latestVisitDate = visitDate || exist.latestVisitDate
@@ -163,14 +162,21 @@ export class OpportunityService {
     // 顾问不在当前门店或已离职：尝试上级接管
     let supervisor: Employee | undefined
     if (typeof (emp as any).departmentId === 'number') {
-      supervisor = (await this.empRepo.findOne({
-        where: { role: 'R_SALES_MANAGER', departmentId: (emp as any).departmentId, storeId, status: '1' as any }
-      })) ?? undefined
+      supervisor =
+        (await this.empRepo.findOne({
+          where: {
+            role: 'R_SALES_MANAGER',
+            departmentId: (emp as any).departmentId,
+            storeId,
+            status: '1' as any
+          }
+        })) ?? undefined
     }
     if (!supervisor) {
-      supervisor = (await this.empRepo.findOne({
-        where: { role: 'R_STORE_MANAGER', storeId, status: '1' as any }
-      })) ?? undefined
+      supervisor =
+        (await this.empRepo.findOne({
+          where: { role: 'R_STORE_MANAGER', storeId, status: '1' as any }
+        })) ?? undefined
     }
     return supervisor
   }

@@ -744,10 +744,9 @@
 
         return records.map((item: any, index: number) => ({
           ...item,
-          avatar:
-            `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURIComponent(
-              String(row.userName || `user-${index}`)
-            )}`,
+          avatar: `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURIComponent(
+            String(row.userName || `user-${index}`)
+          )}`,
           department: ['技术部', '产品部', '运营部', '市场部', '设计部'][
             Math.floor(Math.random() * 5)
           ],

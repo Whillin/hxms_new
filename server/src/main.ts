@@ -6,23 +6,23 @@ import path from 'path'
 import dotenv from 'dotenv'
 import { createPool } from 'mysql2/promise'
 import helmet from 'helmet'
-// Initialize OpenTelemetry (optional, skip if deps missing)
-try {
-  const { NodeSDK } = require('@opentelemetry/sdk-node')
-  const { JaegerExporter } = require('@opentelemetry/exporter-jaeger')
-  const { getNodeAutoInstrumentations } = require('@opentelemetry/auto-instrumentations-node')
-  const sdk = new NodeSDK({
-    traceExporter: new JaegerExporter({
-      endpoint: process.env.JAEGER_ENDPOINT || 'http://jaeger:14268/api/traces'
-    }),
-    instrumentations: [getNodeAutoInstrumentations()]
-  })
-  sdk.start()
-} catch (e) {
-  // ignore if OpenTelemetry packages are unavailable
-}
-
 dotenv.config({ path: path.resolve(process.cwd(), '.env'), override: true })
+// Initialize OpenTelemetry only when explicitly enabled
+try {
+  const enabled = String(process.env.OTEL_ENABLED || '').toLowerCase() === 'true'
+  if (enabled) {
+    const { NodeSDK } = require('@opentelemetry/sdk-node')
+    const { JaegerExporter } = require('@opentelemetry/exporter-jaeger')
+    const { getNodeAutoInstrumentations } = require('@opentelemetry/auto-instrumentations-node')
+    const endpoint = process.env.JAEGER_ENDPOINT || 'http://jaeger:14268/api/traces'
+    const sdk = new NodeSDK({
+      traceExporter: new JaegerExporter({ endpoint }),
+      instrumentations: [getNodeAutoInstrumentations()]
+    })
+    sdk.start()
+  }
+} catch (e) {
+}
 
 async function ensureDatabase() {
   const host = process.env.MYSQL_HOST || 'localhost'

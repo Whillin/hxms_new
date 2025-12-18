@@ -84,6 +84,10 @@
   import ArtButtonTable from '@/components/core/forms/art-button-table/index.vue'
   import { onMounted } from 'vue'
   import { EMPLOYEE_ROLE_LABELS } from '@/utils/employee'
+  import { fetchGetUserInfo } from '@/api/auth'
+  import { useUserStore } from '@/store/modules/user'
+  import { resetRouterState } from '@/router/guards/beforeEach'
+  import { router } from '@/router'
 
   defineOptions({ name: 'Employee' })
 
@@ -190,6 +194,12 @@
       ElMessage.success(dialogType.value === 'add' ? '新增成功' : '更新成功')
       dialogVisible.value = false
       currentEmployeeData.value = {}
+      try {
+        const info = await fetchGetUserInfo()
+        useUserStore().setUserInfo(info)
+      } catch {}
+      resetRouterState()
+      router.replace(router.currentRoute.value.fullPath)
       refreshData()
     } catch (err: any) {
       const msg = err?.message || '保存失败'

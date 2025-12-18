@@ -62,6 +62,10 @@
   import { useMenuStore } from '@/store/modules/menu'
   import { formatMenuTitle } from '@/router/utils/utils'
   import { fetchGetRolePermissions, fetchSaveRolePermissions } from '@/api/system-manage'
+  import { fetchGetUserInfo } from '@/api/auth'
+  import { useUserStore } from '@/store/modules/user'
+  import { resetRouterState } from '@/router/guards/beforeEach'
+  import { router } from '@/router'
 
   type RoleListItem = Api.SystemManage.RoleListItem
 
@@ -393,6 +397,21 @@
         keys: readBack
       })
 
+      const userStore = useUserStore()
+      try {
+        const info = await fetchGetUserInfo()
+        userStore.setUserInfo(info)
+      } catch {}
+      try {
+        if (props.roleData?.roleCode && props.roleData?.roleId) {
+          localStorage.setItem(
+            `role_perm_id:${String(props.roleData.roleCode)}`,
+            String(props.roleData.roleId)
+          )
+        }
+      } catch {}
+      resetRouterState()
+      router.replace(router.currentRoute.value.fullPath)
       emit('success')
       handleClose()
     } catch (error) {

@@ -26,6 +26,7 @@ import { OnlineChannel } from '../channels/online-channel.entity'
 import { ChannelsController } from '../routes/channel.controller'
 import { ChannelOnlineController } from '../routes/channel-online.controller'
 import { OnlineChannelDaily } from '../channels/online-channel-daily.entity'
+import { OnlineChannelDailyModel } from '../channels/online-channel-daily-model.entity'
 import { OnlineChannelDailyAllocation } from '../channels/online-channel-daily-allocation.entity'
 import { ChannelOnlineDailyController } from '../routes/channel-online-daily.controller'
 import { ProductCategory } from '../products/product-category.entity'
@@ -69,6 +70,7 @@ import { DbEnsureService } from '../common/db-ensure.service'
             Channel,
             OnlineChannel,
             OnlineChannelDaily,
+            OnlineChannelDailyModel,
             OnlineChannelDailyAllocation,
             ProductModel,
             ProductCategory,
@@ -134,6 +136,7 @@ import { DbEnsureService } from '../common/db-ensure.service'
       Channel,
       OnlineChannel,
       OnlineChannelDaily,
+      OnlineChannelDailyModel,
       OnlineChannelDailyAllocation,
       ProductModel,
       ProductCategory,
