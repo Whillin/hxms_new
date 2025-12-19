@@ -69,9 +69,7 @@ async function main() {
   assert(okSave.code === 200 && okSave.data === true, '新增线索保存失败')
 
   console.log('\n# Step D: 列表查询（按手机号过滤）')
-  const listD = await getJSON(
-    `${host}/api/clue/list?current=1&size=10&customerPhone=13900001111`
-  )
+  const listD = await getJSON(`${host}/api/clue/list?current=1&size=10&customerPhone=13900001111`)
   console.log('listD =', listD)
   assert(
     listD.code === 200 && listD.data && listD.data.total === 1,
@@ -92,9 +90,7 @@ async function main() {
   assert(editSave.code === 200 && editSave.data === true, '编辑线索保存失败')
 
   console.log('\n# Step F: 再次查询（总数不变，销售顾问已更新）')
-  const listF = await getJSON(
-    `${host}/api/clue/list?current=1&size=10&customerPhone=13900001111`
-  )
+  const listF = await getJSON(`${host}/api/clue/list?current=1&size=10&customerPhone=13900001111`)
   console.log('listF =', listF)
   assert(listF.code === 200 && listF.data.total === 1, '编辑导致新增记录，数量不正确')
   const rec = listF.data.records.find((r) => String(r.customerPhone) === '13900001111')

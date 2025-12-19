@@ -158,10 +158,17 @@ export class ChannelOnlineDailyController {
         }
         const { In } = await import('typeorm')
         const modelRows = await this.modelRepo.find({ where: { dailyId: In(dailyIds) } as any })
-        const modelsByDaily = new Map<number, { modelId?: number; modelName?: string; count: number }[]>()
+        const modelsByDaily = new Map<
+          number,
+          { modelId?: number; modelName?: string; count: number }[]
+        >()
         for (const m of modelRows) {
           const list = modelsByDaily.get(m.dailyId) || []
-          list.push({ modelId: m.modelId ?? undefined, modelName: m.modelName ?? undefined, count: Number(m.count || 0) })
+          list.push({
+            modelId: m.modelId ?? undefined,
+            modelName: m.modelName ?? undefined,
+            count: Number(m.count || 0)
+          })
           modelsByDaily.set(m.dailyId, list)
         }
         const items = records.map((r) => ({
@@ -193,10 +200,22 @@ export class ChannelOnlineDailyController {
           if (r.level2 && r.level2.trim() !== '') l2set.add(r.level2)
         }
         if (l2set.size === 0) {
-          items.push({ compoundKey: `${l1}|`, level1: l1, level2: '', count: 0, modelBreakdown: [] })
+          items.push({
+            compoundKey: `${l1}|`,
+            level1: l1,
+            level2: '',
+            count: 0,
+            modelBreakdown: []
+          })
         } else {
           for (const l2 of l2set)
-            items.push({ compoundKey: `${l1}|${l2}`, level1: l1, level2: l2, count: 0, modelBreakdown: [] })
+            items.push({
+              compoundKey: `${l1}|${l2}`,
+              level1: l1,
+              level2: l2,
+              count: 0,
+              modelBreakdown: []
+            })
         }
       }
       return { code: 200, msg: '获取成功', data: { items, submitted: false } }
@@ -449,7 +468,8 @@ export class ChannelOnlineDailyController {
       const inserts: OnlineChannelDailyModel[] = []
       for (const x of breakdown) {
         const mid = typeof x?.modelId === 'number' ? Number(x.modelId) : undefined
-        const mname = x?.modelName !== undefined && x?.modelName !== null ? String(x.modelName) : undefined
+        const mname =
+          x?.modelName !== undefined && x?.modelName !== null ? String(x.modelName) : undefined
         const cnt = Math.max(0, Number(x?.count || 0))
         const uniqueKey = `${row.id}|${mid ?? ''}|${mname ?? ''}`
         inserts.push(

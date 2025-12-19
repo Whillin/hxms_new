@@ -43,3 +43,6 @@ scripts/output/
 
 # large bundles not needed in VCS
 hxms_new-main.bundle
+*.tgz
+*.tar.gz
+*.zip

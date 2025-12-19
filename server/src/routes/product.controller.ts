@@ -5,7 +5,6 @@ import { ProductModel } from '../products/product-model.entity'
 import { ProductCategoryLink } from '../products/product-category-link.entity'
 import { ProductCategory } from '../products/product-category.entity'
 import { Department } from '../departments/department.entity'
- 
 
 /** 商品管理接口：列表/保存/删除/分类关联 */
 @Controller('api/product')
@@ -368,26 +367,32 @@ export class ProductController {
     } else {
       const bn = normalize(brandName)
       const strictNoFallback =
-        bn.includes('上汽奥迪') || bn.includes('一汽奥迪') || bn.includes('上汽大众') || bn.includes('一汽大众')
+        bn.includes('上汽奥迪') ||
+        bn.includes('一汽奥迪') ||
+        bn.includes('上汽大众') ||
+        bn.includes('一汽大众')
       if (strictNoFallback) {
         models = []
       } else {
         const zh2en: Record<string, string> = {
-          '奥迪': 'Audi',
-          '小鹏': 'XPENG',
-          '大众': 'Volkswagen',
-          '上汽大众': 'Volkswagen',
-          '一汽大众': 'Volkswagen',
-          '比亚迪': 'BYD',
-          '宝马': 'BMW',
-          '奔驰': 'Mercedes-Benz',
-          '丰田': 'Toyota',
-          '本田': 'Honda',
-          '日产': 'Nissan'
+          奥迪: 'Audi',
+          小鹏: 'XPENG',
+          大众: 'Volkswagen',
+          上汽大众: 'Volkswagen',
+          一汽大众: 'Volkswagen',
+          比亚迪: 'BYD',
+          宝马: 'BMW',
+          奔驰: 'Mercedes-Benz',
+          丰田: 'Toyota',
+          本田: 'Honda',
+          日产: 'Nissan'
         }
         const brandEn = zh2en[String(brandName)]
         if (brandEn) {
-          models = await this.modelRepo.find({ where: { brand: brandEn }, order: { name: 'ASC' } as any })
+          models = await this.modelRepo.find({
+            where: { brand: brandEn },
+            order: { name: 'ASC' } as any
+          })
         } else {
           models = await this.modelRepo.find({ where: { status: 1 }, order: { name: 'ASC' } })
         }
@@ -399,11 +404,18 @@ export class ProductController {
       wl = new Set(['A5L Spb', 'A7L', 'E5 Spb', 'Q5 e', 'Q6'])
     }
     if (wl) {
-      models = await this.modelRepo.find({ where: { name: In(Array.from(wl)) }, order: { name: 'ASC' } })
+      models = await this.modelRepo.find({
+        where: { name: In(Array.from(wl)) },
+        order: { name: 'ASC' }
+      })
     } else {
       models = models.filter((m) => normalize(String((m as any).brand || '')) === bnNorm)
     }
-    console.log('[ProductController.modelsByStore]', { storeId, wlSize: wl ? wl.size : 0, out: models.map((m) => m.name) })
+    console.log('[ProductController.modelsByStore]', {
+      storeId,
+      wlSize: wl ? wl.size : 0,
+      out: models.map((m) => m.name)
+    })
     const data = models.map((m) => ({ id: m.id, name: m.name }))
     return { code: 200, msg: 'ok', data }
   }

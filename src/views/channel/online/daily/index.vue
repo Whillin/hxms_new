@@ -49,7 +49,7 @@
         <el-table-column label="车型拆分" min-width="520">
           <template #default="{ row }">
             <div class="model-editor">
-              <div v-for="(m, mi) in (row.modelBreakdown || [])" :key="mi" class="model-row">
+              <div v-for="(m, mi) in row.modelBreakdown || []" :key="mi" class="model-row">
                 <el-select
                   v-model="row.modelBreakdown![mi].modelId"
                   placeholder="选择或输入车型"
@@ -84,7 +84,11 @@
               <div class="model-actions">
                 <el-button type="primary" link @click="addModelRow(row)">+ 添加车型拆分</el-button>
                 <el-tag type="info" class="remain-tag">合计：{{ modelBreakdownSum(row) }}</el-tag>
-                <el-tag v-if="modelBreakdownSum(row) !== Number(row.count)" type="warning" class="remain-tag">
+                <el-tag
+                  v-if="modelBreakdownSum(row) !== Number(row.count)"
+                  type="warning"
+                  class="remain-tag"
+                >
                   与渠道数不一致
                 </el-tag>
               </div>
@@ -100,7 +104,7 @@
       <el-table :data="tableData" stripe style="width: 100%" :span-method="tableSpanMethod">
         <el-table-column prop="level1" label="一级渠道" width="160" />
         <el-table-column prop="level2" label="二级渠道" width="180" />
-        
+
         <el-table-column label="已分配/总数" width="180">
           <template #default="{ row }">
             <span>{{ assignedTotal(row) }}/{{ row.count }}</span>
@@ -282,7 +286,10 @@
             })
             const records = (listRes as any)?.records || []
             if (records.length) {
-              modelOptions.value = records.map((p: any) => ({ id: Number(p.id), name: String(p.name || p.modelName || p.id) }))
+              modelOptions.value = records.map((p: any) => ({
+                id: Number(p.id),
+                name: String(p.name || p.modelName || p.id)
+              }))
             }
           } catch (err) {
             void err
@@ -293,18 +300,23 @@
         try {
           const listRes = await fetchGetProductList({ current: 1, size: 200 })
           const records = (listRes as any)?.records || []
-          modelOptions.value = records.map((p: any) => ({ id: Number(p.id), name: String(p.name || p.modelName || p.id) }))
+          modelOptions.value = records.map((p: any) => ({
+            id: Number(p.id),
+            name: String(p.name || p.modelName || p.id)
+          }))
         } catch (err) {
           void err
         }
       }
-    } catch (e) {
+    } catch {
       modelOptions.value = []
     }
   }
 
   function normalizeBrand(text: string) {
-    const t = String(text || '').toLowerCase().replace(/\s+/g, '')
+    const t = String(text || '')
+      .toLowerCase()
+      .replace(/\s+/g, '')
     if (/小鹏|xpeng/.test(t)) return '小鹏'
     if (/奥迪|audi/.test(t)) return '奥迪'
     if (/比亚迪|byd/.test(t)) return '比亚迪'
@@ -315,7 +327,9 @@
   async function detectBrandNameByStore(): Promise<string | ''> {
     try {
       const res = await fetchGetDepartmentList({})
-      const tree: any[] = Array.isArray(res as any) ? (res as any as any[]) : (res as any)?.data || []
+      const tree: any[] = Array.isArray(res as any)
+        ? (res as any as any[])
+        : (res as any)?.data || []
       const targetId = Number(storeId.value || 0)
       let brandName = ''
       const walk = (arr: any[], pathNames: string[] = []) => {
@@ -342,7 +356,7 @@
       }
       walk(tree)
       return brandName
-    } catch (e) {
+    } catch {
       return ''
     }
   }
@@ -587,23 +601,7 @@
     return dates
   }
 
-  // 分组：一级渠道 -> 二级渠道列表（用于组织结构图样式）
-  const groupedItems = computed(() => {
-    const groups = new Map<string, DailyItem[]>()
-    for (const it of items.value) {
-      const arr = groups.get(it.level1) || []
-      arr.push(it)
-      groups.set(it.level1, arr)
-    }
-    return Array.from(groups.entries()).map(([level1, arr]) => ({ level1, items: arr }))
-  })
-  function level1Sum(l1: string) {
-    return items.value
-      .filter((it) => it.level1 === l1)
-      .reduce((s, it) => s + (Number(it.count) || 0), 0)
-  }
-
-  function tableSpanMethod({ row, column, rowIndex, columnIndex }: any) {
+  function tableSpanMethod({ rowIndex, columnIndex }: any) {
     if (columnIndex !== 0) return { rowspan: 1, colspan: 1 }
     const arr = tableData.value
     // 计算连续相同 level1 的行跨度
@@ -752,8 +750,6 @@
     const list = Array.isArray(row.modelBreakdown) ? row.modelBreakdown : []
     return list.reduce((s, m) => s + (Number(m.count) || 0), 0)
   }
-
-  
 
   function openAllocDialog(row: DailyItem) {
     allocDialog.value.row = row

@@ -375,7 +375,7 @@
 </template>
 
 <script setup lang="ts">
-  defineOptions({ name: 'BIOnlineSalesProcess' })
+  defineOptions({ name: 'OnlineSalesProcess' })
 
   import request from '@/utils/http'
   import { fetchGetCustomerStoreOptions } from '@/api/customer'

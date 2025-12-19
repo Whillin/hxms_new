@@ -14,7 +14,7 @@ function parseEnvFile(filePath) {
       if (m) {
         const k = m[1]
         let v = m[2]
-        if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith('\'') && v.endsWith('\''))) {
+        if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
           v = v.slice(1, -1)
         }
         // Only set from file if not already provided via environment
@@ -24,7 +24,7 @@ function parseEnvFile(filePath) {
       }
     }
   } catch (err) {
-    // ignore if not present
+    console.warn('[bootstrap-db] env file not read:', filePath, String(err?.message || err))
   }
 }
 

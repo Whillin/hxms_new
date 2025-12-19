@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
-import { Repository, In } from 'typeorm'
+import { Repository } from 'typeorm'
 import { Opportunity, OpportunityStatus } from './opportunity.entity'
 import { Clue } from '../clues/clue.entity'
 import { Employee } from '../employees/employee.entity'
@@ -33,7 +33,7 @@ export class OpportunityService {
     })
 
     // 解析归属顾问（优先使用线索的销售顾问ID；未填写则不创建新商机）
-    const owner = await this.resolveOwner(clue.salesConsultantId, storeId, clue.departmentId)
+    const owner = await this.resolveOwner(clue.salesConsultantId, storeId)
 
     // 决策是否创建新商机
     const needCreate = !latest || latest.status === '已战败' || latest.status === '已成交'
@@ -149,8 +149,7 @@ export class OpportunityService {
 
   private async resolveOwner(
     consultantId: number | undefined,
-    storeId: number,
-    departmentId?: number
+    storeId: number
   ): Promise<Employee | undefined> {
     if (typeof consultantId !== 'number') return undefined
     const emp = await this.empRepo.findOne({ where: { id: consultantId } })

@@ -27,7 +27,7 @@ export class BiController {
       const allow = new Set(['R_ADMIN', 'R_SUPER'])
       const hasRole = roles.some((r) => allow.has(String(r)))
       if (!hasRole) {
-        return { code: 403, msg: '仅管理员或超级管理员可查看BI分析', data: { items: [] } }
+        return { code: 403, msg: '仅管理员或超级管理员可查看销售转化分析', data: { items: [] } }
       }
       const scope = await this.dataScopeService.getScope(req.user)
       const storeId = Number(query.storeId || 0)
@@ -364,7 +364,7 @@ export class BiController {
   @Get('sales-funnel/open')
   async salesFunnelOpen(@Query() query: any) {
     if (String(process.env.NODE_ENV || '').toLowerCase() === 'production') {
-      return { code: 403, msg: '生产环境不开放BI分析接口', data: { items: [] } }
+      return { code: 403, msg: '生产环境不开放销售转化分析接口', data: { items: [] } }
     }
     const reqMock: any = { user: { roles: ['R_SUPER'] } }
     return await this.salesFunnel(reqMock, { ...query })

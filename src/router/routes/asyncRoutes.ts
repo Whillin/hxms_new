@@ -28,11 +28,11 @@ export const asyncRoutes: AppRouteRecord[] = [
   //   }
   // },
   {
-    name: 'Dashboard',
-    path: '/dashboard',
+    name: 'SalesGoalProgress',
+    path: '/sales-goal-progress',
     component: RoutesAlias.Layout,
     meta: {
-      title: 'menus.dashboard.title',
+      title: '销售目标进度',
       icon: '&#xe721;',
       roles: ['R_ADMIN']
     },
@@ -59,11 +59,11 @@ export const asyncRoutes: AppRouteRecord[] = [
     ]
   },
   {
-    path: '/bi',
-    name: 'BI',
+    path: '/sales-conversion',
+    name: 'SalesConversion',
     component: RoutesAlias.Layout,
     meta: {
-      title: 'BI分析',
+      title: '销售转化分析',
       icon: '&#xe733;',
       roles: ['R_SUPER', 'R_ADMIN']
     },
@@ -71,7 +71,7 @@ export const asyncRoutes: AppRouteRecord[] = [
       {
         path: 'sales-process',
         name: 'SalesProcess',
-        component: '/bi/sales-process',
+        component: '/sales-conversion/sales-process',
         meta: {
           title: '销售过程',
           keepAlive: true
@@ -80,10 +80,118 @@ export const asyncRoutes: AppRouteRecord[] = [
       {
         path: 'online-sales-process',
         name: 'OnlineSalesProcess',
-        component: '/bi/online-sales-process',
+        component: '/sales-conversion/online-sales-process',
         meta: {
           title: '线上销售过程',
           keepAlive: true
+        }
+      }
+    ]
+  },
+  {
+    path: '/sales-opportunity',
+    name: 'SalesOpportunity',
+    component: RoutesAlias.Layout,
+    meta: {
+      title: '销售机会管理',
+      icon: '&#xe8d4;',
+      roles: [
+        'R_SUPER',
+        'R_ADMIN',
+        'R_INFO',
+        'R_BRAND_GM',
+        'R_REGION_GM',
+        'R_STORE_DIRECTOR',
+        'R_STORE_MANAGER',
+        'R_SALES_MANAGER',
+        'R_SALES',
+        'R_APPOINTMENT'
+      ]
+    },
+    children: [
+      {
+        path: 'list',
+        name: 'OpportunityList',
+        component: RoutesAlias.OpportunityList,
+        meta: {
+          title: '销售机会列表',
+          keepAlive: true
+        }
+      },
+      {
+        path: 'follow',
+        name: 'OpportunityFollow',
+        component: RoutesAlias.OpportunityFollow,
+        meta: {
+          title: '跟进记录',
+          keepAlive: true
+        }
+      }
+    ]
+  },
+  {
+    path: '/traffic-leads',
+    name: 'TrafficLeads',
+    component: RoutesAlias.Layout,
+    meta: {
+      title: '客流及线索管理',
+      icon: '&#xe7ae;',
+      roles: [
+        'R_SUPER',
+        'R_ADMIN',
+        'R_INFO',
+        'R_BRAND_GM',
+        'R_REGION_GM',
+        'R_STORE_DIRECTOR',
+        'R_STORE_MANAGER',
+        'R_SALES_MANAGER',
+        'R_SALES',
+        'R_APPOINTMENT',
+        'R_FRONT_DESK'
+      ]
+    },
+    children: [
+      {
+        path: 'leads',
+        name: 'ClueLeads',
+        component: RoutesAlias.ClueLeads,
+        meta: {
+          title: '到点客流登记表',
+          keepAlive: true,
+          authList: [
+            { title: '新增', authMark: 'add' },
+            { title: '导入', authMark: 'import' },
+            { title: '导出', authMark: 'export' },
+            { title: '查看', authMark: 'view' },
+            { title: '编辑', authMark: 'edit' },
+            { title: '删除', authMark: 'delete' }
+          ]
+        }
+      },
+      {
+        path: 'online-channel-info',
+        name: 'ClueOnlineChannelInfo',
+        component: RoutesAlias.ChannelOnlineDaily,
+        meta: {
+          title: '线上线索数量表',
+          keepAlive: true,
+          roles: [
+            'R_SUPER',
+            'R_ADMIN',
+            'R_INFO',
+            'R_BRAND_GM',
+            'R_REGION_GM',
+            'R_STORE_DIRECTOR',
+            'R_STORE_MANAGER',
+            'R_SALES_MANAGER',
+            'R_SALES',
+            'R_APPOINTMENT',
+            'R_FRONT_DESK'
+          ],
+          authList: [
+            { title: '查看', authMark: 'view' },
+            { title: '编辑', authMark: 'edit' }
+          ]
         }
       }
     ]
@@ -120,47 +228,6 @@ export const asyncRoutes: AppRouteRecord[] = [
             { title: '编辑', authMark: 'edit' },
             { title: '删除', authMark: 'delete' }
           ]
-        }
-      }
-    ]
-  },
-  {
-    path: '/opportunity',
-    name: 'Opportunity',
-    component: RoutesAlias.Layout,
-    meta: {
-      title: '商机管理',
-      icon: '&#xe8d4;',
-      roles: [
-        'R_SUPER',
-        'R_ADMIN',
-        'R_INFO',
-        'R_BRAND_GM',
-        'R_REGION_GM',
-        'R_STORE_DIRECTOR',
-        'R_STORE_MANAGER',
-        'R_SALES_MANAGER',
-        'R_SALES',
-        'R_APPOINTMENT'
-      ]
-    },
-    children: [
-      {
-        path: 'list',
-        name: 'OpportunityList',
-        component: RoutesAlias.OpportunityList,
-        meta: {
-          title: '商机列表',
-          keepAlive: true
-        }
-      },
-      {
-        path: 'follow',
-        name: 'OpportunityFollow',
-        component: RoutesAlias.OpportunityFollow,
-        meta: {
-          title: '跟进记录',
-          keepAlive: true
         }
       }
     ]
@@ -218,73 +285,6 @@ export const asyncRoutes: AppRouteRecord[] = [
               title: '删除',
               authMark: 'delete'
             }
-          ]
-        }
-      }
-    ]
-  },
-  {
-    path: '/clue',
-    name: 'Clue',
-    component: RoutesAlias.Layout,
-    meta: {
-      title: 'menus.clue.title',
-      icon: '&#xe7ae;',
-      roles: [
-        'R_SUPER',
-        'R_ADMIN',
-        'R_INFO',
-        'R_BRAND_GM',
-        'R_REGION_GM',
-        'R_STORE_DIRECTOR',
-        'R_STORE_MANAGER',
-        'R_SALES_MANAGER',
-        'R_SALES',
-        'R_APPOINTMENT',
-        'R_FRONT_DESK'
-      ]
-    },
-    children: [
-      {
-        path: 'leads',
-        name: 'ClueLeads',
-        component: RoutesAlias.ClueLeads,
-        meta: {
-          title: 'menus.clue.leads',
-          keepAlive: true,
-          authList: [
-            { title: '新增', authMark: 'add' },
-            { title: '导入', authMark: 'import' },
-            { title: '导出', authMark: 'export' },
-            { title: '查看', authMark: 'view' },
-            { title: '编辑', authMark: 'edit' },
-            { title: '删除', authMark: 'delete' }
-          ]
-        }
-      },
-      {
-        path: 'online-channel-info',
-        name: 'ClueOnlineChannelInfo',
-        component: RoutesAlias.ChannelOnlineDaily,
-        meta: {
-          title: '线上渠道信息表',
-          keepAlive: true,
-          roles: [
-            'R_SUPER',
-            'R_ADMIN',
-            'R_INFO',
-            'R_BRAND_GM',
-            'R_REGION_GM',
-            'R_STORE_DIRECTOR',
-            'R_STORE_MANAGER',
-            'R_SALES_MANAGER',
-            'R_SALES',
-            'R_APPOINTMENT',
-            'R_FRONT_DESK'
-          ],
-          authList: [
-            { title: '查看', authMark: 'view' },
-            { title: '编辑', authMark: 'edit' }
           ]
         }
       }

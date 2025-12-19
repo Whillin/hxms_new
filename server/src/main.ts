@@ -7,22 +7,6 @@ import dotenv from 'dotenv'
 import { createPool } from 'mysql2/promise'
 import helmet from 'helmet'
 dotenv.config({ path: path.resolve(process.cwd(), '.env'), override: true })
-// Initialize OpenTelemetry only when explicitly enabled
-try {
-  const enabled = String(process.env.OTEL_ENABLED || '').toLowerCase() === 'true'
-  if (enabled) {
-    const { NodeSDK } = require('@opentelemetry/sdk-node')
-    const { JaegerExporter } = require('@opentelemetry/exporter-jaeger')
-    const { getNodeAutoInstrumentations } = require('@opentelemetry/auto-instrumentations-node')
-    const endpoint = process.env.JAEGER_ENDPOINT || 'http://jaeger:14268/api/traces'
-    const sdk = new NodeSDK({
-      traceExporter: new JaegerExporter({ endpoint }),
-      instrumentations: [getNodeAutoInstrumentations()]
-    })
-    sdk.start()
-  }
-} catch (e) {
-}
 
 async function ensureDatabase() {
   const host = process.env.MYSQL_HOST || 'localhost'
@@ -46,6 +30,24 @@ async function ensureDatabase() {
 }
 
 async function bootstrap() {
+  try {
+    const enabled = String(process.env.OTEL_ENABLED || '').toLowerCase() === 'true'
+    if (enabled) {
+      const [{ NodeSDK }, { JaegerExporter }, { getNodeAutoInstrumentations }] = await Promise.all([
+        import('@opentelemetry/sdk-node'),
+        import('@opentelemetry/exporter-jaeger'),
+        import('@opentelemetry/auto-instrumentations-node')
+      ])
+      const endpoint = process.env.JAEGER_ENDPOINT || 'http://jaeger:14268/api/traces'
+      const sdk = new NodeSDK({
+        traceExporter: new JaegerExporter({ endpoint }),
+        instrumentations: [getNodeAutoInstrumentations()]
+      })
+      await sdk.start()
+    }
+  } catch (e) {
+    console.error('Failed to initialize OpenTelemetry:', e)
+  }
   await ensureDatabase()
   const app = await NestFactory.create(AppModule)
   // 让 Express 信任反向代理，正确识别 X-Forwarded-For 中的真实客户端 IP
@@ -100,7 +102,7 @@ async function bootstrap() {
       })
     }
   } catch (e) {
-    void 0
+    console.error('Failed to configure cache headers for /api/user/* routes:', e)
   }
   const port = Number(process.env.PORT || 3001)
   await app.listen(port)

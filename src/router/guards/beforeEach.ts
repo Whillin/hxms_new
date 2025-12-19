@@ -452,7 +452,9 @@ async function registerAndStoreMenu(router: Router, menuList: AppRouteRecord[]):
       }
       list.push(userCenterAlias)
     }
-  } catch {}
+  } catch (err) {
+    void err
+  }
 
   // 动态设置“线索管理”红点提示：店长/总监（含管理员）且当日未完成填报
   try {
@@ -470,7 +472,8 @@ async function registerAndStoreMenu(router: Router, menuList: AppRouteRecord[]):
       if (incomplete) {
         const markBadge = (nodes: AppRouteRecord[]) => {
           nodes.forEach((it) => {
-            if (String(it.path || '').startsWith('/clue')) {
+            const p = String(it.path || '')
+            if (p.startsWith('/traffic-leads')) {
               it.meta = { ...it.meta, showBadge: true }
             }
             if (Array.isArray(it.children) && it.children.length) markBadge(it.children)

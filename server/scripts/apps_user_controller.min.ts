@@ -1,4 +1,4 @@
-import { Controller, Get, Req, UseGuards, Query, Post, Body, Inject } from '@nestjs/common'
+import { Controller, Get, Req, UseGuards, Inject } from '@nestjs/common'
 import { JwtGuard } from '../auth/jwt.guard'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository, In } from 'typeorm'

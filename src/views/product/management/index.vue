@@ -63,7 +63,7 @@
       <!-- 数据表格 -->
       <ElTable v-loading="loading" :data="filteredTableData" style="width: 100%; margin-top: 20px">
         <ElTableColumn type="index" label="序号" width="60" />
-        
+
         <ElTableColumn prop="name" label="车型名称" min-width="200" show-overflow-tooltip />
         <ElTableColumn prop="categoryName" label="商品分类" width="150" />
         <ElTableColumn prop="price" label="指导价" width="120">
@@ -122,8 +122,12 @@
       <div v-if="currentProduct" class="product-detail">
         <ElDescriptions :column="2" border>
           <ElDescriptionsItem label="车型名称">{{ currentProduct.name }}</ElDescriptionsItem>
-          <ElDescriptionsItem label="商品分类">{{ currentProduct.categoryName }}</ElDescriptionsItem>
-          <ElDescriptionsItem label="指导价">¥{{ currentProduct.price.toLocaleString() }}</ElDescriptionsItem>
+          <ElDescriptionsItem label="商品分类">{{
+            currentProduct.categoryName
+          }}</ElDescriptionsItem>
+          <ElDescriptionsItem label="指导价"
+            >¥{{ currentProduct.price.toLocaleString() }}</ElDescriptionsItem
+          >
           <ElDescriptionsItem label="动力类型">
             <ElTag :type="currentProduct.engineType === 'NEV' ? 'success' : 'primary'">
               {{ currentProduct.engineType }}
@@ -135,7 +139,9 @@
               {{ currentProduct.status === 1 ? '上架' : '下架' }}
             </ElTag>
           </ElDescriptionsItem>
-          <ElDescriptionsItem label="创建时间" :span="2">{{ currentProduct.createTime }}</ElDescriptionsItem>
+          <ElDescriptionsItem label="创建时间" :span="2">{{
+            currentProduct.createTime
+          }}</ElDescriptionsItem>
         </ElDescriptions>
         <div style="margin-top: 20px">
           <h4>车型描述</h4>
@@ -212,7 +218,7 @@
               />
             </ElFormItem>
           </ElCol>
-          
+
           <ElCol :span="24">
             <ElFormItem label="车型描述">
               <ElInput
@@ -275,7 +281,7 @@
               </ElInput>
             </ElFormItem>
           </ElCol>
-          
+
           <ElCol :span="12">
             <ElFormItem label="动力类型">
               <ElSelect v-model="form.engineType" placeholder="请选择动力类型" style="width: 100%">
@@ -331,7 +337,6 @@
     fetchGetProductList,
     fetchSaveProduct,
     fetchDeleteProduct,
-    fetchGetProductCategories,
     fetchGetProductsCategories
   } from '@/api/product'
 
@@ -471,7 +476,9 @@
           .filter(Boolean)
           .join(' / ')
       })
-    } catch {}
+    } catch (err) {
+      void err
+    }
   }
 
   // 方法
@@ -535,8 +542,6 @@
     }
     addDialogVisible.value = true
   }
-
-  
 
   const handleSearch = () => {
     pagination.current = 1
@@ -734,7 +739,5 @@
         color: var(--el-text-color-regular);
       }
     }
-
-    
   }
 </style>

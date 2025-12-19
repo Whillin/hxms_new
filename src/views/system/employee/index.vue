@@ -197,7 +197,9 @@
       try {
         const info = await fetchGetUserInfo()
         useUserStore().setUserInfo(info)
-      } catch {}
+      } catch {
+        ElMessage.error('获取用户信息失败')
+      }
       resetRouterState()
       router.replace(router.currentRoute.value.fullPath)
       refreshData()

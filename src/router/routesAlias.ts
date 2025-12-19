@@ -13,9 +13,9 @@ export enum RoutesAlias {
   Exception500 = '/exception/500', // 500
   Success = '/result/success', // 成功
   Fail = '/result/fail', // 失败
-  Dashboard = '/dashboard/console', // 工作台
-  Analysis = '/dashboard/analysis', // 分析页
-  Ecommerce = '/dashboard/ecommerce', // 电子商务
+  Dashboard = '/sales-goal-progress/console', // 工作台
+  Analysis = '/sales-goal-progress/analysis', // 分析页
+  Ecommerce = '/sales-goal-progress/ecommerce', // 电子商务
   IconList = '/widgets/icon-list', // 图标列表
   IconSelector = '/widgets/icon-selector', // 图标选择器
   ImageCrop = '/widgets/image-crop', // 图片裁剪
@@ -33,7 +33,7 @@ export enum RoutesAlias {
   Banners = '/template/banners', // 横幅
   Charts = '/template/charts', // 图表
   // 新增：线索列表页面别名
-  ClueLeads = '/clue/leads', // 线索列表
+  ClueLeads = '/traffic-leads/leads', // 线索列表
   User = '/system/user', // 账户
   Role = '/system/role', // 角色
   UserCenter = '/system/user-center', // 用户中心
@@ -54,8 +54,8 @@ export enum RoutesAlias {
   PermissionPageVisibility = '/examples/permission/page-visibility', // 页面可见性演示页面
   // 客户与商机
   CustomerList = '/customer/list', // 客户列表
-  OpportunityList = '/opportunity/list', // 商机列表
-  OpportunityFollow = '/opportunity/follow', // 跟进记录
+  OpportunityList = '/sales-opportunity/list', // 商机列表
+  OpportunityFollow = '/sales-opportunity/follow', // 跟进记录
   // 渠道模块
   ChannelOnlineDaily = '/channel/online/daily', // 线上渠道每日填报
   // 产品模块（补齐缺失别名）

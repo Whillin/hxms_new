@@ -21,7 +21,9 @@ async function fetchJson(url, opts = {}) {
   const body = opts.body !== undefined ? JSON.stringify(opts.body) : opts.body
   const res = await fetch(url, { ...opts, headers, body })
   let json
-  try { json = await res.json() } catch {
+  try {
+    json = await res.json()
+  } catch {
     json = { code: res.status, msg: 'non-json', data: null }
   }
   return { status: res.status, json }
@@ -45,7 +47,9 @@ function randomPhone() {
 
 async function main() {
   const { base, user, pass, verbose } = parseArgs()
-  const log = (...args) => { if (verbose) console.log(...args) }
+  const log = (...args) => {
+    if (verbose) console.log(...args)
+  }
 
   console.log(`[test-save-opportunity] base=${base} user=${user}`)
 

@@ -14,7 +14,11 @@ async function postJson(url, body) {
   })
   const text = await res.text()
   let data
-  try { data = JSON.parse(text) } catch (e) { throw new Error(`HTTP ${res.status} ${res.statusText}: ${text}`) }
+  try {
+    data = JSON.parse(text)
+  } catch (e) {
+    throw new Error(`HTTP ${res.status} ${res.statusText}: ${text}`)
+  }
   if (!res.ok || data?.code !== 200) {
     throw new Error(`API error ${res.status}: ${JSON.stringify(data)}`)
   }

@@ -45,7 +45,7 @@ export class User {
           const parsed = JSON.parse(raw)
           return Array.isArray(parsed) ? parsed.filter((s) => typeof s === 'string') : []
         } catch {
-          const cleaned = raw.replace(/[\[\]"]+/g, '')
+          const cleaned = raw.replace(/[[\]"]+/g, '')
           const parts = cleaned
             .split(/[,;|]/)
             .map((s) => s.trim())
