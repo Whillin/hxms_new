@@ -5,12 +5,19 @@
 // and then queries the list to confirm it is visible to the same sales user.
 
 function parseArgs() {
-  const args = { base: 'http://localhost:3002/api', user: '陈纪杭', pass: '123456', verbose: false }
+  const args = {
+    base: 'http://localhost:3002/api',
+    user: '陈纪杭',
+    pass: '123456',
+    verbose: false,
+    storeId: null
+  }
   for (let i = 2; i < process.argv.length; i++) {
     const k = process.argv[i]
     if (k === '--base') args.base = process.argv[++i]
     else if (k === '--user') args.user = process.argv[++i]
     else if (k === '--pass') args.pass = process.argv[++i]
+    else if (k === '--storeId') args.storeId = Number(process.argv[++i])
     else if (k === '--verbose') args.verbose = true
   }
   return args
@@ -21,7 +28,9 @@ async function fetchJson(url, opts = {}) {
   const body = opts.body !== undefined ? JSON.stringify(opts.body) : opts.body
   const res = await fetch(url, { ...opts, headers, body })
   let json
-  try { json = await res.json() } catch {
+  try {
+    json = await res.json()
+  } catch {
     json = { code: res.status, msg: 'non-json', data: null }
   }
   return { status: res.status, json }
@@ -44,8 +53,10 @@ function randomPhone() {
 }
 
 async function main() {
-  const { base, user, pass, verbose } = parseArgs()
-  const log = (...args) => { if (verbose) console.log(...args) }
+  const { base, user, pass, verbose, storeId: argStoreId } = parseArgs()
+  const log = (...args) => {
+    if (verbose) console.log(...args)
+  }
 
   console.log(`[test-save-opportunity] base=${base} user=${user}`)
 
@@ -69,7 +80,9 @@ async function main() {
   }
   const info = infoRes.json.data
   const employeeId = Number(info.employeeId)
-  const storeId = Number(info.storeId)
+  let storeId = Number(info.storeId)
+  if (argStoreId) storeId = argStoreId
+
   const roles = Array.isArray(info.roles) ? info.roles : []
   console.log('user info:', { employeeId, storeId, roles })
 
