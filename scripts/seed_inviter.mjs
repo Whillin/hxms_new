@@ -101,11 +101,15 @@ async function main() {
           channelLevel1: '新媒体开发',
           channelLevel2: '新媒体（公司抖音）',
           customerName: `客户-${name}-${k}`,
-          customerPhone: `139${String(sid).padStart(4, '0')}${String(i).padStart(3, '0')}${String(k).padStart(4, '0')}`.slice(0, 11),
+          customerPhone:
+            `139${String(sid).padStart(4, '0')}${String(i).padStart(3, '0')}${String(k).padStart(4, '0')}`.slice(
+              0,
+              11
+            ),
           visitCategory: '首次',
           visitDate: date,
-          enterTime: `${date} 10:${String(k).padStart(2, '0')}:00`,
-          leaveTime: `${date} 11:${String(k).padStart(2, '0')}:00`,
+          enterTime: date,
+          leaveTime: date,
           receptionStatus: 'sales',
           userAge: 28,
           userGender: '未知',
@@ -133,4 +137,3 @@ main().catch((e) => {
   console.error(JSON.stringify({ ok: false, error: String(e?.message || e) }))
   process.exit(1)
 })
-
