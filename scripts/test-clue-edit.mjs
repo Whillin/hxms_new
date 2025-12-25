@@ -48,7 +48,10 @@ async function login(base, username, password) {
     method: 'POST',
     body: JSON.stringify({ username, password })
   })
-  assert(status >= 200 && status < 300 && (json?.data?.token || json?.token), `登录失败: ${status} ${JSON.stringify(json)}`)
+  assert(
+    status >= 200 && status < 300 && (json?.data?.token || json?.token),
+    `登录失败: ${status} ${JSON.stringify(json)}`
+  )
   return json?.data?.token || json?.token
 }
 
@@ -123,7 +126,10 @@ async function main() {
     headers: { Authorization: `Bearer ${token}` },
     body: JSON.stringify(body1)
   })
-  assert(save1.status >= 200 && save1.status < 300, `新增失败: ${save1.status} ${JSON.stringify(save1.json)}`)
+  assert(
+    save1.status >= 200 && save1.status < 300,
+    `新增失败: ${save1.status} ${JSON.stringify(save1.json)}`
+  )
   log('已提交新增，开始轮询')
 
   const rec1 = await pollByPhone(BASE, token, phone, 30, 500)
@@ -144,11 +150,17 @@ async function main() {
     headers: { Authorization: `Bearer ${token}` },
     body: JSON.stringify(body2)
   })
-  assert(save2.status >= 200 && save2.status < 300, `编辑失败: ${save2.status} ${JSON.stringify(save2.json)}`)
+  assert(
+    save2.status >= 200 && save2.status < 300,
+    `编辑失败: ${save2.status} ${JSON.stringify(save2.json)}`
+  )
   log('编辑已提交，再次轮询')
 
   const rec2 = await pollByPhone(BASE, token, phone, 20, 400)
-  assert(rec2 && rec2.id === rec1.id, `编辑后记录 id 变更，可能新建了: before=${rec1.id}, after=${rec2?.id}`)
+  assert(
+    rec2 && rec2.id === rec1.id,
+    `编辑后记录 id 变更，可能新建了: before=${rec1.id}, after=${rec2?.id}`
+  )
 
   // 再次取列表校验只有一条匹配
   const { status: listStatus, json: listJson } = await fetchJson(
@@ -156,7 +168,9 @@ async function main() {
     { method: 'GET', headers: { Authorization: `Bearer ${token}` } }
   )
   assert(listStatus === 200, `列表查询失败: ${listStatus}`)
-  const match = (listJson?.data?.records || []).filter((r) => String(r.customerPhone).includes(phone))
+  const match = (listJson?.data?.records || []).filter((r) =>
+    String(r.customerPhone).includes(phone)
+  )
   assert(match.length === 1, `匹配到多条记录(${match.length})，编辑可能新建了重复线索`)
 
   log('验证通过：编辑未新建，记录保持同一 id')

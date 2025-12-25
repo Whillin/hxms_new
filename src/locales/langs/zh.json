@@ -257,8 +257,8 @@
       "management": "商品管理"
     },
     "clue": {
-      "title": "线索管理",
-      "leads": "到店客流表"
+      "title": "客流及线索管理",
+      "leads": "到点客流登记表"
     },
     "result": {
       "title": "结果页面",

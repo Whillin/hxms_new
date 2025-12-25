@@ -51,7 +51,10 @@ async function login(base, username, password) {
     method: 'POST',
     body: JSON.stringify({ username, password })
   })
-  assert(status >= 200 && status < 300 && (json?.data?.token || json?.token), `登录失败: ${status} ${JSON.stringify(json)}`)
+  assert(
+    status >= 200 && status < 300 && (json?.data?.token || json?.token),
+    `登录失败: ${status} ${JSON.stringify(json)}`
+  )
   return json?.data?.token || json?.token
 }
 
@@ -136,7 +139,10 @@ async function ensureEmployee(base, token, store, idx) {
     headers: { Authorization: `Bearer ${token}` },
     body: JSON.stringify(body)
   })
-  assert(res.status >= 200 && res.status < 300, `保存员工失败: ${res.status} ${JSON.stringify(res.json)}`)
+  assert(
+    res.status >= 200 && res.status < 300,
+    `保存员工失败: ${res.status} ${JSON.stringify(res.json)}`
+  )
   return { name, phone }
 }
 
@@ -147,7 +153,10 @@ async function registerUser(base, name, phone) {
     method: 'POST',
     body: JSON.stringify({ username, password, name, phone })
   })
-  assert(res.status >= 200 && res.status < 300, `注册用户失败: ${res.status} ${JSON.stringify(res.json)}`)
+  assert(
+    res.status >= 200 && res.status < 300,
+    `注册用户失败: ${res.status} ${JSON.stringify(res.json)}`
+  )
   return { username, password }
 }
 
@@ -183,7 +192,10 @@ async function addClue(base, token, storeId, phone, name = '跨用户新增') {
     headers: { Authorization: `Bearer ${token}` },
     body: JSON.stringify(body)
   })
-  assert(res.status >= 200 && res.status < 300, `新增线索失败: ${res.status} ${JSON.stringify(res.json)}`)
+  assert(
+    res.status >= 200 && res.status < 300,
+    `新增线索失败: ${res.status} ${JSON.stringify(res.json)}`
+  )
 }
 
 async function editClue(base, token, id, fields = {}) {
@@ -193,7 +205,10 @@ async function editClue(base, token, id, fields = {}) {
     headers: { Authorization: `Bearer ${token}` },
     body: JSON.stringify(body)
   })
-  assert(res.status >= 200 && res.status < 300, `编辑线索失败: ${res.status} ${JSON.stringify(res.json)}`)
+  assert(
+    res.status >= 200 && res.status < 300,
+    `编辑线索失败: ${res.status} ${JSON.stringify(res.json)}`
+  )
 }
 
 async function main() {
@@ -233,7 +248,7 @@ async function main() {
   )
   assert(l1s === 200, '场景一：列表查询失败')
   const match1 = (l1j?.data?.records || []).filter((r) => String(r.customerPhone).includes(phone1))
-  assert(match1.length === 1, `场景一：匹配到多条(${match1.length})，疑似新建`) 
+  assert(match1.length === 1, `场景一：匹配到多条(${match1.length})，疑似新建`)
 
   // 场景二：销售用户新增，Admin 编辑
   const phone2 = randPhone('138')

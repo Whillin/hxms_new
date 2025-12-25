@@ -12,7 +12,7 @@ const args = (() => {
   return out
 })()
 
-const BASE = (args.base || 'http://localhost:3002/api').replace(/\/$/, '')
+const BASE = (args.base || 'http://localhost:3010/api').replace(/\/$/, '')
 const USER = args.user || 'Admin'
 const PASS = args.pass || '123456'
 const ENDPOINTS = (args.endpoints || 'clue,employee,customer')
@@ -97,25 +97,10 @@ async function runQueue(tasks, limit) {
 }
 
 function makeClueSave(i) {
-  const storeId = Number(args.store || 11)
-  const date = new Date().toISOString().slice(0, 10)
   const body = {
-    customerName: `邀约测试${i}`,
-    customerPhone: `139${String(10000000 + i).slice(-8)}`,
-    storeId,
-    visitDate: date,
-    salesConsultant: `邀约专员-${storeId}-${(i % 3) + 1}`,
-    businessSource: '线上',
-    channelCategory: '线上',
-    channelLevel1: '新媒体开发',
-    channelLevel2: '新媒体（公司抖音）',
-    visitCategory: '首次',
-    receptionStatus: 'sales',
-    visitorCount: 1,
-    opportunityLevel: 'A',
-    isAddWeChat: i % 2 === 0,
-    testDrive: i % 3 === 0,
-    dealDone: i % 4 === 0
+    title: `并发线索${i}`,
+    customerName: `张三${i}`,
+    phone: `138${String(10000000 + i).slice(-8)}`
   }
   return body
 }
@@ -125,7 +110,7 @@ function makeEmployeeSave(i) {
     phone: `137${String(10000000 + i).slice(-8)}`,
     gender: 'male',
     status: '1',
-    role: 'R_APPOINTMENT',
+    role: 'R_SALES',
     storeId: 1,
     hireDate: '2023-01-01'
   }

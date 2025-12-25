@@ -15,7 +15,11 @@ async function getJson(url, init) {
   const res = await fetch(url, init)
   const text = await res.text()
   let data
-  try { data = JSON.parse(text) } catch (e) { throw new Error(`HTTP ${res.status} ${res.statusText}: ${text}`) }
+  try {
+    data = JSON.parse(text)
+  } catch (e) {
+    throw new Error(`HTTP ${res.status} ${res.statusText}: ${text}`)
+  }
   if (!res.ok || data?.code !== 200) {
     throw new Error(`API error ${res.status}: ${JSON.stringify(data)}`)
   }
@@ -81,7 +85,12 @@ async function main() {
   let dept = findChildByType(brand, 'department', '上汽销售部门')
   if (!dept) {
     console.log('[setup] creating sales department under 上汽奥迪...')
-    await ensureDepartment({ name: '上汽销售部门', type: 'department', parentId: brandId, enabled: true })
+    await ensureDepartment({
+      name: '上汽销售部门',
+      type: 'department',
+      parentId: brandId,
+      enabled: true
+    })
     const tree2 = await getJson(`${API}/api/department/tree`)
     const brand2 = findNodeByName(tree2, '上汽奥迪')
     dept = findChildByType(brand2, 'department', '上汽销售部门')
@@ -105,7 +114,12 @@ async function main() {
   let store = findChildByType(region, 'store', '上汽奥迪上海店')
   if (!store) {
     console.log('[setup] creating store 上汽奥迪上海店...')
-    await ensureDepartment({ name: '上汽奥迪上海店', type: 'store', parentId: regionId, enabled: true })
+    await ensureDepartment({
+      name: '上汽奥迪上海店',
+      type: 'store',
+      parentId: regionId,
+      enabled: true
+    })
     const tree4 = await getJson(`${API}/api/department/tree`)
     const region4 = findNodeByName(tree4, '上海区域')
     store = findChildByType(region4, 'store', '上汽奥迪上海店')

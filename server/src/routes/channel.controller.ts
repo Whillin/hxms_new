@@ -9,47 +9,50 @@ export class ChannelsController {
   constructor(@InjectRepository(Channel) private readonly repo: Repository<Channel>) {}
 
   private async seedIfEmpty() {
-    const sample = await this.repo.find({ take: 5 })
-    const bad = sample.some((r) =>
-      /[鍒绾鑷灞]/.test(
-        [r.category, r.businessSource, r.level1, r.level2 || ''].map((x) => String(x || '')).join('|')
-      )
-    )
-    if (bad) await this.repo.createQueryBuilder().delete().from(Channel).execute()
     const count = await this.repo.count()
     if (count > 0) return
 
     const L1 = [
       '展厅到店',
+      'DCC/ADC到店',
       '车展外展',
-      '垂媒',
-      '新媒体',
       '新媒体开发',
       '转化开发',
       '保客开发',
       '转介绍开发',
-      '外拓开发'
+      '大用户开发'
     ]
 
     const L2Map: Record<string, string[]> = {
-      垂媒: ['懂车帝', '汽车之家', '品牌推荐', '易车', '其他垂媒'],
-      新媒体: ['抖音', '微信/其他', '小红书', '快手'],
-      新媒体开发: ['抖音', '微信/其他', '小红书', '快手'],
-      保客开发: ['保客（小鹏）', '保客（奥迪）'],
-      转介绍开发: ['转介绍（客户）', '转介绍（内部）', '转介绍（集团）', '转介绍（员工）'],
-      外拓开发: ['外拓开发（大用户）']
+      'DCC/ADC到店': [
+        'DCC/ADC(懂车帝）',
+        'DCC/ADC(汽车之家）',
+        'DCC/ADC（品牌推荐）',
+        'DCC/ADC(易车）',
+        'DCC/ADC(其他垂媒）'
+      ],
+      新媒体开发: [
+        '新媒体（公司抖音）',
+        '新媒体（公司小红书/其他）',
+        '新媒体（个人小红书）',
+        '新媒体（个人抖音/其他）'
+      ],
+      保客开发: ['保客（小鹏)', '保客（奥迪)'],
+      转介绍开发: ['转介绍（客户）', '转介绍（内部）', '转介绍（圈层）'],
+      大用户开发: ['大用户（外拓）']
     }
 
     const computeCategory = (l1: string) =>
-      ['垂媒', '新媒体'].includes(l1) ? '线上' : '线下'
+      ['DCC/ADC到店', '新媒体开发'].includes(l1) ? '线上' : '线下'
     const computeSource = (l1: string) =>
-      ['展厅到店', '车展外展', '垂媒', '新媒体'].includes(l1) ? '自然到店' : '主动开发'
+      ['展厅到店', 'DCC/ADC到店', '车展外展'].includes(l1) ? '自然到店' : '主动开发'
 
     const records: Channel[] = []
     for (const l1 of L1) {
       const category = computeCategory(l1)
       const businessSource = computeSource(l1)
       const l2List = L2Map[l1] || []
+      // 插入空二级以支持仅一级选择
       const allL2 = l2List.length ? [''].concat(l2List) : ['']
       for (const l2 of allL2) {
         const compoundKey = `${category}|${businessSource}|${l1}|${l2 || ''}`

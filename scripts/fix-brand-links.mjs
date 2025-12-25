@@ -10,7 +10,8 @@ function parseArgs() {
     if (a.startsWith('--')) {
       const [k, v] = a.slice(2).split('=')
       if (v !== undefined) out[k] = v
-      else if (process.argv[i + 1] && !process.argv[i + 1].startsWith('--')) out[k] = process.argv[++i]
+      else if (process.argv[i + 1] && !process.argv[i + 1].startsWith('--'))
+        out[k] = process.argv[++i]
       else out[k] = 'true'
     }
   }
@@ -101,13 +102,17 @@ async function updateProductCategories(id, name, catIds) {
     body: JSON.stringify({ id, name, categories: catIds })
   })
   if (!(status >= 200 && status < 300) || (json?.code ?? 200) >= 400) {
-    throw new Error(`更新产品分类失败: id=${id} status=${status} code=${json?.code} msg=${json?.msg}`)
+    throw new Error(
+      `更新产品分类失败: id=${id} status=${status} code=${json?.code} msg=${json?.msg}`
+    )
   }
   return json
 }
 
 async function verifyBrandList(brandName) {
-  const { json } = await fetchJson(`${BASE}/product/list?current=1&size=50&brandName=${encodeURIComponent(brandName)}`)
+  const { json } = await fetchJson(
+    `${BASE}/product/list?current=1&size=50&brandName=${encodeURIComponent(brandName)}`
+  )
   const page = json?.data || {}
   const records = Array.isArray(page.records) ? page.records : []
   return records.map((r) => ({ id: r.id, name: r.name }))
@@ -135,7 +140,8 @@ async function main() {
     }
     const existCatIds = await getProductCategories(p.id)
     const desired = [t.catId].filter((x) => typeof x === 'number')
-    const equal = desired.length === existCatIds.length && desired.every((id) => existCatIds.includes(id))
+    const equal =
+      desired.length === existCatIds.length && desired.every((id) => existCatIds.includes(id))
     if (equal) {
       console.log(`[ok] 已绑定，无需更新: ${p.name} -> ${existCatIds.join(',')}`)
     } else {

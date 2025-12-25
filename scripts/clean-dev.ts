@@ -448,7 +448,7 @@ export enum RoutesAlias {
   Fail = '/result/fail', // 失败
 
   // 仪表板
-  Dashboard = '/dashboard/console', // 工作台
+  Dashboard = '/sales-goal-progress/console', // 工作台
 
   // 系统管理
   User = '/system/user', // 账户

@@ -1,8 +1,5 @@
 import { createPool } from 'mysql2/promise'
-import { createRequire } from 'module'
-
-const require = createRequire(import.meta.url)
-const bcrypt = require('../server/node_modules/bcryptjs')
+import bcrypt from '../server/node_modules/bcryptjs'
 
 const name = process.argv[2] || ''
 const newPass = process.argv[3] || '123456'

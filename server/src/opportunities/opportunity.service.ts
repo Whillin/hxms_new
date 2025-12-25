@@ -143,37 +143,13 @@ export class OpportunityService {
       return await this.repo.save(exist)
     }
 
-    // 新增商机
-    if (!storeId || Number.isNaN(storeId)) return undefined
-
-    const opp = this.repo.create({
-      opportunityCode: this.generateCode(storeId),
-      customerName: String(body.customerName || '').trim() || '未命名客户',
-      customerPhone: String(body.customerPhone || '').trim(),
-      status,
-      opportunityLevel: String(body.opportunityLevel || 'C') as any,
-      focusModelId: typeof body.focusModelId === 'number' ? Number(body.focusModelId) : undefined,
-      focusModelName: String(body.focusModelName || '') || undefined,
-      testDrive: !!body.testDrive,
-      bargaining: !!body.bargaining,
-      ownerId: ownerResolved?.id,
-      ownerName: ownerResolved?.name,
-      storeId,
-      openDate: visitDate,
-      latestVisitDate: visitDate,
-      channelCategory: String(body.channelCategory || '线下'),
-      businessSource: String(body.businessSource || '自然到店'),
-      channelLevel1: body.channelLevel1,
-      channelLevel2: body.channelLevel2,
-      ownerDepartmentId: ownerResolved?.departmentId
-    })
-    return await this.repo.save(opp)
+    // 已禁用新增：无有效ID时不执行创建
+    return undefined
   }
 
   private async resolveOwner(
     consultantId: number | undefined,
     storeId: number
-    // departmentId?: number
   ): Promise<Employee | undefined> {
     if (typeof consultantId !== 'number') return undefined
     const emp = await this.empRepo.findOne({ where: { id: consultantId } })

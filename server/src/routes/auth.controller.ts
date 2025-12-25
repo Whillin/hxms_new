@@ -117,7 +117,6 @@ export class AuthController {
           : []
       const sanitized = await this.userService.sanitizeRoles(rolesIncoming)
       const uname = String((record?.userName ?? (payload as any)?.userName) || '')
-      const uid = Number(record?.id ?? (payload as any)?.sub)
       const needAdmin = uname.toLowerCase() === 'admin'
       const rolesSet = new Set<string>(sanitized)
       if (needAdmin) {

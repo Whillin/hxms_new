@@ -193,10 +193,10 @@ export class OpportunityController {
   @Post('save')
   async save(@Req() req: any, @Body() body: any) {
     // 禁用新增，仅允许更新已有商机
-    // const id = body?.id !== undefined && body?.id !== null ? Number(body.id) : undefined
-    // if (typeof id !== 'number' || Number.isNaN(id)) {
-    //   return { code: 400, msg: '不支持新增商机', data: false }
-    // }
+    const id = body?.id !== undefined && body?.id !== null ? Number(body.id) : undefined
+    if (typeof id !== 'number' || Number.isNaN(id)) {
+      return { code: 400, msg: '不支持新增商机', data: false }
+    }
     const saved = await this.opportunityService.upsertDirect(body)
     return { code: saved ? 200 : 404, msg: saved ? '保存成功' : '未找到该商机', data: !!saved }
   }

@@ -232,5 +232,12 @@ export const useProductStore = defineStore('productStore', () => {
   // 车型名称下拉选项（以商品管理的车型名称为准）
   const nameOptions = computed(() => products.value.map((p) => ({ label: p.name, value: p.name })))
 
-  return { products, nameOptions, loadProducts, loadProductsByCategoryId, loadProductsByStoreId, source }
+  return {
+    products,
+    nameOptions,
+    loadProducts,
+    loadProductsByCategoryId,
+    loadProductsByStoreId,
+    source
+  }
 })

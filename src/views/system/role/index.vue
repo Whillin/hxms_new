@@ -388,7 +388,9 @@
           if (r?.roleCode && r?.roleId) {
             localStorage.setItem(`role_perm_id:${String(r.roleCode)}`, String(r.roleId))
           }
-        } catch {}
+        } catch (err) {
+          void err
+        }
         console.log('[初始化权限] 角色已写入:', {
           roleId: r.roleId,
           roleCode: code,
@@ -401,7 +403,9 @@
       try {
         const info = await fetchGetUserInfo()
         useUserStore().setUserInfo(info)
-      } catch {}
+      } catch (err) {
+        void err
+      }
       resetRouterState()
       router.replace(router.currentRoute.value.fullPath)
       refreshData()
