@@ -16,7 +16,7 @@ async function postJson(url, body) {
   let data
   try {
     data = JSON.parse(text)
-  } catch (e) {
+  } catch {
     throw new Error(`HTTP ${res.status} ${res.statusText}: ${text}`)
   }
   if (!res.ok || data?.code !== 200) {

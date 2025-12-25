@@ -35,7 +35,6 @@ async function main() {
 
   const storeId = Number(info.storeId)
   const brand = info.brandName || info.brand
-  const employeeId = Number(info.employeeId)
   if (!storeId || !brand) {
     console.error('Missing storeId or brand:', { storeId, brand })
   }

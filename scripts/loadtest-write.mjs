@@ -171,7 +171,7 @@ async function main() {
       })
     }
 
-    const results = await runQueue(tasks, CONCURRENCY)
+    await runQueue(tasks, CONCURRENCY)
     summary[ep] = {
       requests: REQUESTS,
       concurrency: CONCURRENCY,

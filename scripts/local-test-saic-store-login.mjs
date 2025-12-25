@@ -31,7 +31,7 @@ function httpRequest(method, url, body, headers = {}) {
             let data
             try {
               data = JSON.parse(text)
-            } catch (e) {
+            } catch {
               return reject(new Error(`HTTP ${res.statusCode} ${res.statusMessage}: ${text}`))
             }
             if (
@@ -65,7 +65,7 @@ async function postJson(url, body) {
     let data
     try {
       data = JSON.parse(text)
-    } catch (e) {
+    } catch {
       throw new Error(`HTTP ${res.status} ${res.statusText}: ${text}`)
     }
     if (!res.ok || data?.code !== 200)
@@ -85,7 +85,7 @@ async function getJson(url, token) {
     let data
     try {
       data = JSON.parse(text)
-    } catch (e) {
+    } catch {
       throw new Error(`HTTP ${res.status} ${res.statusText}: ${text}`)
     }
     if (!res.ok || data?.code !== 200)

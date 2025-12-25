@@ -17,7 +17,7 @@ async function getJson(url, init) {
   let data
   try {
     data = JSON.parse(text)
-  } catch (e) {
+  } catch {
     throw new Error(`HTTP ${res.status} ${res.statusText}: ${text}`)
   }
   if (!res.ok || data?.code !== 200) {
@@ -54,21 +54,13 @@ function findChildByType(parent, type, name) {
 }
 
 async function ensureDepartment(body) {
-  try {
-    await postJson(`${API}/api/department/save`, body)
-    return true
-  } catch (e) {
-    throw e
-  }
+  await postJson(`${API}/api/department/save`, body)
+  return true
 }
 
 async function ensureEmployee(body) {
-  try {
-    await postJson(`${API}/api/employee/save`, body)
-    return true
-  } catch (e) {
-    throw e
-  }
+  await postJson(`${API}/api/employee/save`, body)
+  return true
 }
 
 async function main() {

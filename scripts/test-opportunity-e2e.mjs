@@ -23,11 +23,7 @@ const OPTS = parseArgs()
 const BASE = (OPTS.base || 'http://localhost:3001/api').replace(/\/$/, '')
 const USER = OPTS.user || 'Admin'
 const PASS = OPTS.pass || '123456'
-const VERBOSE = !!OPTS.verbose
 
-function vLog(...a) {
-  if (VERBOSE) console.log(...a)
-}
 function log(...a) {
   console.log('[e2e]', ...a)
 }
@@ -52,7 +48,9 @@ async function fetchJson(
   let json = undefined
   try {
     json = expectJson ? await res.json() : undefined
-  } catch (_) {}
+  } catch {
+    // ignore
+  }
   const code = json?.code ?? (res.ok ? 0 : res.status)
   const msg = json?.msg ?? json?.message ?? ''
   return { status: res.status, code, msg, json, ms }
