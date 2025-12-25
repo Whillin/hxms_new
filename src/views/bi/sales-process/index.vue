@@ -1866,7 +1866,8 @@
                 gender: 'other' as any,
                 status: '1' as any,
                 role: 'R_APPOINTMENT',
-                storeId: sid
+                storeId: sid,
+                hireDate: dateStr
               } as any)
               created.push(nm)
             } catch {
@@ -1929,6 +1930,8 @@
               showSuccessMessage: false,
               showErrorMessage: false
             })
+            // 简单延时防止 429
+            await new Promise((r) => setTimeout(r, 200))
           } catch {
             // 忽略写入错误，尝试继续后续数据
           }
@@ -1947,6 +1950,8 @@
               showSuccessMessage: false,
               showErrorMessage: false
             })
+            // 简单延时防止 429
+            await new Promise((r) => setTimeout(r, 200))
           } catch {
             // 忽略写入错误
           }
