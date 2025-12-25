@@ -56,7 +56,15 @@ async function bootstrap() {
   } catch (error) {
     console.error('Failed to set trust proxy:', error)
   }
-  app.enableCors({ origin: [/^http:\/\/localhost:\d+$/], credentials: true })
+  app.enableCors({
+    origin: [
+      /^http:\/\/localhost:\d+$/,
+      'https://hxmscrm.com',
+      'https://www.hxmscrm.com',
+      'http://106.52.174.194'
+    ],
+    credentials: true
+  })
   // 安全响应头：在后端也加固，配合前置 Nginx/HTTPS 更佳
   app.use(
     helmet({
@@ -103,8 +111,9 @@ async function bootstrap() {
     void 0
   }
   const port = Number(process.env.PORT || 3001)
-  await app.listen(port)
-  console.log(`Nest server is running at http://localhost:${port}`)
+  const host = process.env.HOST || '0.0.0.0'
+  await app.listen(port, host)
+  console.log(`Nest server is running at http://${host}:${port}`)
   // Debug: print registered routes (Express adapter)
   try {
     const instance = app.getHttpAdapter().getInstance?.()
