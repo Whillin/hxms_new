@@ -177,7 +177,6 @@ export class CustomerController {
       const options = stores.map((s) => ({ id: s.id, name: s.name }))
       return { code: 200, msg: 'ok', data: options }
     } catch (err) {
-      console.warn('[CustomerController.store-options] fallback due to error:', err)
       if (isAdmin) {
         await this.seedDemoOrgIfEmpty()
         const allStores = await this.deptRepo.find({ where: { type: 'store' as any } })

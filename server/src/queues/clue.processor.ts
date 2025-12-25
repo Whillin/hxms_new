@@ -160,9 +160,7 @@ export class ClueProcessor {
       const saved = await this.repo.save(existing)
       try {
         await this.opportunityService.upsertFromClue(saved)
-      } catch (e) {
-        console.error('[ClueProcessor] upsertFromClue failed on update:', e)
-      }
+      } catch {}
       return
     }
 
@@ -409,7 +407,7 @@ export class ClueProcessor {
     try {
       await this.opportunityService.upsertFromClue(savedClue)
     } catch (e) {
-      console.error('[ClueProcessor] upsertFromClue failed on create:', e)
+      // 吞错以避免影响线索落库
     }
 
     return savedClue.id // 或其他结果

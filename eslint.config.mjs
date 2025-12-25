@@ -53,7 +53,7 @@ export default [
       }
     },
     rules: {
-      quotes: ['error', 'single', { avoidEscape: true }], // 使用单引号，但在需要避免转义时允许双引号
+      quotes: ['error', 'single'], // 使用单引号
       semi: ['error', 'never'], // 语句末尾不加分号
       'no-var': 'error', // 要求使用 let 或 const 而不是 var
       '@typescript-eslint/no-explicit-any': 'off', // 禁用 any 检查

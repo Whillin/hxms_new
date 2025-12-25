@@ -303,8 +303,7 @@
     () => props.mapData,
     () => {
       if (chartInstance.value && !isEmpty.value) {
-        const mapData =
-          props.mapData.length > 0 ? props.mapData : prepareMapData(chinaGeoJson.value)
+        const mapData = props.mapData.length > 0 ? props.mapData : prepareMapData(chinaMapJson)
         const option = createChartOption(mapData)
         chartInstance.value.setOption(option)
       }

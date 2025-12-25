@@ -38,7 +38,8 @@ export default ({ mode }: { mode: string }) => {
         ? {
             '/api': {
               target: devApiTarget,
-              changeOrigin: true
+              changeOrigin: true,
+              secure: false
             }
           }
         : undefined,
@@ -182,4 +183,4 @@ function resolvePath(paths: string) {
   return path.resolve(__dirname, paths)
 }
 
-// 已移除所有基于本地数据的自检与 mock 插件定义，统一走真实后端或代理
+// 已移除所有基于本地数据的 mock 插件定义，统一走真实后端或代理

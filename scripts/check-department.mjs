@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // 初始化部门层级脚本：集团 -> 品牌 -> 销售部 -> 大区 -> 门店
 // 用法示例：
-//   node scripts/check-department.mjs --base http://localhost:3002/api --user Admin --pass 123456
+//   node scripts/check-department.mjs --base http://localhost:3002/api --user Admin --pass 123456 
 // 可选参数：--group, --brand, --region, --store 自定义名称
 
 // Node 18+ 原生支持 fetch，无需引入 node-fetch
@@ -51,10 +51,7 @@ async function login(base, username, password) {
     method: 'POST',
     body: JSON.stringify({ username, password })
   })
-  assert(
-    status >= 200 && status < 300 && (json?.data?.token || json?.token),
-    `登录失败: ${status} ${JSON.stringify(json)}`
-  )
+  assert(status >= 200 && status < 300 && (json?.data?.token || json?.token), `登录失败: ${status} ${JSON.stringify(json)}`)
   return json?.data?.token || json?.token
 }
 
@@ -73,13 +70,10 @@ function flattenTree(nodes) {
 }
 
 async function findDepartment(base, token, { type, name }) {
-  const { status, json } = await fetchJson(
-    `${base}/department/list?type=${encodeURIComponent(type)}&name=${encodeURIComponent(name)}`,
-    {
-      method: 'GET',
-      headers: { Authorization: `Bearer ${token}` }
-    }
-  )
+  const { status, json } = await fetchJson(`${base}/department/list?type=${encodeURIComponent(type)}&name=${encodeURIComponent(name)}`, {
+    method: 'GET',
+    headers: { Authorization: `Bearer ${token}` }
+  })
   assert(status === 200, `查询部门失败: ${status}`)
   const flat = flattenTree(json?.data || [])
   return flat.find((n) => n.type === type && n.name === name)
@@ -118,43 +112,23 @@ async function main() {
   log('登录成功, token 获取完成')
 
   // 集团
-  const group = await ensureDepartment(BASE, token, {
-    type: 'group',
-    name: GROUP_NAME,
-    parentId: null
-  })
+  const group = await ensureDepartment(BASE, token, { type: 'group', name: GROUP_NAME, parentId: null })
   log('集团就绪:', group)
 
   // 品牌
-  const brand = await ensureDepartment(BASE, token, {
-    type: 'brand',
-    name: BRAND_NAME,
-    parentId: group.id
-  })
+  const brand = await ensureDepartment(BASE, token, { type: 'brand', name: BRAND_NAME, parentId: group.id })
   log('品牌就绪:', brand)
 
   // 销售部（品牌下）
-  const sales = await ensureDepartment(BASE, token, {
-    type: 'department',
-    name: SALES_NAME,
-    parentId: brand.id
-  })
+  const sales = await ensureDepartment(BASE, token, { type: 'department', name: SALES_NAME, parentId: brand.id })
   log('销售部就绪:', sales)
 
   // 大区（品牌下）
-  const region = await ensureDepartment(BASE, token, {
-    type: 'region',
-    name: REGION_NAME,
-    parentId: brand.id
-  })
+  const region = await ensureDepartment(BASE, token, { type: 'region', name: REGION_NAME, parentId: brand.id })
   log('大区就绪:', region)
 
   // 门店（大区下）
-  const store = await ensureDepartment(BASE, token, {
-    type: 'store',
-    name: STORE_NAME,
-    parentId: region.id
-  })
+  const store = await ensureDepartment(BASE, token, { type: 'store', name: STORE_NAME, parentId: region.id })
   log('门店就绪:', store)
 
   // 输出树验证（品牌下）
@@ -167,20 +141,14 @@ async function main() {
   const summary = flat.map((n) => `${n.type}:${n.name}`).join(' / ')
   log('品牌树:', summary)
 
-  console.log(
-    JSON.stringify(
-      {
-        ok: true,
-        groupId: group.id,
-        brandId: brand.id,
-        salesDepartmentId: sales.id,
-        regionId: region.id,
-        storeId: store.id
-      },
-      null,
-      2
-    )
-  )
+  console.log(JSON.stringify({
+    ok: true,
+    groupId: group.id,
+    brandId: brand.id,
+    salesDepartmentId: sales.id,
+    regionId: region.id,
+    storeId: store.id
+  }, null, 2))
 }
 
 main().catch((err) => {

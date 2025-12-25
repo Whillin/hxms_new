@@ -32,11 +32,7 @@ async function fetchJson(url, opts = {}) {
   const body = opts.body ? JSON.stringify(opts.body) : undefined
   const res = await fetch(url, { ...opts, headers, body })
   let json
-  try {
-    json = await res.json()
-  } catch {
-    json = { code: res.status, msg: 'non-json' }
-  }
+  try { json = await res.json() } catch { json = { code: res.status, msg: 'non-json' } }
   return { status: res.status, json }
 }
 
@@ -50,9 +46,7 @@ async function login(userName, password) {
   return json
 }
 
-function bearer(token) {
-  return token ? { Authorization: `Bearer ${token}` } : {}
-}
+function bearer(token) { return token ? { Authorization: `Bearer ${token}` } : {} }
 
 ;(async () => {
   try {
@@ -71,22 +65,16 @@ function bearer(token) {
     const infoRes = await fetchJson(`${BASE}/user/info`, { headers: bearer(token) })
     vLog('[Info Raw]', infoRes)
     const info = infoRes?.json?.data || {}
-    console.log(
-      `[Scope] roles=${JSON.stringify(info.roles || [])} employeeId=${info.employeeId} storeId=${info.storeId}`
-    )
+    console.log(`[Scope] roles=${JSON.stringify(info.roles || [])} employeeId=${info.employeeId} storeId=${info.storeId}`)
 
     console.log('[Scope] customer/store-options ...')
     const storesRes = await fetchJson(`${BASE}/customer/store-options`, { headers: bearer(token) })
     const storeOptions = Array.isArray(storesRes?.json?.data) ? storesRes.json.data : []
     const storeIds = storeOptions.map((s) => s.id)
-    console.log(
-      `[Scope] allowed_store_ids=${JSON.stringify(storeIds)} count=${storeOptions.length}`
-    )
+    console.log(`[Scope] allowed_store_ids=${JSON.stringify(storeIds)} count=${storeOptions.length}`)
 
     console.log('[Scope] clue/list total ...')
-    const clueRes = await fetchJson(new URL(`${BASE}/clue/list?current=1&size=1`).toString(), {
-      headers: bearer(token)
-    })
+    const clueRes = await fetchJson(new URL(`${BASE}/clue/list?current=1&size=1`).toString(), { headers: bearer(token) })
     const total = clueRes?.json?.data?.total || 0
     console.log(`[Scope] clue_total=${total}`)
 

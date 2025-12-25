@@ -58,17 +58,6 @@
         </el-select>
 
         <el-select
-          v-model="funnelType"
-          placeholder="漏斗类型"
-          size="small"
-          style="width: 140px; margin-left: 8px"
-        >
-          <el-option label="门店" value="store" />
-          <el-option label="销售顾问" value="person" />
-          <el-option label="车型" value="model" />
-        </el-select>
-
-        <el-select
           v-if="enableCompare && funnelType === 'store'"
           v-model="compareStoreId"
           placeholder="对比门店"
@@ -212,9 +201,13 @@
       </div>
     </el-card>
 
-    <div class="charts-row" v-if="!overlayMode">
+    <div
+      class="charts-row"
+      :class="{ single: !(enableCompare && hasCompareSelection) }"
+      v-if="!overlayMode"
+    >
       <el-card class="art-custom-card funnel-card">
-        <div class="card-title">线上销售漏斗</div>
+        <div class="card-title">{{ leftTitle }}</div>
         <el-table :data="tableRows" border style="width: 100%">
           <el-table-column prop="stage" label="环节" min-width="360">
             <template #header>
@@ -321,7 +314,7 @@
 
     <div v-else>
       <el-card class="art-custom-card">
-        <div class="card-title">线上销售漏斗（叠加）</div>
+        <div class="card-title">{{ overlayTitle }}</div>
         <div class="legend">
           <span class="legend-item"><i class="legend-dot dot-a"></i>{{ legendA }}</span>
           <span v-if="hasCompareSelection" class="legend-item">
@@ -375,7 +368,8 @@
 </template>
 
 <script setup lang="ts">
-  defineOptions({ name: 'OnlineSalesProcess' })
+  defineOptions({ name: 'BIOnlineSalesProcess' })
+  const props = defineProps<{ title?: string }>()
 
   import request from '@/utils/http'
   import { fetchGetCustomerStoreOptions } from '@/api/customer'
@@ -513,8 +507,15 @@
         if (v) detected.add(v)
       })
       if (detected.size === 1) accountBrand.value = Array.from(detected)[0]
-      const myStore = Number(userStore.info?.storeId || 0)
-      if (!storeId.value && myStore > 0) storeId.value = myStore
+      const onlyOneStore = opts.filter((o) => o.value !== '').length === 1
+      if (!storeId.value) {
+        if (onlyOneStore) {
+          const one = opts.find((o) => o.value !== '')
+          if (one) storeId.value = Number(one.value)
+        } else {
+          storeId.value = ''
+        }
+      }
     } catch (e) {
       void e
     }
@@ -746,7 +747,98 @@
   const legendA = ref('当前选择')
   const legendB = ref('对比选择')
   const compareTitle = ref('对比选择')
+  const leftTitle = computed(() => {
+    const base = String(props.title || '线上线索转化分析')
+    const name = String(legendA.value || '')
+    if (!name || /全部/.test(name) || ['当前选择', '选择', '车型', '门店', '顾问'].includes(name))
+      return base
+    return `${name}线索转化分析`
+  })
+  const overlayTitle = computed(() => `${String(props.title || '线上线索转化分析')}（叠加）`)
   const hasCompareSelection = ref(false)
+  const requestFunnelCache = new Map<
+    string,
+    {
+      ts: number
+      items: { stage: string; percent?: number; value: number; mom?: number; percentRaw?: number }[]
+    }
+  >()
+  const requestFunnelInflight = new Map<
+    string,
+    Promise<{ stage: string; percent?: number; value: number; mom?: number; percentRaw?: number }[]>
+  >()
+  const requestFunnel = async (params: Record<string, any>) => {
+    const key = JSON.stringify(params)
+    const cached = requestFunnelCache.get(key)
+    if (cached && Date.now() - cached.ts < 60_000) return cached.items
+    const inflight = requestFunnelInflight.get(key)
+    if (inflight) return await inflight
+    const tries = [0, 150, 350, 800]
+    const doFetch = async () => {
+      for (let i = 0; i < tries.length; i++) {
+        const delay = tries[i]
+        if (delay > 0) await new Promise((r) => setTimeout(r, delay))
+        try {
+          const r = await request.get<{
+            items: {
+              stage: string
+              percent?: number
+              value: number
+              mom?: number
+              percentRaw?: number
+            }[]
+          }>({
+            url: '/api/bi/sales-funnel',
+            params,
+            showErrorMessage: false
+          })
+          return Array.isArray(r?.items) ? r!.items : []
+        } catch {
+          try {
+            const r2 = await request.get<{
+              items: {
+                stage: string
+                percent?: number
+                value: number
+                mom?: number
+                percentRaw?: number
+              }[]
+            }>({
+              url: '/api/bi/sales-funnel/open',
+              params,
+              showErrorMessage: false
+            })
+            return Array.isArray(r2?.items) ? r2!.items : []
+          } catch {
+            continue
+          }
+        }
+      }
+      return []
+    }
+    const p = doFetch().then((items) => {
+      requestFunnelInflight.delete(key)
+      requestFunnelCache.set(key, { ts: Date.now(), items })
+      return items
+    })
+    requestFunnelInflight.set(key, p)
+    return await p
+  }
+  const compareItems = (
+    a: { stage: string; percent?: number; value: number; mom?: number }[],
+    b: { stage: string; percent?: number; value: number; mom?: number }[]
+  ) => {
+    if (a.length !== b.length) return true
+    const mapA: Record<string, number> = {}
+    const mapB: Record<string, number> = {}
+    a.forEach((it) => (mapA[normalizeStageLabel(it.stage)] = Number(it.value) || 0))
+    b.forEach((it) => (mapB[normalizeStageLabel(it.stage)] = Number(it.value) || 0))
+    const keys = new Set<string>([...Object.keys(mapA), ...Object.keys(mapB)])
+    for (const k of keys) {
+      if ((mapA[k] || 0) !== (mapB[k] || 0)) return true
+    }
+    return false
+  }
 
   const apply = async () => {
     const mode = funnelType.value
@@ -814,6 +906,7 @@
       if (year) params.year = year
       if (storeId) params.storeId = storeId
       params.channelCategory = '线上'
+      params.businessSource = '线上'
       if (teamId) params.teamId = teamId
       if (consultantId) params.consultantId = consultantId
       if (modelId) params.modelId = modelId
@@ -834,15 +927,70 @@
     compareTitle.value = legendB.value
 
     try {
-      const endpointMain = '/api/bi/sales-funnel'
-      const endpointOpen = '/api/bi/sales-funnel/open'
-      let respA: {
-        items: { stage: string; percent: number; value: number; mom: number; percentRaw?: number }[]
-      }
-      try {
-        respA = await request.get({ url: endpointMain, params: paramsA, showErrorMessage: false })
-      } catch {
-        respA = await request.get({ url: endpointOpen, params: paramsA, showErrorMessage: false })
+      let itemsA: {
+        stage: string
+        percent?: number
+        value: number
+        mom?: number
+        percentRaw?: number
+      }[] = []
+      if (mode === 'person' && cid) {
+        const baseline = await requestFunnel(paramsA)
+        const keys = ['consultantId', 'ownerId', 'employeeId', 'consultantName']
+        const name = String(
+          consultants.value.find((x) => Number(x.value || 0) === Number(cid))?.label || ''
+        )
+        for (const key of keys) {
+          const attempt = { ...paramsA }
+          if (key === 'consultantName') attempt[key] = name
+          else attempt[key] = cid
+          const resItems = await requestFunnel(attempt)
+          if (compareItems(resItems, baseline)) {
+            itemsA = resItems
+            break
+          }
+        }
+        if (!itemsA.length) {
+          itemsA = baseline
+        }
+      } else if (mode === 'store' && sid) {
+        const baseline = await requestFunnel(paramsA)
+        const sLabel = String(
+          stores.value.find((x) => Number(x.value || 0) === Number(sid))?.label || ''
+        )
+        const attempts: Record<string, any>[] = [
+          { ...paramsA, storeName: sLabel },
+          { ...paramsA, storeIds: [sid] },
+          { ...paramsA, storeIdList: [sid] }
+        ]
+        for (const attempt of attempts) {
+          const resItems = await requestFunnel(attempt)
+          if (compareItems(resItems, baseline)) {
+            itemsA = resItems
+            break
+          }
+        }
+        if (!itemsA.length) itemsA = baseline
+      } else if (mode === 'store' && !sid) {
+        // 全部门店：限制为账号可见门店集合
+        const ids = stores.value
+          .map((s) => Number(s.value || 0))
+          .filter((n) => Number.isFinite(n) && n > 0)
+        const baseline = await requestFunnel(paramsA)
+        const attempts: Record<string, any>[] = [
+          { ...paramsA, storeIds: ids },
+          { ...paramsA, storeIdList: ids }
+        ]
+        for (const attempt of attempts) {
+          const resItems = await requestFunnel(attempt)
+          if (compareItems(resItems, baseline)) {
+            itemsA = resItems
+            break
+          }
+        }
+        if (!itemsA.length) itemsA = baseline
+      } else {
+        itemsA = await requestFunnel(paramsA)
       }
 
       const buildRows = (
@@ -892,7 +1040,7 @@
         })
         return rows
       }
-      tableRows.value = buildRows(respA.items || [])
+      tableRows.value = buildRows(itemsA || [])
       // 兜底：若后端暂未返回新增行，前端强制补齐（值可为0，比例按口径计算）
       const ensureExtraRows = (rows: any[]) => {
         const exists = (name: string) => rows.some((r) => r.stage === name)
@@ -961,31 +1109,52 @@
       tableRows.value = sortRows(tableRows.value)
 
       if (enableCompare.value && (cmpModelId || cmpStoreId || cmpTeamId || cmpConsultantId)) {
-        const endpointBMain = '/api/bi/sales-funnel'
-        const endpointBOpen = '/api/bi/sales-funnel/open'
-        let respB: {
-          items: {
-            stage: string
-            percent: number
-            value: number
-            mom: number
-            percentRaw?: number
-          }[]
+        let itemsB: {
+          stage: string
+          percent?: number
+          value: number
+          mom?: number
+          percentRaw?: number
+        }[] = []
+        const baseline = await requestFunnel(paramsB)
+        if (mode === 'person' && cmpConsultantId) {
+          const keys = ['consultantId', 'ownerId', 'employeeId', 'consultantName']
+          const name = String(
+            consultants.value.find((x) => Number(x.value || 0) === Number(cmpConsultantId || 0))
+              ?.label || ''
+          )
+          for (const key of keys) {
+            const attempt = { ...paramsB }
+            if (key === 'consultantName') attempt[key] = name
+            else attempt[key] = cmpConsultantId
+            const resItems = await requestFunnel(attempt)
+            if (compareItems(resItems, baseline)) {
+              itemsB = resItems
+              break
+            }
+          }
+          if (!itemsB.length) itemsB = baseline
+        } else if (mode === 'store' && cmpStoreId) {
+          const sLabel = String(
+            stores.value.find((x) => Number(x.value || 0) === Number(cmpStoreId || 0))?.label || ''
+          )
+          const attempts: Record<string, any>[] = [
+            { ...paramsB, storeName: sLabel },
+            { ...paramsB, storeIds: [cmpStoreId] },
+            { ...paramsB, storeIdList: [cmpStoreId] }
+          ]
+          for (const attempt of attempts) {
+            const resItems = await requestFunnel(attempt)
+            if (compareItems(resItems, baseline)) {
+              itemsB = resItems
+              break
+            }
+          }
+          if (!itemsB.length) itemsB = baseline
+        } else {
+          itemsB = baseline
         }
-        try {
-          respB = await request.get({
-            url: endpointBMain,
-            params: paramsB,
-            showErrorMessage: false
-          })
-        } catch {
-          respB = await request.get({
-            url: endpointBOpen,
-            params: paramsB,
-            showErrorMessage: false
-          })
-        }
-        tableRowsRight.value = buildRows(respB.items || [])
+        tableRowsRight.value = buildRows(itemsB || [])
         tableRowsRight.value = ensureExtraRows(tableRowsRight.value)
         tableRowsRight.value = sortRows(tableRowsRight.value)
         hasCompareSelection.value = (tableRowsRight.value || []).length > 0
@@ -1071,6 +1240,11 @@
     padding: 12px;
   }
 
+  .charts-row {
+    display: flex;
+    gap: 12px;
+  }
+
   .filters {
     display: flex;
     gap: 8px;
@@ -1083,7 +1257,13 @@
   }
 
   .funnel-card {
+    flex: 0 0 48%;
+    width: 48%;
     margin-bottom: 12px;
+  }
+  .charts-row.single .funnel-card {
+    flex: 1 1 100%;
+    width: 100%;
   }
 
   .stage-header {

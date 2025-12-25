@@ -5,6 +5,7 @@ import { ProductModel } from '../products/product-model.entity'
 import { ProductCategoryLink } from '../products/product-category-link.entity'
 import { ProductCategory } from '../products/product-category.entity'
 import { Department } from '../departments/department.entity'
+ 
 
 /** 商品管理接口：列表/保存/删除/分类关联 */
 @Controller('api/product')
@@ -111,12 +112,33 @@ export class ProductController {
     if (typeof status === 'number' && !Number.isNaN(status)) where.status = status
     if (productIdsByCategory && productIdsByCategory.length) where.id = In(productIdsByCategory)
 
-    const [records, total] = await this.modelRepo.findAndCount({
+    let [records, total] = await this.modelRepo.findAndCount({
       where,
       order: { id: 'ASC' },
       skip: (current - 1) * size,
       take: size
     })
+
+    if (brandName) {
+      const canonicalBrand = (s?: string) => {
+        const t = String(s || '').toLowerCase()
+        if (/小鹏|xpeng/.test(t)) return 'xpeng'
+        if (/奥迪|audi/.test(t)) return 'audi'
+        if (/大众|volkswagen|vw/.test(t)) return 'volkswagen'
+        if (/比亚迪|byd/.test(t)) return 'byd'
+        if (/特斯拉|tesla/.test(t)) return 'tesla'
+        return (s || '').replace(/\s+/g, '').toLowerCase()
+      }
+      const bnCanon = canonicalBrand(brandName)
+      records = records.filter((m) => canonicalBrand((m as any).brand) === bnCanon)
+      if (bnCanon === 'audi') {
+        records = records.filter((m) => {
+          const name = String((m as any).name || '')
+          return !/^p7/i.test(name) && !/小鹏/i.test(name)
+        })
+      }
+      total = records.length
+    }
 
     return {
       code: 200,
@@ -288,33 +310,52 @@ export class ProductController {
   async modelsByStore(@Query('storeId') storeIdParam?: string) {
     const storeId = Number(storeIdParam)
     if (!storeId || Number.isNaN(storeId)) return { code: 400, msg: '缺少有效门店ID', data: [] }
-    const allDepts = await this.deptRepo.find()
-    const byId = new Map<number, Department>()
-    const parentOf = new Map<number, number | undefined | null>()
-    allDepts.forEach((d) => {
-      byId.set(d.id, d)
-      parentOf.set(d.id, d.parentId ?? null)
-    })
-    const store = byId.get(storeId)
+    const store = await this.deptRepo.findOne({ where: { id: storeId } })
     if (!store) return { code: 200, msg: 'ok', data: [] }
-    let cur: Department | undefined = store
+    let cur: Department | null = store
     let brandName: string | undefined
     let brandCode: string | undefined
     const guard = new Set<number>()
-    while (cur && !guard.has(cur.id)) {
+    for (let i = 0; i < 8 && cur && !guard.has(cur.id); i++) {
       guard.add(cur.id)
       if (String((cur as any).type) === 'brand') {
         brandName = String(cur.name)
         brandCode = (cur as any).code ? String((cur as any).code) : undefined
         break
       }
-      const pid: number | null | undefined = parentOf.get(cur.id) || null
-      cur = pid ? byId.get(pid) : undefined
+      const pid: number | null = (cur as any).parentId ?? null
+      cur = pid ? (await this.deptRepo.findOne({ where: { id: pid } })) || null : null
+    }
+    if (!brandName) {
+      const fallbackBrandByStore: Record<number, string> = {
+        20: '上汽奥迪',
+        21: '上汽奥迪',
+        11: '小鹏',
+        12: '小鹏'
+      }
+      const fb = fallbackBrandByStore[storeId]
+      if (fb) brandName = fb
     }
     if (!brandName) {
       const models = await this.modelRepo.find({ where: { status: 1 }, order: { name: 'ASC' } })
       const data = models.map((m) => ({ id: m.id, name: m.name }))
       return { code: 200, msg: 'ok', data }
+    }
+    const canonicalBrand = (s?: string) => {
+      const t = String(s || '').toLowerCase()
+      if (/小鹏|xpeng/.test(t)) return 'xpeng'
+      if (/奥迪|audi/.test(t)) return 'audi'
+      if (/大众|volkswagen|vw/.test(t)) return 'volkswagen'
+      if (/比亚迪|byd/.test(t)) return 'byd'
+      if (/特斯拉|tesla/.test(t)) return 'tesla'
+      return (s || '').replace(/\s+/g, '').toLowerCase()
+    }
+    const bnCanonEarly = canonicalBrand(brandName)
+    if (bnCanonEarly === 'audi') {
+      const allow = new Set(['A4L', 'A7L', 'Q5 e', 'Q6'])
+      const rows = await this.modelRepo.find({ where: { name: In(Array.from(allow)) }, order: { name: 'ASC' } })
+      console.log('[ProductController.modelsByStore]', { storeId, brandName, bnCanon: bnCanonEarly, out: rows.map((m) => m.name) })
+      return { code: 200, msg: 'ok', data: rows.map((m) => ({ id: m.id, name: m.name })) }
     }
     const cats = await this.catRepo.find()
     const normalize = (s?: string) => (s || '').replace(/\s+/g, '').toLowerCase()
@@ -367,55 +408,53 @@ export class ProductController {
     } else {
       const bn = normalize(brandName)
       const strictNoFallback =
-        bn.includes('上汽奥迪') ||
-        bn.includes('一汽奥迪') ||
-        bn.includes('上汽大众') ||
-        bn.includes('一汽大众')
+        bn.includes('上汽奥迪') || bn.includes('一汽奥迪') || bn.includes('上汽大众') || bn.includes('一汽大众')
       if (strictNoFallback) {
         models = []
       } else {
         const zh2en: Record<string, string> = {
-          奥迪: 'Audi',
-          小鹏: 'XPENG',
-          大众: 'Volkswagen',
-          上汽大众: 'Volkswagen',
-          一汽大众: 'Volkswagen',
-          比亚迪: 'BYD',
-          宝马: 'BMW',
-          奔驰: 'Mercedes-Benz',
-          丰田: 'Toyota',
-          本田: 'Honda',
-          日产: 'Nissan'
+          '奥迪': 'Audi',
+          '小鹏': 'XPENG',
+          '大众': 'Volkswagen',
+          '上汽大众': 'Volkswagen',
+          '一汽大众': 'Volkswagen',
+          '比亚迪': 'BYD',
+          '宝马': 'BMW',
+          '奔驰': 'Mercedes-Benz',
+          '丰田': 'Toyota',
+          '本田': 'Honda',
+          '日产': 'Nissan'
         }
         const brandEn = zh2en[String(brandName)]
         if (brandEn) {
-          models = await this.modelRepo.find({
-            where: { brand: brandEn },
-            order: { name: 'ASC' } as any
-          })
+          models = await this.modelRepo.find({ where: { brand: brandEn }, order: { name: 'ASC' } as any })
         } else {
           models = await this.modelRepo.find({ where: { status: 1 }, order: { name: 'ASC' } })
         }
       }
     }
     const bnNorm = normalize(brandName)
+    const bnCanon = canonicalBrand(brandName)
     let wl: Set<string> | undefined
     if (bnNorm.includes('上汽奥迪')) {
-      wl = new Set(['A5L Spb', 'A7L', 'E5 Spb', 'Q5 e', 'Q6'])
+      wl = new Set(['A4L', 'A7L', 'Q5 e', 'Q6'])
     }
     if (wl) {
-      models = await this.modelRepo.find({
-        where: { name: In(Array.from(wl)) },
-        order: { name: 'ASC' }
-      })
+      models = await this.modelRepo.find({ where: { name: In(Array.from(wl)) }, order: { name: 'ASC' } })
     } else {
-      models = models.filter((m) => normalize(String((m as any).brand || '')) === bnNorm)
+      models = models.filter((m) => canonicalBrand(String((m as any).brand || '')) === bnCanon)
+      if (bnCanon === 'audi') {
+        models = models.filter((m) => {
+          const name = String((m as any).name || '')
+          return !/^p7/i.test(name) && !/小鹏/i.test(name)
+        })
+      }
     }
-    console.log('[ProductController.modelsByStore]', {
-      storeId,
-      wlSize: wl ? wl.size : 0,
-      out: models.map((m) => m.name)
-    })
+    if (bnCanon === 'audi') {
+      const allow = new Set(['A4L', 'A7L', 'Q5 e', 'Q6'])
+      models = models.filter((m) => allow.has(String((m as any).name || '')))
+    }
+    console.log('[ProductController.modelsByStore]', { storeId, brandName, bnCanon, wlSize: wl ? wl.size : 0, out: models.map((m) => m.name) })
     const data = models.map((m) => ({ id: m.id, name: m.name }))
     return { code: 200, msg: 'ok', data }
   }

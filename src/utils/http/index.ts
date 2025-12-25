@@ -240,7 +240,10 @@ async function request<T = any>(config: ExtendedAxiosRequestConfig): Promise<T> 
     return res.data.data as T
   } catch (error) {
     if (error instanceof HttpError && error.code !== ApiStatus.unauthorized) {
-      const showMsg = config.showErrorMessage !== false
+      const devQuiet =
+        String(import.meta.env.VITE_ACCESS_MODE || '').toLowerCase() === 'frontend' ||
+        String(import.meta.env.VITE_DEV_SKIP_AUTH || '').toLowerCase() === 'true'
+      const showMsg = devQuiet ? config.showErrorMessage === true : config.showErrorMessage !== false
       showError(error, showMsg)
     }
     return Promise.reject(error)

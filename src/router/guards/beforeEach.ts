@@ -116,10 +116,18 @@ async function handleRouteGuard(
     return
   }
 
-  // 尝试刷新路由重新注册
-  if (userStore.isLogin && !isRouteRegistered.value) {
-    await handleDynamicRoutes(to, from, next, router)
-    return
+  // 路由未匹配：尝试重新获取菜单并注册缺失路由（支持热更新新增路由）
+  if (userStore.isLogin) {
+    try {
+      await getMenuData(router)
+      const reMatched = router.resolve(to.fullPath)
+      if (reMatched.matched && reMatched.matched.length > 0) {
+        next({ path: to.path, query: to.query, hash: to.hash, replace: true })
+        return
+      }
+    } catch {
+      void 0
+    }
   }
 
   // 未匹配到路由，跳转到 404
@@ -138,9 +146,14 @@ async function handleLoginStatus(
   const isStaticRoute = isRouteInStaticRoutes(to.path)
 
   if (!userStore.isLogin && to.path !== RoutesAlias.Login && !isStaticRoute) {
-    userStore.logOut()
-    next(RoutesAlias.Login)
-    return false
+    if (DEV_SKIP_AUTH) {
+      userStore.setLoginStatus(true)
+      return true
+    } else {
+      userStore.logOut()
+      next(RoutesAlias.Login)
+      return false
+    }
   }
   return true
 }
@@ -304,7 +317,7 @@ async function processFrontendMenu(router: Router): Promise<void> {
 
   let filteredMenuList = filterMenuByRoles(menuList, rolesFinal)
 
-  const allowedNames = await getAllowedRouteNamesForCurrentUser()
+  const allowedNames = DEV_SKIP_AUTH ? null : await getAllowedRouteNamesForCurrentUser()
   const isExplicitSuper =
     rolesFinal.includes('R_SUPER') && (!rolesFinal.includes('R_ADMIN') || isAdminUser)
   if (isExplicitSuper) {
@@ -452,8 +465,8 @@ async function registerAndStoreMenu(router: Router, menuList: AppRouteRecord[]):
       }
       list.push(userCenterAlias)
     }
-  } catch (err) {
-    void err
+  } catch {
+    void 0
   }
 
   // 动态设置“线索管理”红点提示：店长/总监（含管理员）且当日未完成填报
@@ -472,8 +485,7 @@ async function registerAndStoreMenu(router: Router, menuList: AppRouteRecord[]):
       if (incomplete) {
         const markBadge = (nodes: AppRouteRecord[]) => {
           nodes.forEach((it) => {
-            const p = String(it.path || '')
-            if (p.startsWith('/traffic-leads')) {
+            if (String(it.path || '').startsWith('/clue')) {
               it.meta = { ...it.meta, showBadge: true }
             }
             if (Array.isArray(it.children) && it.children.length) markBadge(it.children)

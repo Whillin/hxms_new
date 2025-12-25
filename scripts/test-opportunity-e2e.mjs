@@ -25,34 +25,19 @@ const USER = OPTS.user || 'Admin'
 const PASS = OPTS.pass || '123456'
 const VERBOSE = !!OPTS.verbose
 
-function vLog(...a) {
-  if (VERBOSE) console.log(...a)
-}
-function log(...a) {
-  console.log('[e2e]', ...a)
-}
-function assert(cond, msg) {
-  if (!cond) throw new Error(msg)
-}
+function vLog(...a) { if (VERBOSE) console.log(...a) }
+function log(...a) { console.log('[e2e]', ...a) }
+function assert(cond, msg) { if (!cond) throw new Error(msg) }
 
 // fetch 封装（Node 18+ 原生支持）
-async function fetchJson(
-  url,
-  { method = 'GET', headers = {}, body, token, expectJson = true } = {}
-) {
+async function fetchJson(url, { method = 'GET', headers = {}, body, token, expectJson = true } = {}) {
   const h = { 'Content-Type': 'application/json', ...headers }
   if (token) h['Authorization'] = `Bearer ${token}`
   const t0 = Date.now()
-  const res = await fetch(url, {
-    method,
-    headers: h,
-    body: body ? JSON.stringify(body) : undefined
-  })
+  const res = await fetch(url, { method, headers: h, body: body ? JSON.stringify(body) : undefined })
   const ms = Date.now() - t0
   let json = undefined
-  try {
-    json = expectJson ? await res.json() : undefined
-  } catch (_) {}
+  try { json = expectJson ? await res.json() : undefined } catch (_) {}
   const code = json?.code ?? (res.ok ? 0 : res.status)
   const msg = json?.msg ?? json?.message ?? ''
   return { status: res.status, code, msg, json, ms }
@@ -61,8 +46,7 @@ async function fetchJson(
 // 登录，返回 token
 async function login() {
   const { status, json } = await fetchJson(`${BASE}/auth/login`, {
-    method: 'POST',
-    body: { userName: USER, password: PASS }
+    method: 'POST', body: { userName: USER, password: PASS }
   })
   assert(status >= 200 && status < 300, `登录失败: ${status} ${JSON.stringify(json)}`)
   const token = json?.data?.token || json?.token
@@ -83,13 +67,7 @@ async function pickStore(token) {
 // 查找或创建当前门店在职顾问，返回顾问名称
 async function findOrCreateConsultant(token, storeId) {
   // 先查找在职顾问
-  const q = new URLSearchParams({
-    current: '1',
-    size: '50',
-    storeId: String(storeId),
-    status: '1',
-    role: 'R_SALES'
-  })
+  const q = new URLSearchParams({ current: '1', size: '50', storeId: String(storeId), status: '1', role: 'R_SALES' })
   const r = await fetchJson(`${BASE}/employee/list?${q.toString()}`, { method: 'GET', token })
   assert(r.status === 200, `员工列表查询失败: ${r.status}`)
   const list = r.json?.data?.records || []
@@ -98,20 +76,9 @@ async function findOrCreateConsultant(token, storeId) {
   // 无在职顾问则创建一个
   const name = `E2E顾问-${Date.now()}`
   const phone = `139${String(Date.now()).slice(-8)}`
-  const body = {
-    name,
-    phone,
-    role: 'R_SALES',
-    status: '1',
-    storeId,
-    gender: '男',
-    hireDate: new Date().toISOString().slice(0, 10)
-  }
+  const body = { name, phone, role: 'R_SALES', status: '1', storeId, gender: '男', hireDate: new Date().toISOString().slice(0, 10) }
   const s = await fetchJson(`${BASE}/employee/save`, { method: 'POST', token, body })
-  assert(
-    s.status >= 200 && s.status < 300 && s.code === 200,
-    `创建顾问失败: ${s.status} ${JSON.stringify(s.json)}`
-  )
+  assert(s.status >= 200 && s.status < 300 && s.code === 200, `创建顾问失败: ${s.status} ${JSON.stringify(s.json)}`)
   return name
 }
 
@@ -121,22 +88,12 @@ function today(offsetDays = 0) {
   return d.toISOString().slice(0, 10)
 }
 
-function randPhone() {
-  return `138${String(10000000 + Math.floor(Math.random() * 90000000)).slice(-8)}`
-}
+function randPhone() { return `138${String(10000000 + Math.floor(Math.random() * 90000000)).slice(-8)}` }
 
 async function pollOpportunities(token, { storeId, phone }, { tries = 30, intervalMs = 500 } = {}) {
   for (let i = 0; i < tries; i++) {
-    const params = new URLSearchParams({
-      current: '1',
-      size: '10',
-      customerPhone: phone,
-      storeId: String(storeId)
-    })
-    const r = await fetchJson(`${BASE}/opportunity/list?${params.toString()}`, {
-      method: 'GET',
-      token
-    })
+    const params = new URLSearchParams({ current: '1', size: '10', customerPhone: phone, storeId: String(storeId) })
+    const r = await fetchJson(`${BASE}/opportunity/list?${params.toString()}`, { method: 'GET', token })
     if (r.status === 200) {
       const records = r.json?.data?.records || []
       if (records.length > 0) return records
@@ -147,12 +104,7 @@ async function pollOpportunities(token, { storeId, phone }, { tries = 30, interv
 }
 
 async function fetchCustomers(token, { storeId, phone }) {
-  const params = new URLSearchParams({
-    current: '1',
-    size: '10',
-    userPhone: phone,
-    storeId: String(storeId)
-  })
+  const params = new URLSearchParams({ current: '1', size: '10', userPhone: phone, storeId: String(storeId) })
   const r = await fetchJson(`${BASE}/customer/list?${params.toString()}`, { method: 'GET', token })
   return r.json?.data?.records || []
 }
@@ -257,12 +209,7 @@ async function main() {
     phone,
     scenario1: { oppId: latest1.id, status: latest1.status, name: latest1.customerName },
     scenario2: { oppId: latest2.id, status: latest2.status, name: latest2.customerName },
-    scenario3: {
-      oppId: latest3.id,
-      status: latest3.status,
-      name: latest3.customerName,
-      previousOppId: latest2.id
-    }
+    scenario3: { oppId: latest3.id, status: latest3.status, name: latest3.customerName, previousOppId: latest2.id }
   }
   console.log(JSON.stringify(summary, null, 2))
 }

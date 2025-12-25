@@ -401,9 +401,7 @@
       try {
         const info = await fetchGetUserInfo()
         userStore.setUserInfo(info)
-      } catch (err) {
-        void err
-      }
+      } catch {}
       try {
         if (props.roleData?.roleCode && props.roleData?.roleId) {
           localStorage.setItem(
@@ -411,9 +409,7 @@
             String(props.roleData.roleId)
           )
         }
-      } catch (err) {
-        void err
-      }
+      } catch {}
       resetRouterState()
       router.replace(router.currentRoute.value.fullPath)
       emit('success')

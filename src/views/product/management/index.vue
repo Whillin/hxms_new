@@ -337,6 +337,7 @@
     fetchGetProductList,
     fetchSaveProduct,
     fetchDeleteProduct,
+    fetchGetProductCategories,
     fetchGetProductsCategories
   } from '@/api/product'
 
@@ -476,9 +477,7 @@
           .filter(Boolean)
           .join(' / ')
       })
-    } catch (err) {
-      void err
-    }
+    } catch {}
   }
 
   // 方法

@@ -27,7 +27,7 @@ function parseEnvFile(filePath) {
       if (m) {
         const k = m[1]
         let v = m[2]
-        if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
+        if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith('\'') && v.endsWith('\''))) {
           v = v.slice(1, -1)
         }
         process.env[k] = v
@@ -35,11 +35,7 @@ function parseEnvFile(filePath) {
     }
   } catch (err) {
     if (process.env.NODE_ENV === 'development') {
-      console.warn(
-        '[create-employee-user] env file not read:',
-        filePath,
-        String(err?.message || err)
-      )
+      console.warn('[create-employee-user] env file not read:', filePath, String(err?.message || err))
     }
   }
 }
@@ -103,10 +99,7 @@ async function resolveBrandRegionFromStore(conn, db, storeRow) {
       brand = await findById(conn, db, Number(department.parentId))
     } else if (region.type === 'region') {
       // 容错：旧数据可能 region 直接挂在 brand 之下
-      brand =
-        department && department.type === 'brand'
-          ? department
-          : await findById(conn, db, Number(region.parentId))
+      brand = department && department.type === 'brand' ? department : await findById(conn, db, Number(region.parentId))
     }
   }
   return {
@@ -168,9 +161,10 @@ async function ensureUser(conn, db, employeeId, userName, initialPassword, role)
   }
 
   // 检查用户名是否被占用
-  const [byName] = await conn.query(`SELECT id FROM \`${db}\`.users WHERE userName=? LIMIT 1`, [
-    userName
-  ])
+  const [byName] = await conn.query(
+    `SELECT id FROM \`${db}\`.users WHERE userName=? LIMIT 1`,
+    [userName]
+  )
   if (Array.isArray(byName) && byName.length) {
     throw new Error(`用户名已存在：${userName}`)
   }

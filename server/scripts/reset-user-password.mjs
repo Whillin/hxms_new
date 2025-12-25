@@ -12,19 +12,13 @@ function parseEnvFile(filePath) {
       if (m) {
         const k = m[1]
         let v = m[2]
-        if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
+        if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith('\'') && v.endsWith('\''))) {
           v = v.slice(1, -1)
         }
         process.env[k] = v
       }
     }
-  } catch (e) {
-    console.warn(
-      '[reset-user-password] failed to read env file:',
-      filePath,
-      String(e?.message || e)
-    )
-  }
+  } catch {}
 }
 
 async function connect() {
@@ -66,18 +60,7 @@ async function connect() {
 
 function parseArgs() {
   const args = process.argv.slice(2)
-  const out = {
-    userName: '',
-    userId: 0,
-    password: '',
-    list: false,
-    like: '',
-    findEmployee: false,
-    employeeName: '',
-    schemas: false,
-    showIndexes: false,
-    dropIndex: ''
-  }
+  const out = { userName: '', userId: 0, password: '', list: false, like: '', findEmployee: false, employeeName: '', schemas: false, showIndexes: false, dropIndex: '' }
   for (let i = 0; i < args.length; i++) {
     const a = args[i]
     if (a === '--user' || a === '--username' || a === '--userName') {
@@ -110,23 +93,12 @@ async function main() {
   parseEnvFile(path.join(root, '.env.production'))
   parseEnvFile(path.join(root, '.env'))
 
-  const {
-    userName,
-    userId,
-    password,
-    list,
-    like,
-    findEmployee,
-    employeeName,
-    schemas,
-    showIndexes,
-    dropIndex
-  } = parseArgs()
+  const { userName, userId, password, list, like, findEmployee, employeeName, schemas, showIndexes, dropIndex } = parseArgs()
   const { conn, db } = await connect()
   try {
     if (showIndexes) {
       const [rows] = await conn.query(
-        "SELECT INDEX_NAME, COLUMN_NAME, NON_UNIQUE FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA=? AND TABLE_NAME='customers'",
+        'SELECT INDEX_NAME, COLUMN_NAME, NON_UNIQUE FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA=? AND TABLE_NAME=\'customers\'',
         [db]
       )
       console.log(JSON.stringify({ db, indexes: rows }))
@@ -136,16 +108,14 @@ async function main() {
       const sql = `ALTER TABLE \`${db}\`.customers DROP INDEX \`${dropIndex}\``
       await conn.query(sql)
       const [rows] = await conn.query(
-        "SELECT INDEX_NAME, COLUMN_NAME, NON_UNIQUE FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA=? AND TABLE_NAME='customers'",
+        'SELECT INDEX_NAME, COLUMN_NAME, NON_UNIQUE FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA=? AND TABLE_NAME=\'customers\'',
         [db]
       )
       console.log(JSON.stringify({ db, dropped: dropIndex, indexes: rows }))
       return
     }
     if (schemas) {
-      const [rows] = await conn.query(
-        'SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA ORDER BY SCHEMA_NAME'
-      )
+      const [rows] = await conn.query('SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA ORDER BY SCHEMA_NAME')
       console.log(JSON.stringify(rows))
       return
     }
@@ -179,29 +149,13 @@ async function main() {
     }
     const hash = bcrypt.hashSync(password, 10)
     if (userId && !Number.isNaN(userId)) {
-      const [res] = await conn.query(
-        `UPDATE \`${db}\`.users SET passwordHash=?, enabled=true WHERE id=?`,
-        [hash, userId]
-      )
-      const [rows] = await conn.query(
-        `SELECT id,userName,roles,enabled FROM \`${db}\`.users WHERE id=?`,
-        [userId]
-      )
-      console.log(
-        JSON.stringify({ db, affectedRows: (res && res.affectedRows) || 0, result: rows })
-      )
+      const [res] = await conn.query(`UPDATE \`${db}\`.users SET passwordHash=?, enabled=true WHERE id=?`, [hash, userId])
+      const [rows] = await conn.query(`SELECT id,userName,roles,enabled FROM \`${db}\`.users WHERE id=?`, [userId])
+      console.log(JSON.stringify({ db, affectedRows: (res && res.affectedRows) || 0, result: rows }))
     } else {
-      const [res] = await conn.query(
-        `UPDATE \`${db}\`.users SET passwordHash=?, enabled=true WHERE userName=?`,
-        [hash, userName]
-      )
-      const [rows] = await conn.query(
-        `SELECT id,userName,roles,enabled FROM \`${db}\`.users WHERE userName=?`,
-        [userName]
-      )
-      console.log(
-        JSON.stringify({ db, affectedRows: (res && res.affectedRows) || 0, result: rows })
-      )
+      const [res] = await conn.query(`UPDATE \`${db}\`.users SET passwordHash=?, enabled=true WHERE userName=?`, [hash, userName])
+      const [rows] = await conn.query(`SELECT id,userName,roles,enabled FROM \`${db}\`.users WHERE userName=?`, [userName])
+      console.log(JSON.stringify({ db, affectedRows: (res && res.affectedRows) || 0, result: rows }))
     }
   } finally {
     await conn.end()

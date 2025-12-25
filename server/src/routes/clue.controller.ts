@@ -469,7 +469,7 @@ export class ClueController {
         try {
           await this.oppService.upsertFromClue(saved)
         } catch (err) {
-          console.error('[ClueController] upsertFromClue failed on update:', err)
+          void err
         }
         return { code: 200, msg: '更新成功', data: true }
       }
@@ -603,9 +603,7 @@ export class ClueController {
       // 触发商机生成/更新
       try {
         await this.oppService.upsertFromClue(saved)
-      } catch (e) {
-        console.error('[ClueController] upsertFromClue failed on create:', e)
-      }
+      } catch {}
       // 统一返回码为 200；前端 fetchSaveClue 采用 boolean 作为成功标记
       return { code: 200, msg: '保存成功', data: true }
     }

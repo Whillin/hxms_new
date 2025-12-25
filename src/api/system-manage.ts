@@ -246,7 +246,7 @@ export async function fetchGetMenuList(delay = 200): Promise<MenuResponse> {
       : (resp as any)?.menuList || resp
     const menuList = (rawList as AppRouteRecord[]).map((route) => menuDataToRouter(route))
     return { menuList }
-  } catch {
+  } catch (error) {
     const menuData = asyncRoutes
     const menuList = menuData.map((route) => menuDataToRouter(route))
     await new Promise((resolve) => setTimeout(resolve, delay))

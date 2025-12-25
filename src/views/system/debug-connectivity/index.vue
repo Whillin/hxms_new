@@ -44,6 +44,21 @@
     }
   }
 
+  const testPostLogin = async () => {
+    lastResult.value = ''
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userName: 'Admin', password: '123456' })
+      })
+      const text = await res.text()
+      lastResult.value = `HTTP ${res.status}\n` + text
+    } catch (err) {
+      lastResult.value = '[POST login] 错误：\n' + safeStringify(err)
+    }
+  }
+
   // 页面加载后自动执行一次连通性检查，便于观察代理日志
   onMounted(() => {
     // 仅在页面加载时执行 GET 调试，不自动触发登录
