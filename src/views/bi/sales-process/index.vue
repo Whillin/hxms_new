@@ -105,6 +105,9 @@
           "
           size="small"
           style="width: 180px; margin-left: 8px"
+          :multiple="(props.personRole || 'consultant') === 'inviter'"
+          collapse-tags
+          collapse-tags-tooltip
         >
           <el-option v-for="c in consultants" :key="c.value" :label="c.label" :value="c.value" />
         </el-select>
@@ -201,6 +204,7 @@
         </el-button>
 
         <el-switch
+          v-if="(props.personRole || 'consultant') !== 'inviter'"
           v-model="enableCompare"
           active-text="对比模式"
           size="small"
@@ -587,17 +591,16 @@
 
   const overlayMode = ref<boolean>(false)
   const enableCompare = ref<boolean>(false)
-  const consultantId = ref<number | ''>('')
+  const consultantId = ref<number | '' | any[]>(
+    (props.personRole || 'consultant') === 'inviter' ? [] : ''
+  )
   const channelType = ref<string>('')
   const stores = ref<Array<{ label: string; value: number | '' }>>([
     { label: '全部门店', value: '' }
   ])
-  const consultants = ref<Array<{ label: string; value: number | '' }>>([
-    {
-      label: (props.personRole || 'consultant') === 'inviter' ? '全部邀约专员' : '全部顾问',
-      value: ''
-    }
-  ])
+  const consultants = ref<Array<{ label: string; value: number | '' }>>(
+    (props.personRole || 'consultant') === 'inviter' ? [] : [{ label: '全部顾问', value: '' }]
+  )
   const normalizeStageLabel = (s: string) => {
     return String(s) === '全部订单数量' ? '全部商机数量' : String(s)
   }
@@ -651,12 +654,13 @@
       const sid = Number(storeId.value || 0)
       const res: any = await fetchGetEmployeeList({ current: 1, size: 200, storeId: sid })
       const records = res?.records || res?.list || []
-      const opts: Array<{ label: string; value: number | '' }> = [
-        {
-          label: (props.personRole || 'consultant') === 'inviter' ? '全部邀约专员' : '全部顾问',
+      const opts: Array<{ label: string; value: number | '' }> = []
+      if ((props.personRole || 'consultant') !== 'inviter') {
+        opts.push({
+          label: '全部顾问',
           value: ''
-        }
-      ]
+        })
+      }
       records
         .filter((r: any) => consultantAllowedRoles.value.has(String(r.role)))
         .forEach((r: any) => {
@@ -801,6 +805,7 @@
     return date.getTime() > Date.now()
   }
   const isConsultantSummaryMode = computed(() => {
+    if ((props.personRole || 'consultant') === 'inviter') return true
     return (
       funnelType.value === 'person' &&
       !enableCompare.value &&
@@ -1212,7 +1217,11 @@
         const cat = String((it as any)?.visitCategory || '')
         return cat === '首次' || cat === '再次'
       }
-      const csAll = consultants.value.filter((c) => c.value !== '')
+      let csAll = consultants.value.filter((c) => c.value !== '')
+      if (Array.isArray(consultantId.value) && consultantId.value.length > 0) {
+        const set = new Set(consultantId.value.map((v) => Number(v)))
+        csAll = csAll.filter((c) => set.has(Number(c.value)))
+      }
       const nameSet = new Set<string>(
         csAll.map((c) => String(c.label || '').trim()).filter((s) => !!s)
       )
@@ -2269,10 +2278,12 @@
     flex: 0 0 48%;
     width: 48%;
   }
+
   .charts-row.single .funnel-card {
     flex: 1 1 100%;
     width: 100%;
   }
+
   .full-card {
     flex: 1 1 100%;
     width: 100%;
@@ -2314,22 +2325,26 @@
     font-weight: 600;
     color: var(--art-gray-text-900);
   }
+
   .info-icon {
     margin-left: 6px;
     color: var(--art-gray-text-600);
     cursor: help;
   }
+
   .below-avg {
-    color: #ff4d4f;
     font-weight: 600;
+    color: #ff4d4f;
   }
+
   .text-gray {
     color: #999;
   }
+
   .stage-header {
     display: inline-flex;
-    align-items: center;
     gap: 6px;
+    align-items: center;
   }
 
   .progress {
@@ -2448,12 +2463,6 @@
     color: #ff3b30;
   }
 
-  .stage-header {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-  }
-
   .stage-header .note {
     font-size: 12px;
     color: var(--art-gray-text-700);
@@ -2467,11 +2476,6 @@
 
   .progress.stacked {
     margin-top: 4px;
-  }
-
-  .info-icon {
-    color: #b3b3b3;
-    cursor: help;
   }
 
   .bar-overlay-text {
