@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
-import { Repository, In } from 'typeorm'
+import { Repository } from 'typeorm'
 import { Opportunity, OpportunityStatus } from './opportunity.entity'
 import { Clue } from '../clues/clue.entity'
 import { Employee } from '../employees/employee.entity'
@@ -33,7 +33,7 @@ export class OpportunityService {
     })
 
     // 解析归属顾问（优先使用线索的销售顾问ID；未填写则不创建新商机）
-    const owner = await this.resolveOwner(clue.salesConsultantId, storeId, clue.departmentId)
+    const owner = await this.resolveOwner(clue.salesConsultantId, storeId)
 
     // 决策是否创建新商机
     const needCreate = !latest || latest.status === '已战败' || latest.status === '已成交'
@@ -143,14 +143,37 @@ export class OpportunityService {
       return await this.repo.save(exist)
     }
 
-    // 已禁用新增：无有效ID时不执行创建
-    return undefined
+    // 新增商机
+    if (!storeId || Number.isNaN(storeId)) return undefined
+
+    const opp = this.repo.create({
+      opportunityCode: this.generateCode(storeId),
+      customerName: String(body.customerName || '').trim() || '未命名客户',
+      customerPhone: String(body.customerPhone || '').trim(),
+      status,
+      opportunityLevel: String(body.opportunityLevel || 'C') as any,
+      focusModelId: typeof body.focusModelId === 'number' ? Number(body.focusModelId) : undefined,
+      focusModelName: String(body.focusModelName || '') || undefined,
+      testDrive: !!body.testDrive,
+      bargaining: !!body.bargaining,
+      ownerId: ownerResolved?.id,
+      ownerName: ownerResolved?.name,
+      storeId,
+      openDate: visitDate,
+      latestVisitDate: visitDate,
+      channelCategory: String(body.channelCategory || '线下'),
+      businessSource: String(body.businessSource || '自然到店'),
+      channelLevel1: body.channelLevel1,
+      channelLevel2: body.channelLevel2,
+      ownerDepartmentId: ownerResolved?.departmentId
+    })
+    return await this.repo.save(opp)
   }
 
   private async resolveOwner(
     consultantId: number | undefined,
-    storeId: number,
-    departmentId?: number
+    storeId: number
+    // departmentId?: number
   ): Promise<Employee | undefined> {
     if (typeof consultantId !== 'number') return undefined
     const emp = await this.empRepo.findOne({ where: { id: consultantId } })
