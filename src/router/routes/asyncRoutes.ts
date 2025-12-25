@@ -279,7 +279,7 @@ export const asyncRoutes: AppRouteRecord[] = [
         name: 'ClueLeads',
         component: RoutesAlias.ClueLeads,
         meta: {
-          title: '到店客流表',
+          title: '到店客流登记表',
           keepAlive: true,
           authList: [
             { title: '新增', authMark: 'add' },
