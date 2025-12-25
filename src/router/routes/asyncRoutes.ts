@@ -28,11 +28,11 @@ export const asyncRoutes: AppRouteRecord[] = [
   //   }
   // },
   {
-    name: 'Dashboard',
     path: '/dashboard',
+    name: 'Dashboard',
     component: RoutesAlias.Layout,
     meta: {
-      title: 'menus.dashboard.title',
+      title: '仪表盘',
       icon: '&#xe721;',
       roles: ['R_ADMIN']
     },
@@ -42,7 +42,7 @@ export const asyncRoutes: AppRouteRecord[] = [
         name: 'Console',
         component: RoutesAlias.Dashboard,
         meta: {
-          title: 'menus.dashboard.console',
+          title: '控制台',
           keepAlive: false,
           fixedTab: true
         }
@@ -52,7 +52,7 @@ export const asyncRoutes: AppRouteRecord[] = [
         name: 'Analysis',
         component: RoutesAlias.Analysis,
         meta: {
-          title: 'menus.dashboard.analysis',
+          title: '分析页',
           keepAlive: false
         }
       }
@@ -199,7 +199,7 @@ export const asyncRoutes: AppRouteRecord[] = [
     name: 'Product',
     component: RoutesAlias.Layout,
     meta: {
-      title: 'menus.product.title',
+      title: '商品管理',
       icon: '&#xe7ae;',
       roles: ['R_SUPER', 'R_ADMIN']
     },
@@ -209,7 +209,7 @@ export const asyncRoutes: AppRouteRecord[] = [
         name: 'ProductCategory',
         component: RoutesAlias.ProductCategory,
         meta: {
-          title: 'menus.product.category',
+          title: '商品分类',
           keepAlive: true,
           authList: [
             {
@@ -232,7 +232,7 @@ export const asyncRoutes: AppRouteRecord[] = [
         name: 'ProductManagement',
         component: RoutesAlias.ProductManagement,
         meta: {
-          title: 'menus.product.management',
+          title: '商品列表',
           keepAlive: true,
           authList: [
             {
@@ -257,7 +257,7 @@ export const asyncRoutes: AppRouteRecord[] = [
     name: 'Clue',
     component: RoutesAlias.Layout,
     meta: {
-      title: 'menus.clue.title',
+      title: '线索管理',
       icon: '&#xe7ae;',
       roles: [
         'R_SUPER',
@@ -279,7 +279,7 @@ export const asyncRoutes: AppRouteRecord[] = [
         name: 'ClueLeads',
         component: RoutesAlias.ClueLeads,
         meta: {
-          title: 'menus.clue.leads',
+          title: '到店客流表',
           keepAlive: true,
           authList: [
             { title: '新增', authMark: 'add' },
@@ -324,7 +324,7 @@ export const asyncRoutes: AppRouteRecord[] = [
     name: 'Template',
     component: RoutesAlias.Layout,
     meta: {
-      title: 'menus.template.title',
+      title: '模板页面',
       icon: '&#xe860;',
       roles: ['R_SUPER']
     },
@@ -334,7 +334,7 @@ export const asyncRoutes: AppRouteRecord[] = [
         name: 'Cards',
         component: RoutesAlias.Cards,
         meta: {
-          title: 'menus.template.cards',
+          title: '卡片列表',
           keepAlive: false
         }
       },
@@ -343,7 +343,7 @@ export const asyncRoutes: AppRouteRecord[] = [
         name: 'Banners',
         component: RoutesAlias.Banners,
         meta: {
-          title: 'menus.template.banners',
+          title: 'Banner管理',
           keepAlive: false
         }
       },
