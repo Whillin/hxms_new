@@ -18,9 +18,9 @@ export class Clue {
   visitDate!: string
 
   /** 进店/离店时间（HH:mm） */
-  @Column('varchar', { length: 10, nullable: true })
+  @Column('varchar', { length: 30, nullable: true })
   enterTime?: string
-  @Column('varchar', { length: 10, nullable: true })
+  @Column('varchar', { length: 30, nullable: true })
   leaveTime?: string
 
   /** 接待时长(分钟)与到店人数 */
