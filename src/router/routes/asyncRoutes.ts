@@ -32,7 +32,7 @@ export const asyncRoutes: AppRouteRecord[] = [
     name: 'Dashboard',
     component: RoutesAlias.Layout,
     meta: {
-      title: '仪表盘',
+      title: '销售目标进度',
       icon: '&#xe721;',
       roles: ['R_ADMIN']
     },
@@ -158,7 +158,7 @@ export const asyncRoutes: AppRouteRecord[] = [
     name: 'Opportunity',
     component: RoutesAlias.Layout,
     meta: {
-      title: '商机管理',
+      title: '销售机会管理',
       icon: '&#xe8d4;',
       roles: [
         'R_SUPER',
@@ -257,7 +257,7 @@ export const asyncRoutes: AppRouteRecord[] = [
     name: 'Clue',
     component: RoutesAlias.Layout,
     meta: {
-      title: '线索管理',
+      title: '客流及线索管理',
       icon: '&#xe7ae;',
       roles: [
         'R_SUPER',
@@ -296,7 +296,7 @@ export const asyncRoutes: AppRouteRecord[] = [
         name: 'ClueOnlineChannelInfo',
         component: RoutesAlias.ChannelOnlineDaily,
         meta: {
-          title: '线上渠道信息表',
+          title: '线上线索数量表',
           keepAlive: true,
           roles: [
             'R_SUPER',
