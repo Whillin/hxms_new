@@ -518,7 +518,7 @@
 
   import request from '@/utils/http'
   import { fetchGetCustomerStoreOptions } from '@/api/customer'
-  import { fetchGetEmployeeList, fetchSaveEmployee } from '@/api/system-manage'
+  import { fetchGetEmployeeList } from '@/api/system-manage'
   import { fetchGetDepartmentList } from '@/api/system-manage'
   import { fetchChannelOptions } from '@/api/channel'
   import { fetchGetClueList } from '@/api/clue'
@@ -1237,44 +1237,7 @@
         if (isArrival(it)) counter[nm].arrivals++
       })
       // 若无真实数据，注入测试数据（便于验证视图与标注规则）
-      const sumLeads0 = Object.values(counter).reduce((s, v) => s + (v.leads || 0), 0)
-      const sumArrivals0 = Object.values(counter).reduce((s, v) => s + (v.arrivals || 0), 0)
-      if (sumLeads0 === 0 && sumArrivals0 === 0) {
-        await seedInviterTestDataForStores()
-        // 重新抓取最新线索并重建统计
-        page = 1
-        all = []
-        while (true) {
-          const p: any = { current: page, size: pageSize }
-          if (range) p.daterange = range
-          try {
-            const resp: any = await fetchGetClueList(p)
-            const list: any[] = (resp?.records as any) || []
-            all = all.concat(list)
-            if (!Array.isArray(list) || list.length < pageSize) break
-            page++
-          } catch {
-            break
-          }
-        }
-        const filtered2 = all.filter((x) => {
-          const s0 = Number((x as any)?.storeId || 0)
-          if (sid > 0 && s0 !== sid) return false
-          if (!(sid > 0) && visibleIds.length && !visibleIds.includes(s0)) return false
-          const src = String(
-            (x as any)?.businessSource || (x as any)?.source || (x as any)?.channelCategory || ''
-          )
-          if (src && src !== '线上') return false
-          return true
-        })
-        Object.keys(counter).forEach((k) => (counter[k] = { leads: 0, arrivals: 0 }))
-        filtered2.forEach((it) => {
-          const nm = extractInviter(it)
-          if (!nm || !nameSet.has(nm)) return
-          counter[nm].leads++
-          if (isArrival(it)) counter[nm].arrivals++
-        })
-      }
+
       const rows: Array<{
         name: string
         leads: number
@@ -1824,141 +1787,6 @@
     return null
   }
 
-  const seedInviterTestDataForStores = async () => {
-    if ((props.personRole || 'consultant') !== 'inviter') return
-    const storeIds =
-      storeId.value !== ''
-        ? [Number(storeId.value || 0)]
-        : getVisibleStoreIds()
-            .map((id) => Number(id || 0))
-            .filter((id) => Number.isFinite(id) && id > 0)
-    const today = new Date()
-    const yyyy = today.getFullYear()
-    const mm = String(today.getMonth() + 1).padStart(2, '0')
-    const dd = String(today.getDate()).padStart(2, '0')
-    const dateStr = `${yyyy}-${mm}-${dd}`
-    let phoneSeed = Math.floor(Math.random() * 90000000) + 10000000
-    for (const sid of storeIds) {
-      const storeLabel = String(
-        stores.value.find((s) => Number(s.value || 0) === sid)?.label || ''
-      ).trim()
-      // 确保门店存在邀约专员员工（R_APPOINTMENT）
-      const ensureInvitersForStore = async (): Promise<string[]> => {
-        try {
-          const resp: any = await fetchGetEmployeeList({
-            storeId: sid,
-            role: 'R_APPOINTMENT',
-            status: '1',
-            current: 1,
-            size: 50
-          })
-          const list: any[] = (resp?.data?.records as any) || (resp?.records as any) || []
-          const existingNames = list.map((e: any) => String(e.name || '').trim()).filter(Boolean)
-          const need = Math.max(0, 3 - existingNames.length)
-          const created: string[] = []
-          for (let i = 0; i < need; i++) {
-            const nm = storeLabel ? `邀约专员-${storeLabel}-${i + 1}` : `邀约专员-${i + 1}`
-            const phone = `1${String(Math.floor(Math.random() * 9000000000) + 1000000000)}`
-            try {
-              await fetchSaveEmployee({
-                name: nm,
-                phone,
-                gender: 'other' as any,
-                status: '1' as any,
-                role: 'R_APPOINTMENT',
-                storeId: sid,
-                hireDate: dateStr
-              } as any)
-              created.push(nm)
-            } catch {
-              // 忽略单条失败
-            }
-          }
-          return [...existingNames, ...created].slice(0, 3)
-        } catch {
-          // 退化：若无法读取员工列表，则直接使用预设名
-          return ['A', 'B', 'C'].map((x) =>
-            storeLabel ? `邀约专员-${storeLabel}-${x}` : `邀约专员-${x}`
-          )
-        }
-      }
-      const baseNames = await ensureInvitersForStore()
-      const presets = [
-        { leads: 18, arrivals: 6 },
-        { leads: 14, arrivals: 5 },
-        { leads: 12, arrivals: 4 }
-      ]
-      for (let i = 0; i < baseNames.length; i++) {
-        const nm = baseNames[i]
-        const preset = presets[i] || { leads: 10, arrivals: 3 }
-        const leads = Math.max(1, Number(preset.leads || 1))
-        const arrivals = Math.max(0, Math.min(leads, Number(preset.arrivals || 0)))
-        const basePayload: any = {
-          storeId: sid,
-          inviter: nm,
-          businessSource: '线上',
-          channelCategory: '线上',
-          channelLevel1: '新媒体开发',
-          channelLevel2: '新媒体（公司抖音）',
-          userAge: 28,
-          userGender: '未知',
-          buyExperience: '首购',
-          visitPurpose: '看车',
-          contactTimes: 1,
-          opportunityLevel: 'A'
-        }
-        for (let a = 0; a < arrivals; a++) {
-          phoneSeed++
-          const payload = {
-            ...basePayload,
-            customerName: `邀约${nm}${a + 1}`,
-            customerPhone: `1${String(phoneSeed).padStart(10, '0')}`,
-            visitCategory: '首次',
-            visitDate: dateStr,
-            enterTime: dateStr,
-            leaveTime: dateStr,
-            receptionStatus: 'sales',
-            visitorCount: 1,
-            isAddWeChat: a % 2 === 0,
-            testDrive: a % 3 === 0,
-            dealDone: a % 4 === 0
-          }
-          try {
-            await request.post<boolean>({
-              url: '/api/clue/save',
-              data: payload,
-              showSuccessMessage: false,
-              showErrorMessage: false
-            })
-            // 简单延时防止 429
-            await new Promise((r) => setTimeout(r, 200))
-          } catch {
-            // 忽略写入错误，尝试继续后续数据
-          }
-        }
-        for (let l = arrivals; l < leads; l++) {
-          phoneSeed++
-          const payload2 = {
-            ...basePayload,
-            customerName: `邀约${nm}线索${l + 1}`,
-            customerPhone: `1${String(phoneSeed).padStart(10, '0')}`
-          }
-          try {
-            await request.post<boolean>({
-              url: '/api/clue/save',
-              data: payload2,
-              showSuccessMessage: false,
-              showErrorMessage: false
-            })
-            // 简单延时防止 429
-            await new Promise((r) => setTimeout(r, 200))
-          } catch {
-            // 忽略写入错误
-          }
-        }
-      }
-    }
-  }
   const buildFunnelFromClues = async (sid: number) => {
     const range = buildRangeForClue()
     const visibleIds = getVisibleStoreIds()
