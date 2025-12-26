@@ -65,18 +65,19 @@ async function main() {
       console.log(`Scanning page ${page}...`)
       const list = await fetchCustomerList(token, page, 50)
       console.log(`Page ${page} got ${list?.length || 0} items.`)
-      if (list && list.length > 0) {
-        console.log(`Sample item: ${JSON.stringify(list[0])}`)
-      }
 
       if (!list || list.length === 0) {
+        // If we got 0 items but page is 1, maybe we are done.
+        // But if page > 1, we are just at the end.
         hasMore = false
         break
       }
 
-      const dirtyItems = list.filter(
-        (item) => item.userName && item.userName.startsWith('邀约邀约专员')
-      )
+      // Check both 'userName' and 'name' properties
+      const dirtyItems = list.filter((item) => {
+        const name = item.userName || item.name || ''
+        return name.startsWith('邀约邀约专员')
+      })
 
       if (dirtyItems.length === 0) {
         // If no dirty items on this page, move to next
