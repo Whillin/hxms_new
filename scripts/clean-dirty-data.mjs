@@ -64,6 +64,10 @@ async function main() {
     while (hasMore) {
       console.log(`Scanning page ${page}...`)
       const list = await fetchCustomerList(token, page, 50)
+      console.log(`Page ${page} got ${list?.length || 0} items.`)
+      if (list && list.length > 0) {
+        console.log(`Sample item: ${JSON.stringify(list[0])}`)
+      }
 
       if (!list || list.length === 0) {
         hasMore = false
