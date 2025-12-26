@@ -40,6 +40,8 @@ export class ChannelOnlineDailyController {
 
   /** 若线上渠道字典为空，则按预设进行一次性填充 */
   private async seedDictIfEmpty() {
+    const isProd = String(process.env.NODE_ENV || '').toLowerCase() === 'production'
+    if (isProd || process.env.SEED_ENABLED !== 'true') return
     const count = await this.dictRepo.count()
     if (count > 0) return
     const level1Sources: Record<string, string[]> = {

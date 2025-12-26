@@ -95,7 +95,8 @@ export class EmployeeController {
   @UseGuards(JwtGuard)
   @Get('list')
   async list(@Req() req: any, @Query() query: Record<string, any>) {
-    if (process.env.SEED_ENABLED === 'true') {
+    const isProd = String(process.env.NODE_ENV || '').toLowerCase() === 'production'
+    if (!isProd && process.env.SEED_ENABLED === 'true') {
       await this.seedIfEmpty()
     }
 

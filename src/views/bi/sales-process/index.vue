@@ -791,10 +791,19 @@
     renderFunnel()
   }
 
+  let applyTimer: any = null
+  const scheduleApply = () => {
+    if (applyTimer) clearTimeout(applyTimer)
+    applyTimer = setTimeout(() => {
+      applyTimer = null
+      apply()
+    }, 200)
+  }
+
   onMounted(async () => {
     await Promise.all([loadStores(), loadConsultants(), loadChannels(), loadTeams()])
     channelType.value = String(props.forcedChannelLevel1 || '')
-    apply()
+    scheduleApply()
   })
 
   const funnelItems = ref<Array<{ stage: string; value: number }>>([])
@@ -976,16 +985,7 @@
           })
           return Array.isArray(r?.items) ? r!.items : []
         } catch {
-          try {
-            const r2 = await request.get<{ items: { stage: string; value: number }[] }>({
-              url: '/api/bi/sales-funnel/open',
-              params,
-              showErrorMessage: false
-            })
-            return Array.isArray(r2?.items) ? r2!.items : []
-          } catch {
-            continue
-          }
+          continue
         }
       }
       return []

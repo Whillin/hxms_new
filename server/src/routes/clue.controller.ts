@@ -98,6 +98,32 @@ export class ClueController {
     if (query.opportunityLevel) searchFilters.opportunityLevel = String(query.opportunityLevel)
     if (query.dealDone === 'true') searchFilters.dealDone = true
     if (query.dealDone === 'false') searchFilters.dealDone = false
+    if (query.salesConsultant) searchFilters.salesConsultant = String(query.salesConsultant).trim()
+    if (query.businessSource) searchFilters.businessSource = String(query.businessSource).trim()
+    if (query.channelCategory) searchFilters.channelCategory = String(query.channelCategory).trim()
+    if (query.channelLevel1) searchFilters.channelLevel1 = String(query.channelLevel1).trim()
+    if (query.channelLevel2) searchFilters.channelLevel2 = String(query.channelLevel2).trim()
+    if (query.storeId !== undefined && query.storeId !== '') {
+      const sid = Number(query.storeId)
+      if (Number.isFinite(sid) && sid > 0) searchFilters.storeId = sid
+    } else {
+      const raw =
+        query.storeIds !== undefined
+          ? query.storeIds
+          : query.storeIdList !== undefined
+            ? query.storeIdList
+            : undefined
+      const arr: number[] = Array.isArray(raw)
+        ? raw.map((v: any) => Number(v)).filter((n: number) => Number.isFinite(n) && n > 0)
+        : typeof raw === 'string'
+          ? raw
+              .split(',')
+              .map((s) => Number(String(s).trim()))
+              .filter((n) => Number.isFinite(n) && n > 0)
+          : []
+      const uniq = Array.from(new Set(arr))
+      if (uniq.length) searchFilters.storeId = In(uniq)
+    }
     if (Array.isArray(query.daterange) && query.daterange.length === 2) {
       const [start, end] = query.daterange
       searchFilters.visitDate = Between(String(start), String(end))
@@ -172,80 +198,6 @@ export class ClueController {
     return { code: 200, msg: 'ok', data: payload }
   }
 
-  @Get('seed-online/open')
-  async seedOnlineOpen(@Query() query: any) {
-    const storeId = Number(query.storeId || 1)
-    const date = String(query.date || new Date().toISOString().slice(0, 10))
-    const count = Math.max(1, Number(query.count || 50))
-    const dict = await this.onlineDictRepo.find({ where: { enabled: true } })
-    // 选择一个当前门店在职员工作为默认顾问
-    const owner = await this.empRepo.findOne({ where: { storeId, status: '1' as any } })
-    const savedIds: number[] = []
-    let seq = 0
-    for (const ch of dict) {
-      for (let i = 0; i < count; i++) {
-        seq += 1
-        const phone =
-          `139${String(storeId).padStart(2, '0')}${String(ch.id).padStart(3, '0')}${String(i).padStart(4, '0')}`.slice(
-            0,
-            11
-          )
-        const clue = this.repo.create({
-          visitDate: date,
-          customerName: `测试用户${seq}`,
-          customerPhone: phone,
-          businessSource: '线上投放',
-          channelCategory: '线上',
-          channelLevel1: ch.level1,
-          channelLevel2: ch.level2,
-          storeId,
-          salesConsultantId: owner?.id,
-          opportunityLevel: 'B',
-          userGender: '未知',
-          userAge: 0,
-          contactTimes: 1,
-          visitCategory: i % 4 === 0 ? ('首次' as any) : ('再次' as any)
-        } as Partial<Clue>)
-        const saved = await this.repo.save(clue)
-        savedIds.push(saved.id)
-        try {
-          const opp = this.oppRepo.create({
-            customerId: saved.customerId,
-            customerName: saved.customerName!,
-            customerPhone: saved.customerPhone!,
-            status: '跟进中',
-            opportunityLevel: (saved.opportunityLevel as any) || 'C',
-            focusModelId: saved.focusModelId || undefined,
-            focusModelName: saved.focusModelName || undefined,
-            testDrive: !!saved.testDrive,
-            bargaining: !!saved.bargaining,
-            ownerId: saved.salesConsultantId || undefined,
-            ownerName: owner?.name || undefined,
-            storeId,
-            regionId: saved.regionId || undefined,
-            brandId: saved.brandId || undefined,
-            departmentId: saved.departmentId || undefined,
-            ownerDepartmentId: undefined,
-            openDate: saved.visitDate!,
-            latestVisitDate: saved.visitDate!,
-            channelCategory: '线上',
-            businessSource: String(saved.businessSource || '线上投放'),
-            channelLevel1: saved.channelLevel1 || undefined,
-            channelLevel2: saved.channelLevel2 || undefined
-          })
-          await this.oppRepo.save(opp)
-        } catch (err) {
-          void err
-        }
-      }
-    }
-    return {
-      code: 200,
-      msg: 'ok',
-      data: { storeId, date, channels: dict.length, perChannel: count, created: savedIds.length }
-    }
-  }
-
   /** 批量清理线上投放的测试线索及其对应商机（按门店与日期范围） */
   @UseGuards(JwtGuard)
   @Post('clear-seeded-online')
@@ -300,6 +252,10 @@ export class ClueController {
   /** 开放版清理（开发/演示用途） */
   @Post('clear-seeded-online/open')
   async clearSeededOnlineOpen(@Body() body: any) {
+    const isProd = String(process.env.NODE_ENV || '').toLowerCase() === 'production'
+    if (isProd || process.env.SEED_ENABLED !== 'true') {
+      return { code: 403, msg: '接口未开放', data: { deletedClues: 0, deletedOpps: 0 } }
+    }
     const storeId = Number(body.storeId || 0)
     const start = String(body.start || '').trim()
     const end = String(body.end || '').trim()
@@ -344,6 +300,10 @@ export class ClueController {
 
   @Get('clear-seeded-online/open')
   async clearSeededOnlineOpenGet(@Query() query: any) {
+    const isProd = String(process.env.NODE_ENV || '').toLowerCase() === 'production'
+    if (isProd || process.env.SEED_ENABLED !== 'true') {
+      return { code: 403, msg: '接口未开放', data: { deletedClues: 0, deletedOpps: 0 } }
+    }
     const body = {
       storeId: Number(query.storeId || 0),
       start: String(query.start || ''),
@@ -734,46 +694,63 @@ export class ClueController {
     const primaryRoles = ['R_APPOINTMENT', 'R_FRONT_DESK']
     const fallbackRoles = ['R_SALES', 'R_SALES_MANAGER', 'R_STORE_MANAGER']
 
-    // 直接在门店的邀约专员/前台
-    const directPrimary = await this.empRepo.find({
+    const primary = await this.empRepo.find({
       where: { storeId, status: '1' as any, role: In(primaryRoles) }
     })
-
-    // 链接到门店的邀约专员/前台
-    const links = await this.empLinkRepo.find({ where: { storeId } })
-    const linkIds = Array.from(
-      new Set(links.map((l) => Number(l.employeeId)).filter((n) => Number.isFinite(n)))
-    )
-    let linkedPrimary: Employee[] = []
-    if (linkIds.length)
-      linkedPrimary = await this.empRepo.find({
-        where: { id: In(linkIds), status: '1' as any, role: In(primaryRoles) }
-      })
-
-    const map = new Map<number, Employee>()
-    for (const e of directPrimary) map.set(Number(e.id), e)
-    for (const e of linkedPrimary) map.set(Number(e.id), e)
-    let all = Array.from(map.values())
-
-    // 若没有邀约专员/前台，兜底返回在职销售相关角色
-    if (all.length === 0) {
-      const directFallback = await this.empRepo.find({
+    let employees = primary
+    if (employees.length === 0) {
+      employees = await this.empRepo.find({
         where: { storeId, status: '1' as any, role: In(fallbackRoles) }
       })
-      let linkedFallback: Employee[] = []
-      if (linkIds.length)
-        linkedFallback = await this.empRepo.find({
-          where: { id: In(linkIds), status: '1' as any, role: In(fallbackRoles) }
-        })
-
-      map.clear()
-      for (const e of directFallback) map.set(Number(e.id), e)
-      for (const e of linkedFallback) map.set(Number(e.id), e)
-      all = Array.from(map.values())
     }
-
-    const options = all.map((e) => ({ label: e.name, value: e.name }))
+    const options = employees.map((e) => ({ label: e.name, value: e.name }))
     return { code: 200, msg: 'ok', data: options }
+  }
+
+  /** 邀约专员指标统计（避免前端循环拉取导致 429） */
+  @UseGuards(JwtGuard)
+  @Get('inviter-stats')
+  async inviterStats(@Req() req: any, @Query() query: any) {
+    const storeId = Number(query.storeId || 0)
+    const start = String(query.start || '')
+    const end = String(query.end || '')
+
+    // 权限校验
+    const scope = await this.dataScopeService.getScope(req.user)
+    const allowed = await this.dataScopeService.resolveAllowedStoreIds(scope)
+    if (storeId > 0 && allowed.length && !allowed.includes(storeId)) {
+      return { code: 403, msg: '无权访问该门店', data: [] }
+    }
+    const targetStoreIds = storeId > 0 ? [storeId] : allowed
+
+    const qb = this.repo.createQueryBuilder('c')
+    qb.select('c.salesConsultant', 'inviter')
+    qb.addSelect('COUNT(c.id)', 'leads')
+    qb.addSelect("SUM(CASE WHEN c.visitCategory IN ('首次', '再次') THEN 1 ELSE 0 END)", 'arrivals')
+
+    qb.where('c.visitDate BETWEEN :start AND :end', { start, end })
+    if (targetStoreIds.length) {
+      qb.andWhere('c.storeId IN (:...ids)', { ids: targetStoreIds })
+    }
+    // 仅统计线上渠道
+    qb.andWhere(
+      "(c.businessSource = '线上' OR c.channelCategory = '线上' OR c.businessSource = '线上投放')"
+    )
+
+    qb.groupBy('c.salesConsultant')
+
+    const rows = await qb.getRawMany()
+
+    // 处理 inviter 为空或 null 的情况，以及格式化返回
+    const result = rows
+      .filter((r) => r.inviter && String(r.inviter).trim() !== '')
+      .map((r) => ({
+        name: r.inviter,
+        leads: Number(r.leads),
+        arrivals: Number(r.arrivals)
+      }))
+
+    return { code: 200, msg: 'ok', data: result }
   }
 
   @UseGuards(JwtGuard)

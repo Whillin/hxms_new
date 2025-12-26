@@ -794,24 +794,7 @@
           })
           return Array.isArray(r?.items) ? r!.items : []
         } catch {
-          try {
-            const r2 = await request.get<{
-              items: {
-                stage: string
-                percent?: number
-                value: number
-                mom?: number
-                percentRaw?: number
-              }[]
-            }>({
-              url: '/api/bi/sales-funnel/open',
-              params,
-              showErrorMessage: false
-            })
-            return Array.isArray(r2?.items) ? r2!.items : []
-          } catch {
-            continue
-          }
+          continue
         }
       }
       return []
@@ -1209,6 +1192,15 @@
 
   const teamId = ref<number | ''>('')
 
+  let applyTimer: any = null
+  const scheduleApply = () => {
+    if (applyTimer) clearTimeout(applyTimer)
+    applyTimer = setTimeout(() => {
+      applyTimer = null
+      void apply()
+    }, 200)
+  }
+
   onMounted(async () => {
     await loadStores()
     await loadConsultants()
@@ -1221,17 +1213,17 @@
         const opts = level2Map.value[String(l1 || '')] || [{ label: '全部二级', value: '' }]
         channelLevel2Options.value = opts
         channelLevel2.value = ''
-        void apply()
+        scheduleApply()
       },
       { immediate: true }
     )
     watch(
       () => channelLevel2.value,
       () => {
-        void apply()
+        scheduleApply()
       }
     )
-    await apply()
+    scheduleApply()
   })
 </script>
 
@@ -1261,6 +1253,7 @@
     width: 48%;
     margin-bottom: 12px;
   }
+
   .charts-row.single .funnel-card {
     flex: 1 1 100%;
     width: 100%;

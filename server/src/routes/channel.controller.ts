@@ -73,7 +73,8 @@ export class ChannelsController {
   /** 渠道选项：从数据库返回一级列表、二级映射与一级元数据 */
   @Get('options')
   async options() {
-    if (process.env.SEED_ENABLED === 'true') {
+    const isProd = String(process.env.NODE_ENV || '').toLowerCase() === 'production'
+    if (!isProd && process.env.SEED_ENABLED === 'true') {
       await this.seedIfEmpty()
     }
 

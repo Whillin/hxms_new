@@ -43,7 +43,10 @@ export class ChannelOnlineController {
   /** 返回来源与渠道选项 */
   @Get('options')
   async options() {
-    await this.seedIfEmpty()
+    const isProd = String(process.env.NODE_ENV || '').toLowerCase() === 'production'
+    if (!isProd && process.env.SEED_ENABLED === 'true') {
+      await this.seedIfEmpty()
+    }
 
     const l1Raw = await this.repo
       .createQueryBuilder('oc')

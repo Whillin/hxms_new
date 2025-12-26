@@ -232,8 +232,11 @@ async function request<T = any>(config: ExtendedAxiosRequestConfig): Promise<T> 
   try {
     const res = await axiosInstance.request<Http.BaseResponse<T>>(config)
 
-    // 显示成功消息
-    if (config.showSuccessMessage && res.data.msg) {
+    if (
+      config.showSuccessMessage &&
+      String(config.method).toUpperCase() !== 'GET' &&
+      res.data.msg
+    ) {
       showSuccess(res.data.msg)
     }
 

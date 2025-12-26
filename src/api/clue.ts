@@ -130,3 +130,15 @@ export function fetchGetClueWeeklyClickCount(params?: { storeId?: number }) {
     params
   })
 }
+
+// 获取邀约专员指标统计
+export function fetchGetClueInviterStats(params: {
+  storeId?: number
+  start?: string
+  end?: string
+}) {
+  return request.get<Array<{ name: string; leads: number; arrivals: number }>>({
+    url: '/api/clue/inviter-stats',
+    params
+  })
+}

@@ -67,8 +67,10 @@ export function fetchGetProductsCategories(ids: number[]) {
 }
 
 export function fetchGetModelsByStore(storeId: number) {
-  return request.get<Array<{ id: number; name: string }>>({
-    url: '/api/product/models/by-store',
-    params: { storeId }
-  })
+  return request
+    .get<Array<{ id: number; name: string }>>({
+      url: '/api/product/models/by-store',
+      params: { storeId }
+    })
+    .catch(() => [])
 }

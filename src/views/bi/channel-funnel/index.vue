@@ -39,6 +39,7 @@
     font-size: 16px;
     font-weight: 600;
   }
+
   .page-content.art-full-height {
     display: flex;
     flex-direction: column;
@@ -46,26 +47,26 @@
   }
 
   .art-custom-card {
-    flex: 1;
     display: flex;
+    flex: 1;
     flex-direction: column;
     min-height: 0;
   }
 
   :deep(.art-custom-card .el-card__body) {
-    flex: 1;
     display: flex;
+    flex: 1;
     flex-direction: column;
     min-height: 0;
     overflow: visible !important;
   }
 
   .channel-tabs {
-    margin-top: 8px;
-    flex: 1;
     display: flex;
+    flex: 1;
     flex-direction: column;
     min-height: 0;
+    margin-top: 8px;
   }
 
   :deep(.el-tabs__content) {
@@ -81,15 +82,17 @@
     background: var(--art-main-bg-color);
     border-top: 1px solid var(--art-border-color);
   }
+
   .tab-section {
     display: flex;
     flex-direction: column;
     gap: 12px;
   }
+
   .section-body {
-    min-height: 260px;
     display: flex;
     align-items: center;
     justify-content: center;
+    min-height: 260px;
   }
 </style>

@@ -108,7 +108,8 @@ export class RoleController {
   /** 角色列表（分页+搜索） */
   @Get('list')
   async list(@Query() query: Record<string, any>) {
-    if (process.env.SEED_ENABLED === 'true') {
+    const isProd = String(process.env.NODE_ENV || '').toLowerCase() === 'production'
+    if (!isProd && process.env.SEED_ENABLED === 'true') {
       await this.seedIfEmpty()
     }
 
