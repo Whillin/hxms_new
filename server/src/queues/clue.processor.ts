@@ -71,9 +71,15 @@ export class ClueProcessor {
 
     // 严格校验最小必填（新增时必须携带）
     const id = Number(body?.id || 0) || undefined
-    const requiredMissing = !id && (!body.customerName || !body.customerPhone || !body.visitDate)
+    const requiredMissing =
+      !id &&
+      (!body.customerName ||
+        !body.customerPhone ||
+        !body.visitDate ||
+        !body.enterTime ||
+        !body.leaveTime)
     if (requiredMissing) {
-      throw new Error('缺少必填字段：客户姓名、客户电话、到店日期')
+      throw new Error('缺少必填字段：客户姓名、客户电话、到店日期、进店时间、离店时间')
     }
 
     // ===== 编辑更新：带 id 时进行更新，保持与直存路径一致 =====
@@ -251,24 +257,52 @@ export class ClueProcessor {
     })()
 
     // 解析车型ID
+    const isNumericText = (v: any) => /^\d+$/.test(String(v ?? '').trim())
     let focusModelIdResolved: number | undefined =
       typeof body.focusModelId === 'number' ? Number(body.focusModelId) : undefined
     let pm: ProductModel | null | undefined
+    if (!focusModelIdResolved && body.focusModelName && isNumericText(body.focusModelName)) {
+      const idFromName = Number(body.focusModelName)
+      if (idFromName > 0) focusModelIdResolved = idFromName
+    }
     if (!focusModelIdResolved && body.focusModelName) {
       pm = await this.productModelRepo.findOne({
         where: { name: String(body.focusModelName) }
       })
       focusModelIdResolved = pm?.id
     }
+    if (focusModelIdResolved && (!pm || !pm.name)) {
+      pm = await this.productModelRepo.findOne({ where: { id: focusModelIdResolved } })
+    }
     let dealModelIdResolved: number | undefined =
       typeof body.dealModelId === 'number' ? Number(body.dealModelId) : undefined
     let pm2: ProductModel | null | undefined
+    if (!dealModelIdResolved && body.dealModelName && isNumericText(body.dealModelName)) {
+      const idFromName = Number(body.dealModelName)
+      if (idFromName > 0) dealModelIdResolved = idFromName
+    }
     if (!dealModelIdResolved && body.dealModelName) {
       pm2 = await this.productModelRepo.findOne({
         where: { name: String(body.dealModelName) }
       })
       dealModelIdResolved = pm2?.id
     }
+    if (dealModelIdResolved && (!pm2 || !pm2.name)) {
+      pm2 = await this.productModelRepo.findOne({ where: { id: dealModelIdResolved } })
+    }
+
+    const focusModelNameResolved = (() => {
+      const raw = body.focusModelName ?? pm?.name
+      const s = raw !== undefined && raw !== null ? String(raw) : ''
+      if (s && isNumericText(s)) return pm?.name || undefined
+      return s || undefined
+    })()
+    const dealModelNameResolved = (() => {
+      const raw = body.dealModelName ?? pm2?.name
+      const s = raw !== undefined && raw !== null ? String(raw) : ''
+      if (s && isNumericText(s)) return pm2?.name || undefined
+      return s || undefined
+    })()
 
     // 创建Clue实体
     const livingAreaStr = Array.isArray(body.livingArea)
@@ -300,12 +334,12 @@ export class ClueProcessor {
 
       // 车型与成交标记（冗余 + 外键）
       focusModelId: focusModelIdResolved || undefined,
-      focusModelName: body.focusModelName || pm?.name || undefined,
+      focusModelName: focusModelNameResolved,
       testDrive: toBool(body.testDrive),
       bargaining: toBool(body.bargaining),
       dealDone: toBool(body.dealDone),
       dealModelId: dealModelIdResolved || undefined,
-      dealModelName: body.dealModelName || pm2?.name || undefined,
+      dealModelName: dealModelNameResolved,
 
       // 渠道与来源（冗余 + 外键）
       businessSource: String(body.businessSource || '自然到店'),
@@ -380,8 +414,8 @@ export class ClueProcessor {
             )}|${body.channelLevel1 || ''}|${body.channelLevel2 || ''}`
           },
       productSnapshot: {
-        focus: { id: focusModelIdResolved, name: body.focusModelName || pm?.name },
-        deal: { id: dealModelIdResolved, name: body.dealModelName || pm2?.name }
+        focus: { id: focusModelIdResolved, name: focusModelNameResolved },
+        deal: { id: dealModelIdResolved, name: dealModelNameResolved }
       }
     }
 
