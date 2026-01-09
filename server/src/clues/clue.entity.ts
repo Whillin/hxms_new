@@ -55,7 +55,13 @@ export class Clue {
   // 是否加微
   @Column('tinyint', { default: false, name: 'isAddWeChat' })
   isAddWeChat!: boolean
-  @Column('varchar', { length: 10, default: '首次' })
+  @Column({
+    type: 'varchar',
+    length: 10,
+    default: '首次',
+    charset: 'utf8mb4',
+    collation: 'utf8mb4_unicode_ci'
+  })
   visitCategory!: '首次' | '再次'
 
   /** 关注/成交车型（名称与可选ID） */
@@ -98,11 +104,23 @@ export class Clue {
   opportunityLevel!: 'H' | 'A' | 'B' | 'C' | 'O'
 
   /** 客户画像 */
-  @Column('varchar', { length: 10, default: '未知' })
+  @Column({
+    type: 'varchar',
+    length: 10,
+    default: '未知',
+    charset: 'utf8mb4',
+    collation: 'utf8mb4_unicode_ci'
+  })
   userGender!: '男' | '女' | '未知'
   @Column('int', { default: 0 })
   userAge!: number
-  @Column('varchar', { length: 10, default: '首购' })
+  @Column({
+    type: 'varchar',
+    length: 10,
+    default: '首购',
+    charset: 'utf8mb4',
+    collation: 'utf8mb4_unicode_ci'
+  })
   buyExperience!: '首购' | '换购' | '增购'
   @Column('varchar', { length: 50, nullable: true })
   userPhoneModel?: string

@@ -126,7 +126,7 @@ export function showError(error: HttpError, showMessage: boolean = true): void {
   const now = Date.now()
   const isServerError = [500, 502, 503, 504].includes(error.code)
   const key = `${error.code}|${error.url || ''}`
-  if (!globalThis.__HTTP_ERROR_CACHE__) {
+  if (!(globalThis as any).__HTTP_ERROR_CACHE__) {
     ;(globalThis as any).__HTTP_ERROR_CACHE__ = new Map<string, number>()
   }
   const cache: Map<string, number> = (globalThis as any).__HTTP_ERROR_CACHE__

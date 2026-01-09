@@ -278,7 +278,7 @@
 
   import request from '@/utils/http'
   import { fetchGetCustomerStoreOptions } from '@/api/customer'
-  import { fetchGetModelsByStore, fetchGetProductList } from '@/api/product'
+  import { fetchGetModelsByStore } from '@/api/product'
   import { fetchGetDepartmentList } from '@/api/system-manage'
   import { fetchGetClueList } from '@/api/clue'
   import { InfoFilled } from '@element-plus/icons-vue'
@@ -385,7 +385,7 @@
     const brand = currentBrand.value
     if (!brand) return modelsAll.value.map((m) => ({ label: m.label, value: m.value }))
     const list = modelsAll.value.filter((m) => String(m.brand || '') === String(brand))
-    if (!list.length) return []
+    if (!list.length) return [{ label: '全部车型', value: '' }]
     const out = [{ label: '全部车型', value: '' } as { label: string; value: number | '' }]
     list.forEach((m) => out.push({ label: m.label, value: m.value }))
     return out
@@ -466,71 +466,57 @@
     try {
       const sid = Number(storeId.value)
       if (!Number.isFinite(sid) || sid <= 0) {
-        models.value = [{ label: '全部车型', value: '' }]
-        modelsAll.value = [{ label: '全部车型', value: '' }]
+        const brandCanon = currentBrand.value
+        if (!brandCanon) {
+          models.value = [{ label: '全部车型', value: '' }]
+          modelsAll.value = [{ label: '全部车型', value: '' }]
+          return
+        }
+        const catsRes: any = await request.get({ url: '/api/category/all' })
+        const cats: any[] = Array.isArray(catsRes?.data) ? catsRes.data : []
+        const target = cats.find(
+          (c: any) =>
+            String(c.level || 0) === '0' && normalizeBrand(String(c.name || '')) === brandCanon
+        )
+        if (!target) {
+          models.value = [{ label: '全部车型', value: '' }]
+          modelsAll.value = [{ label: '全部车型', value: '' }]
+          return
+        }
+        const prods: any = await request.get({
+          url: `/api/category/${Number(target.id)}/products`,
+          params: { includeChildren: 'true' }
+        })
+        const arr2 = Array.isArray(prods?.data) ? prods.data : []
+        const opts: Array<{ label: string; value: number | ''; brand?: string }> = [
+          { label: '全部车型', value: '' }
+        ]
+        arr2.forEach((m: any) => {
+          const idNum = Number(m.id)
+          const label = String(m.name || idNum)
+          if (Number.isFinite(idNum)) opts.push({ label, value: idNum, brand: brandCanon })
+        })
+        modelsAll.value = opts
+        models.value = opts.map((m) => ({ label: m.label, value: m.value }))
         return
       }
-      const list = await fetchGetModelsByStore(sid)
-      const arr = Array.isArray(list) ? list : []
       const brandCanon = currentBrand.value
-      let allowedIds: Set<number> | null = null
-      if (brandCanon) {
-        const map: Record<string, string> = {
-          audi: '奥迪',
-          xpeng: '小鹏',
-          byd: '比亚迪',
-          volkswagen: '大众',
-          tesla: '特斯拉'
-        }
-        const brandZh = map[brandCanon] || ''
-        if (brandZh) {
-          const res: any = await fetchGetProductList({ current: 1, size: 1000, brandName: brandZh })
-          const records: any[] = res?.records || res?.list || []
-          allowedIds = new Set<number>(
-            records.map((r: any) => Number(r.id)).filter((n) => Number.isFinite(n))
-          )
-        }
-      }
-      let filtered =
-        allowedIds && allowedIds.size > 0
-          ? arr.filter((m: any) => allowedIds!.has(Number(m.id)))
-          : arr
-      if (!filtered.length) {
-        const brand = currentBrand.value
-        if (brand) {
-          const catsRes: any = await request.get({ url: '/api/category/all' })
-          const cats: any[] = Array.isArray(catsRes?.data) ? catsRes.data : []
-          const target = cats.find(
-            (c: any) =>
-              String(c.level || 0) === '0' && normalizeBrand(String(c.name || '')) === brand
-          )
-          if (target) {
-            const prods: any = await request.get({
-              url: `/api/category/${Number(target.id)}/products`,
-              params: { includeChildren: 'true' }
-            })
-            const arr2 = Array.isArray(prods?.data) ? prods.data : []
-            filtered = arr2.map((m: any) => ({ id: m.id, name: m.name }))
-          }
-        }
-      }
-      const brand = currentBrand.value
-      const allowByBrand: Record<string, Set<string>> = {
-        audi: new Set(['A4L', 'A7L', 'Q5 e', 'Q6']),
-        xpeng: new Set(['p7+', 'p711'])
-      }
-      const key = String(brand || '')
-      if (allowByBrand[key]) {
-        const allow = allowByBrand[key]
-        filtered = filtered.filter((m: any) => allow.has(String(m.name || '')))
-      }
+      const list: any = await fetchGetModelsByStore(sid)
+      const arr: any[] = Array.isArray(list)
+        ? list
+        : Array.isArray((list as any)?.records)
+          ? (list as any).records
+          : []
       const opts: Array<{ label: string; value: number | ''; brand?: string }> = [
         { label: '全部车型', value: '' }
       ]
-      filtered.forEach((m: any) => {
+      arr.forEach((m: any) => {
         const idNum = Number(m.id)
         const label = String(m.name || idNum)
-        if (Number.isFinite(idNum)) opts.push({ label, value: idNum, brand })
+        if (Number.isFinite(idNum)) {
+          const brand = normalizeBrand(String(m.brand || brandCanon || ''))
+          opts.push({ label, value: idNum, brand })
+        }
       })
       modelsAll.value = opts
       models.value = opts.map((m) => ({ label: m.label, value: m.value }))
@@ -1040,20 +1026,24 @@
     gap: 8px;
     align-items: center;
   }
+
   .charts-row {
     display: flex;
     gap: 12px;
     width: 100%;
   }
+
   .funnel-card {
     flex: 0 0 48%;
     width: 48%;
   }
+
   .charts-row.single .funnel-card {
     flex: 1 1 100%;
     width: 100%;
     max-width: 100%;
   }
+
   .legend {
     display: flex;
     gap: 16px;
@@ -1062,29 +1052,35 @@
     font-size: 12px;
     color: var(--art-gray-text-700);
   }
+
   .legend-item {
     display: inline-flex;
     gap: 6px;
     align-items: center;
   }
+
   .legend-dot {
     display: inline-block;
     width: 10px;
     height: 10px;
     border-radius: 50%;
   }
+
   .legend-dot.dot-a {
     background: #ff5b79;
   }
+
   .legend-dot.dot-b {
     background: #b7bdc6;
   }
+
   .card-title {
     padding: 4px 12px 8px;
     font-size: 14px;
     font-weight: 600;
     color: var(--art-gray-text-900);
   }
+
   .progress {
     position: relative;
     width: 100%;
@@ -1093,6 +1089,7 @@
     background: #eceff3;
     border-radius: 999px;
   }
+
   .bar {
     position: relative;
     z-index: 1;
@@ -1102,38 +1099,47 @@
     border-radius: 999px;
     transition: width 0.3s ease;
   }
+
   .bar.bar-a {
     background: #ff5b79;
   }
+
   .bar.bar-b {
     background: #b7bdc6;
   }
+
   .progress.split .bar {
     position: absolute;
     top: 0;
     left: 0;
   }
+
   .stage-header {
     display: flex;
     gap: 10px;
     align-items: center;
   }
+
   .stage-header .note {
     font-size: 12px;
     color: var(--art-gray-text-700);
   }
+
   .stage-cell {
     display: flex;
     gap: 6px;
     align-items: center;
   }
+
   .progress.stacked {
     margin-top: 4px;
   }
+
   .info-icon {
     color: #b3b3b3;
     cursor: help;
   }
+
   .bar-overlay-text {
     position: absolute;
     top: 50%;
@@ -1149,6 +1155,7 @@
     pointer-events: none;
     transform: translate(-50%, -50%);
   }
+
   .bar-overlay-text.light {
     color: #ff3b30;
     text-shadow: 0 0 1px rgb(0 0 0 / 15%);

@@ -288,6 +288,20 @@ export class ProductController {
   async modelsByStore(@Query('storeId') storeIdParam?: string) {
     const storeId = Number(storeIdParam)
     if (!storeId || Number.isNaN(storeId)) return { code: 400, msg: '缺少有效门店ID', data: [] }
+    const decodeHexIfNeeded = (v: any) => {
+      const s = String(v ?? '')
+      const t = s.trim()
+      if (!t || t.length < 6 || t.length % 2 !== 0 || !/^[0-9a-fA-F]+$/.test(t)) return s
+      try {
+        const decoded = Buffer.from(t, 'hex').toString('utf8')
+        if (!decoded) return s
+        const bad = (decoded.match(/\uFFFD/g) || []).length
+        if (bad && bad / decoded.length > 0.2) return s
+        return decoded
+      } catch {
+        return s
+      }
+    }
     const allDepts = await this.deptRepo.find()
     const byId = new Map<number, Department>()
     const parentOf = new Map<number, number | undefined | null>()
@@ -300,11 +314,14 @@ export class ProductController {
     let cur: Department | undefined = store
     let brandName: string | undefined
     let brandCode: string | undefined
+    const pathNames: string[] = []
     const guard = new Set<number>()
     while (cur && !guard.has(cur.id)) {
       guard.add(cur.id)
+      const curName = decodeHexIfNeeded((cur as any).name)
+      pathNames.push(String(curName || cur.id))
       if (String((cur as any).type) === 'brand') {
-        brandName = String(cur.name)
+        brandName = String(curName)
         brandCode = (cur as any).code ? String((cur as any).code) : undefined
         break
       }
@@ -312,9 +329,22 @@ export class ProductController {
       cur = pid ? byId.get(pid) : undefined
     }
     if (!brandName) {
-      const models = await this.modelRepo.find({ where: { status: 1 }, order: { name: 'ASC' } })
-      const data = models.map((m) => ({ id: m.id, name: m.name }))
-      return { code: 200, msg: 'ok', data }
+      const detectFromText = (t: string) => {
+        const s = String(t || '').toLowerCase()
+        if (/(小鹏|xpeng)/.test(s)) return '小鹏'
+        if (/(奥迪|audi)/.test(s)) return '奥迪'
+        if (/(比亚迪|byd)/.test(s)) return '比亚迪'
+        if (/(大众|volkswagen|vw)/.test(s)) return '大众'
+        if (/(特斯拉|tesla)/.test(s)) return '特斯拉'
+        return ''
+      }
+      for (const n of pathNames) {
+        const hit = detectFromText(n)
+        if (hit) {
+          brandName = hit
+          break
+        }
+      }
     }
     const cats = await this.catRepo.find()
     const normalize = (s?: string) => (s || '').replace(/\s+/g, '').toLowerCase()
@@ -330,15 +360,26 @@ export class ProductController {
     }
     if (!brand) {
       const brandDepts = await this.deptRepo.find({ where: { type: 'brand' as any } })
-      const match = brandDepts.find((d) => normalize(d.name) === normalize(brandName))
+      const match = brandDepts.find(
+        (d) => normalize(decodeHexIfNeeded((d as any).name)) === normalize(brandName)
+      )
       if (match && match.code) {
         brand = cats.find((c) => c.slug && String(c.slug) === String(match.code))
       }
     }
-    if (!brand) {
-      const models = await this.modelRepo.find({ where: { status: 1 }, order: { name: 'ASC' } })
-      const data = models.map((m) => ({ id: m.id, name: m.name }))
-      return { code: 200, msg: 'ok', data }
+    const zh2enMap: Record<string, string> = {
+      奥迪: 'Audi',
+      小鹏: 'XPENG',
+      大众: 'Volkswagen',
+      上汽大众: 'Volkswagen',
+      一汽大众: 'Volkswagen',
+      比亚迪: 'BYD',
+      宝马: 'BMW',
+      奔驰: 'Mercedes-Benz',
+      丰田: 'Toyota',
+      本田: 'Honda',
+      日产: 'Nissan',
+      特斯拉: 'Tesla'
     }
     const byParent = new Map<number | null | undefined, ProductCategory[]>()
     cats.forEach((c) => {
@@ -355,44 +396,32 @@ export class ProductController {
         dfs(c.id)
       })
     }
-    dfs(brand.id)
-    const idsToUse = [brand.id, ...Array.from(descendants)]
-    const links = await this.linkRepo.find({ where: { categoryId: In(idsToUse) } })
-    const pidSet = new Set<number>()
-    links.forEach((l) => pidSet.add(l.productId))
-    const productIds = Array.from(pidSet)
+    let productIds: number[] = []
+    if (brand) {
+      dfs(brand.id)
+      const idsToUse = [brand.id, ...Array.from(descendants)]
+      const links = await this.linkRepo.find({ where: { categoryId: In(idsToUse) } })
+      const pidSet = new Set<number>()
+      links.forEach((l) => pidSet.add(l.productId))
+      productIds = Array.from(pidSet)
+    }
     let models: any[]
     if (productIds.length) {
       models = await this.modelRepo.find({ where: { id: In(productIds) }, order: { name: 'ASC' } })
     } else {
-      const bn = normalize(brandName)
-      const strictNoFallback =
-        bn.includes('上汽奥迪') ||
-        bn.includes('一汽奥迪') ||
-        bn.includes('上汽大众') ||
-        bn.includes('一汽大众')
+      const strictNoFallback = false
       if (strictNoFallback) {
         models = []
       } else {
-        const zh2en: Record<string, string> = {
-          奥迪: 'Audi',
-          小鹏: 'XPENG',
-          大众: 'Volkswagen',
-          上汽大众: 'Volkswagen',
-          一汽大众: 'Volkswagen',
-          比亚迪: 'BYD',
-          宝马: 'BMW',
-          奔驰: 'Mercedes-Benz',
-          丰田: 'Toyota',
-          本田: 'Honda',
-          日产: 'Nissan'
-        }
-        const brandEn = zh2en[String(brandName)]
+        const brandEn = brandName ? zh2enMap[String(brandName)] : undefined
         if (brandEn) {
-          models = await this.modelRepo.find({
-            where: { brand: brandEn },
-            order: { name: 'ASC' } as any
-          })
+          const brands = [brandEn, brandName].filter(Boolean) as string[]
+          models = await this.modelRepo
+            .createQueryBuilder('m')
+            .where('m.brand IN (:...brands)', { brands })
+            .orWhere('CONVERT(UNHEX(m.brand) USING utf8mb4) IN (:...brands)', { brands })
+            .orderBy('m.name', 'ASC')
+            .getMany()
         } else {
           models = await this.modelRepo.find({ where: { status: 1 }, order: { name: 'ASC' } })
         }
@@ -401,7 +430,7 @@ export class ProductController {
     const bnNorm = normalize(brandName)
     let wl: Set<string> | undefined
     if (bnNorm.includes('上汽奥迪')) {
-      wl = new Set(['A5L Spb', 'A7L', 'E5 Spb', 'Q5 e', 'Q6'])
+      wl = new Set(['A5L Spb', 'A7L', 'E5 Spb', 'Q5 e-tron', 'Q6'])
     }
     if (wl) {
       models = await this.modelRepo.find({
@@ -409,7 +438,15 @@ export class ProductController {
         order: { name: 'ASC' }
       })
     } else {
-      models = models.filter((m) => normalize(String((m as any).brand || '')) === bnNorm)
+      const normalizeEn = (s?: string) => (s || '').replace(/\s+/g, '').toLowerCase()
+      const bnEn = zh2enMap[String(brandName)] ? normalizeEn(zh2enMap[String(brandName)]) : ''
+      // 仅当明确识别出品牌时才进行过滤；否则返回（前面步骤获取的）全部车型
+      if (bnEn || bnNorm) {
+        models = models.filter((m) => {
+          const mb = normalizeEn(decodeHexIfNeeded((m as any).brand || ''))
+          return mb === bnEn || mb === bnNorm
+        })
+      }
     }
     console.log('[ProductController.modelsByStore]', {
       storeId,

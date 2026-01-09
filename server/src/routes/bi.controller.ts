@@ -33,12 +33,14 @@ export class BiController {
       const storeId = Number(query.storeId || 0)
       const allowed = await this.dataScopeService.resolveAllowedStoreIds(scope)
       const now = new Date()
+      const pad2 = (n: number) => `${n}`.padStart(2, '0')
       const fmt = (d: Date) => {
         const t = d?.getTime?.()
         if (typeof t !== 'number' || Number.isNaN(t)) {
-          return new Date().toISOString().slice(0, 10)
+          const x = new Date()
+          return `${x.getFullYear()}-${pad2(x.getMonth() + 1)}-${pad2(x.getDate())}`
         }
-        return d.toISOString().slice(0, 10)
+        return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
       }
       const period: string = String(query.period || 'month')
       let start = String(query.start || '')
@@ -361,9 +363,395 @@ export class BiController {
     }
   }
 
+  @UseGuards(JwtGuard)
+  @Get('store-clue-portrait')
+  async storeCluePortrait(@Req() req: any, @Query() query: any) {
+    try {
+      const scope = await this.dataScopeService.getScope(req.user)
+      const storeId = Number(query.storeId || 0)
+      const allowed = await this.dataScopeService.resolveAllowedStoreIds(scope)
+
+      if (storeId) {
+        if (scope.level !== 'all') {
+          let isAllowed = allowed.length ? allowed.includes(storeId) : false
+          if (!isAllowed && scope.level === 'self' && typeof scope.employeeId === 'number') {
+            const selfIds = await this.dataScopeService.getStoreIdsForEmployee(scope.employeeId)
+            isAllowed = selfIds.includes(storeId)
+          }
+          if (!isAllowed) {
+            return {
+              code: 403,
+              msg: '无权访问该门店',
+              data: { total: 0, avgAge: null, gender: [], buyExperience: [], visitCategory: [] }
+            }
+          }
+        }
+      }
+
+      const now = new Date()
+      const pad2 = (n: number) => `${n}`.padStart(2, '0')
+      const fmt = (d: Date) => {
+        const t = d?.getTime?.()
+        if (typeof t !== 'number' || Number.isNaN(t)) {
+          const x = new Date()
+          return `${x.getFullYear()}-${pad2(x.getMonth() + 1)}-${pad2(x.getDate())}`
+        }
+        return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
+      }
+
+      const period: string = String(query.period || 'month')
+      let start = String(query.start || '')
+      let end = String(query.end || '')
+
+      if (period === 'month' && String(query.month || '').length >= 7) {
+        const m = String(query.month)
+        const [yy, mm] = m.split('-')
+        const y = Number(yy)
+        const mmNum = Number(mm)
+        if (Number.isFinite(y) && Number.isFinite(mmNum) && mmNum >= 1 && mmNum <= 12) {
+          const monthIdx = mmNum - 1
+          start = fmt(new Date(y, monthIdx, 1))
+          end = fmt(new Date(y, monthIdx + 1, 0))
+        }
+      } else if (period === 'year' && String(query.year || '').length >= 4) {
+        const y = Number(String(query.year))
+        if (Number.isFinite(y) && y >= 1970 && y <= 3000) {
+          start = fmt(new Date(y, 0, 1))
+          end = fmt(new Date(y, 11, 31))
+        }
+      } else if (period === 'week' && String(query.week || '').length >= 8) {
+        const w = String(query.week)
+        let base: Date
+        if (/^\d{4}-\d{2}-\d{2}$/.test(w)) base = new Date(`${w}T00:00:00`)
+        else base = now
+        const day = base.getDay()
+        const diffToMonday = (day + 6) % 7
+        const monday = new Date(base)
+        monday.setDate(base.getDate() - diffToMonday)
+        monday.setHours(0, 0, 0, 0)
+        const sunday = new Date(monday)
+        sunday.setDate(monday.getDate() + 6)
+        sunday.setHours(23, 59, 59, 999)
+        start = fmt(monday)
+        end = fmt(sunday)
+      }
+
+      if (!start || !end) {
+        if (period === 'day') {
+          const s = fmt(now)
+          start = s
+          end = s
+        } else if (period === 'week') {
+          const day = now.getDay()
+          const diffToMonday = (day + 6) % 7
+          const monday = new Date(now)
+          monday.setDate(now.getDate() - diffToMonday)
+          monday.setHours(0, 0, 0, 0)
+          const sunday = new Date(monday)
+          sunday.setDate(monday.getDate() + 6)
+          sunday.setHours(23, 59, 59, 999)
+          start = fmt(monday)
+          end = fmt(sunday)
+        } else if (period === 'year') {
+          start = fmt(new Date(now.getFullYear(), 0, 1))
+          end = fmt(new Date(now.getFullYear(), 11, 31))
+        } else {
+          start = fmt(new Date(now.getFullYear(), now.getMonth(), 1))
+          end = fmt(new Date(now.getFullYear(), now.getMonth() + 1, 0))
+        }
+      }
+
+      const focusModelId = Number(query.focusModelId || 0)
+      const dealStatus = String(query.dealStatus || 'all')
+        .trim()
+        .toLowerCase()
+      let storesToQuery: number[] = []
+      if (storeId) {
+        storesToQuery = [storeId]
+      } else if (scope.level === 'all') {
+        storesToQuery = []
+      } else if (allowed.length) {
+        storesToQuery = allowed
+      } else if (scope.level === 'self' && typeof scope.employeeId === 'number') {
+        storesToQuery = await this.dataScopeService.getStoreIdsForEmployee(scope.employeeId)
+      } else {
+        storesToQuery = []
+      }
+
+      if (scope.level !== 'all' && storesToQuery.length === 0) {
+        return {
+          code: 403,
+          msg: '无可访问门店',
+          data: { total: 0, avgAge: null, gender: [], buyExperience: [], visitCategory: [] }
+        }
+      }
+
+      const qbClue = this.clueRepo.createQueryBuilder('c')
+      qbClue.where('c.visitDate BETWEEN :start AND :end', {
+        start: String(start),
+        end: String(end)
+      })
+      if (storesToQuery.length)
+        qbClue.andWhere('c.storeId IN (:...stores)', { stores: storesToQuery })
+      if (Number.isFinite(focusModelId) && focusModelId > 0)
+        qbClue.andWhere('c.focusModelId = :mid', { mid: focusModelId })
+      const cluesRaw = await qbClue.getMany()
+
+      const keyOf = (c: Clue): string => {
+        const cid = Number((c as any).customerId || 0)
+        if (Number.isFinite(cid) && cid > 0) return `cid:${cid}`
+        const sid = Number((c as any).storeId || 0)
+        const phone = String((c as any).customerPhone || '').trim()
+        return `phone:${sid}|${phone}`
+      }
+
+      const perCustomer = new Map<string, Clue>()
+      for (const c of cluesRaw) {
+        const k = keyOf(c)
+        if (k.endsWith('|') || k === 'phone:0|' || k === 'phone:|') continue
+        const exist = perCustomer.get(k)
+        if (!exist) {
+          perCustomer.set(k, c)
+          continue
+        }
+        const a = String((exist as any).visitDate || '')
+        const b = String((c as any).visitDate || '')
+        if (b > a) perCustomer.set(k, c)
+      }
+
+      const baseKeys = Array.from(perCustomer.keys())
+      if (dealStatus === 'done' || dealStatus === 'undone') {
+        const customerIds: number[] = []
+        const phones: string[] = []
+        for (const k of baseKeys) {
+          if (k.startsWith('cid:')) {
+            const id = Number(k.slice('cid:'.length))
+            if (Number.isFinite(id) && id > 0) customerIds.push(id)
+          } else if (k.startsWith('phone:')) {
+            const rest = k.slice('phone:'.length)
+            const idx = rest.indexOf('|')
+            if (idx >= 0) {
+              const phone = rest.slice(idx + 1).trim()
+              if (phone) phones.push(phone)
+            }
+          }
+        }
+
+        const sold = new Set<string>()
+        const chunk = <T>(arr: T[], size: number) => {
+          const out: T[][] = []
+          for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size))
+          return out
+        }
+
+        for (const ids of chunk(Array.from(new Set(customerIds)), 800)) {
+          const qb = this.oppRepo.createQueryBuilder('o')
+          qb.select(['o.customerId'])
+          qb.where('o.status = :st', { st: '已成交' })
+          qb.andWhere('o.customerId IN (:...ids)', { ids })
+          if (storesToQuery.length)
+            qb.andWhere('o.storeId IN (:...stores)', { stores: storesToQuery })
+          const rows = await qb.getMany()
+          rows.forEach((o) => {
+            const cid = Number((o as any).customerId || 0)
+            if (Number.isFinite(cid) && cid > 0) sold.add(`cid:${cid}`)
+          })
+        }
+
+        for (const ps of chunk(Array.from(new Set(phones)), 800)) {
+          const qb = this.oppRepo.createQueryBuilder('o')
+          qb.select(['o.storeId', 'o.customerPhone'])
+          qb.where('o.status = :st', { st: '已成交' })
+          qb.andWhere('o.customerPhone IN (:...ps)', { ps })
+          if (storesToQuery.length)
+            qb.andWhere('o.storeId IN (:...stores)', { stores: storesToQuery })
+          const rows = await qb.getMany()
+          rows.forEach((o) => {
+            const sid = Number((o as any).storeId || 0)
+            const phone = String((o as any).customerPhone || '').trim()
+            if (sid > 0 && phone) sold.add(`phone:${sid}|${phone}`)
+          })
+        }
+
+        for (const k of baseKeys) {
+          const isSold = sold.has(k)
+          if (dealStatus === 'done' && !isSold) perCustomer.delete(k)
+          if (dealStatus === 'undone' && isSold) perCustomer.delete(k)
+        }
+      }
+
+      const customers = Array.from(perCustomer.values())
+
+      let avgAge: number | null = null
+      let avgCarAge: number | null = null
+      let avgMileage: number | null = null
+
+      if (customers.length > 0) {
+        let sumAge = 0
+        let cntAge = 0
+        let sumCarAge = 0
+        let cntCarAge = 0
+        let sumMileage = 0
+        let cntMileage = 0
+
+        for (const c of customers) {
+          const age = Number((c as any).userAge || 0)
+          if (age > 0) {
+            sumAge += age
+            cntAge++
+          }
+          const ca = Number((c as any).carAge || 0)
+          if (ca > 0) {
+            sumCarAge += ca
+            cntCarAge++
+          }
+          const m = Number((c as any).mileage || 0)
+          if (m > 0) {
+            sumMileage += m
+            cntMileage++
+          }
+        }
+        if (cntAge > 0) avgAge = Math.round((sumAge / cntAge) * 10) / 10
+        if (cntCarAge > 0) avgCarAge = Math.round((sumCarAge / cntCarAge) * 10) / 10
+        if (cntMileage > 0) avgMileage = Math.round((sumMileage / cntMileage) * 10) / 10
+      }
+
+      const countBy = (getter: (c: Clue) => string) => {
+        const m = new Map<string, number>()
+        for (const c of customers) {
+          const k = String(getter(c) || '').trim() || '未知'
+          m.set(k, (m.get(k) || 0) + 1)
+        }
+        return Array.from(m.entries()).map(([name, value]) => ({ name, value }))
+      }
+
+      // 战败原因统计
+      // Channel Stats
+      // 修正：集客类型（businessSource）与集客渠道（channelLevel1）
+      const sourceStats = new Map<string, number>() // 集客渠道 (Channel Level 1)
+      const typeStats = new Map<string, number>() // 集客类型 (Business Source)
+
+      for (const c of customers) {
+        // 集客渠道：取 channelLevel1
+        const src = String((c as any).channelLevel1 || '未知').trim()
+        sourceStats.set(src, (sourceStats.get(src) || 0) + 1)
+
+        // 集客类型：取 businessSource
+        const typeName = String(c.businessSource || '未知').trim()
+        typeStats.set(typeName, (typeStats.get(typeName) || 0) + 1)
+      }
+
+      const channelSource = Array.from(sourceStats.entries()).map(([name, value]) => ({
+        name,
+        value
+      }))
+      const channelType = Array.from(typeStats.entries()).map(([name, value]) => ({
+        name,
+        value
+      }))
+
+      // Fail Reason Stats
+      const failReasonStats = new Map<string, number>()
+      if (customers.length > 0) {
+        const customerIds: number[] = []
+        const phonesByStore = new Map<number, string[]>()
+
+        for (const c of customers) {
+          const cid = Number((c as any).customerId || 0)
+          if (Number.isFinite(cid) && cid > 0) {
+            customerIds.push(cid)
+          } else {
+            const sid = Number((c as any).storeId || 0)
+            const p = String((c as any).customerPhone || '').trim()
+            if (sid > 0 && p) {
+              const list = phonesByStore.get(sid) || []
+              list.push(p)
+              phonesByStore.set(sid, list)
+            }
+          }
+        }
+
+        const chunk = <T>(arr: T[], size: number) => {
+          const out: T[][] = []
+          for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size))
+          return out
+        }
+
+        // 1. By CustomerID
+        const uniqueCids = Array.from(new Set(customerIds))
+        if (uniqueCids.length > 0) {
+          for (const ids of chunk(uniqueCids, 500)) {
+            const qb = this.oppRepo.createQueryBuilder('o')
+            qb.select(['o.failReason'])
+            qb.where('o.status = :st', { st: '已战败' })
+            qb.andWhere('o.customerId IN (:...ids)', { ids })
+            if (storesToQuery.length)
+              qb.andWhere('o.storeId IN (:...stores)', { stores: storesToQuery })
+            const rows = await qb.getMany()
+            for (const r of rows) {
+              const reason = String(r.failReason || '').trim() || '其他'
+              failReasonStats.set(reason, (failReasonStats.get(reason) || 0) + 1)
+            }
+          }
+        }
+
+        // 2. By Phone (grouped by store)
+        for (const [sid, psRaw] of phonesByStore) {
+          const ps = Array.from(new Set(psRaw))
+          for (const batch of chunk(ps, 500)) {
+            const qb = this.oppRepo.createQueryBuilder('o')
+            qb.select(['o.failReason'])
+            qb.where('o.status = :st', { st: '已战败' })
+            qb.andWhere('o.storeId = :sid', { sid })
+            qb.andWhere('o.customerPhone IN (:...ps)', { ps: batch })
+            const rows = await qb.getMany()
+            for (const r of rows) {
+              const reason = String(r.failReason || '').trim() || '其他'
+              failReasonStats.set(reason, (failReasonStats.get(reason) || 0) + 1)
+            }
+          }
+        }
+      }
+
+      const failReason = Array.from(failReasonStats.entries()).map(([name, value]) => ({
+        name,
+        value
+      }))
+
+      return {
+        code: 200,
+        msg: 'ok',
+        data: {
+          total: customers.length,
+          avgAge,
+          avgCarAge,
+          avgMileage,
+          gender: countBy((c) => String((c as any).userGender || '未知')),
+          buyExperience: countBy((c) => String((c as any).buyExperience || '未知')),
+          visitCategory: countBy((c) => String((c as any).visitCategory || '未知')),
+          channelType,
+          channelSource,
+          failReason
+        }
+      }
+    } catch (e: any) {
+      try {
+        console.error('[bi.store-clue-portrait.error]', e?.message || e, e?.stack)
+      } catch (err) {
+        void err
+      }
+      return {
+        code: 200,
+        msg: 'ok',
+        data: { total: 0, avgAge: null, gender: [], buyExperience: [], visitCategory: [] }
+      }
+    }
+  }
+
   @Get('sales-funnel/open')
   async salesFunnelOpen(@Query() query: any) {
-    if (String(process.env.NODE_ENV || '').toLowerCase() === 'production') {
+    const isProd = String(process.env.NODE_ENV || '').toLowerCase() === 'production'
+    if (isProd || process.env.SEED_ENABLED !== 'true') {
       return { code: 403, msg: '生产环境不开放销售转化分析接口', data: { items: [] } }
     }
     const reqMock: any = { user: { roles: ['R_SUPER'] } }

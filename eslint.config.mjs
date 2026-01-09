@@ -15,9 +15,18 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 
 // 读取 .auto-import.json 文件的内容，并将其解析为 JSON 对象
-const autoImportConfig = JSON.parse(
-  fs.readFileSync(path.resolve(__dirname, '.auto-import.json'), 'utf-8')
-)
+const autoImportConfig = (() => {
+  try {
+    const raw = fs.readFileSync(path.resolve(__dirname, '.auto-import.json'), 'utf-8')
+    const text = String(raw || '').trim()
+    if (!text) return { globals: {} }
+    const parsed = JSON.parse(text)
+    const globals = parsed && typeof parsed === 'object' ? (parsed.globals ?? {}) : {}
+    return { globals: globals && typeof globals === 'object' ? globals : {} }
+  } catch {
+    return { globals: {} }
+  }
+})()
 
 export default [
   // 指定文件匹配规则
@@ -67,6 +76,15 @@ export default [
     files: ['**/*.vue'],
     languageOptions: {
       parserOptions: { parser: tseslint.parser }
+    }
+  },
+  // cjs 规则
+  {
+    files: ['**/*.cjs'],
+    rules: {
+      '@typescript-eslint/no-require-imports': 'off',
+      '@typescript-eslint/no-unused-vars': 'off',
+      'no-useless-escape': 'off'
     }
   },
   // 忽略文件

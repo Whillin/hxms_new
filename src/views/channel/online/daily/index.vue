@@ -432,6 +432,19 @@
 
   async function updateMissingMarks() {
     if (!storeId.value) return
+    const pad2 = (n: number) => String(n).padStart(2, '0')
+    const normalizeLabel = (label: string): string | null => {
+      const m = label.match(/(\d{4}).*?(\d{1,2}).*?(\d{1,2})/)
+      if (m) {
+        const y = Number(m[1])
+        const mm = Number(m[2])
+        const dd = Number(m[3])
+        if (Number.isFinite(y) && Number.isFinite(mm) && Number.isFinite(dd)) {
+          return `${y}-${pad2(mm)}-${pad2(dd)}`
+        }
+      }
+      return null
+    }
     // 解析当前面板显示的年月，若不可得则根据已选日期
     const panel = document.querySelector('.daily-date-popper') as HTMLElement | null
     const headerLabels = panel?.querySelectorAll('.el-date-picker__header-label') || []
@@ -463,21 +476,6 @@
         year = d.getFullYear()
         month = d.getMonth() + 1
       }
-    }
-    const pad2 = (n: number) => String(n).padStart(2, '0')
-    // 规范化 aria-label 为 YYYY-MM-DD（兼容中文“2025 年 11 月 18 日”等格式）
-    const normalizeLabel = (label: string): string | null => {
-      const m = label.match(/(\d{4}).*?(\d{1,2}).*?(\d{1,2})/)
-      if (m) {
-        const y = Number(m[1])
-        const mm = Number(m[2])
-        const dd = Number(m[3])
-        if (Number.isFinite(y) && Number.isFinite(mm) && Number.isFinite(dd)) {
-          return `${y}-${pad2(mm)}-${pad2(dd)}`
-        }
-      }
-      // 某些场景下 aria-label 可能为空或非日期字符串
-      return null
     }
     const start = `${year}-${String(month).padStart(2, '0')}-01`
     // 修正：JS Date 的月份是 0-11，获取某月最后一天需使用 (month + 1, 0)

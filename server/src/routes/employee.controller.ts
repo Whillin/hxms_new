@@ -154,6 +154,13 @@ export class EmployeeController {
   @Post('save')
   async save(@Body() body: Partial<Employee> & { storeIds?: number[] }) {
     const incoming = body || {}
+    const isProd = String(process.env.NODE_ENV || '').toLowerCase() === 'production'
+    if (isProd && process.env.SEED_ENABLED !== 'true') {
+      const name = String(incoming.name || '').trim()
+      if (name && name.startsWith('邀约专员-')) {
+        return { code: 403, msg: '接口未开放', data: false }
+      }
+    }
 
     // 基础必填校验
     const baseRequired = ['name', 'phone', 'gender', 'status', 'role', 'hireDate'] as const

@@ -1,4 +1,9 @@
-import axios, { AxiosRequestConfig, AxiosResponse, InternalAxiosRequestConfig } from 'axios'
+import axios, {
+  AxiosHeaders,
+  AxiosRequestConfig,
+  AxiosResponse,
+  InternalAxiosRequestConfig
+} from 'axios'
 import { useUserStore } from '@/store/modules/user'
 import { ApiStatus } from './status'
 import { HttpError, handleError, showError, showSuccess } from './error'
@@ -151,8 +156,9 @@ async function attemptRefreshAndRetry(
         ? (store as any).accessToken
         : String((store as any).accessToken?.value || '')
     if (token) {
-      originalConfig.headers = originalConfig.headers || {}
-      originalConfig.headers['Authorization'] = `Bearer ${token}`
+      const headers = AxiosHeaders.from(originalConfig.headers || {})
+      headers.set('Authorization', `Bearer ${token}`)
+      originalConfig.headers = headers
     }
     return axiosInstance.request(originalConfig)
   } catch {

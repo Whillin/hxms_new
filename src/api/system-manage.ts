@@ -2,7 +2,6 @@ import request from '@/utils/http'
 import { AppRouteRecord } from '@/types/router'
 import { asyncRoutes } from '@/router/routes/asyncRoutes'
 import { menuDataToRouter } from '@/router/utils/menuToRouter'
-import { getCache, setCache, DEFAULT_TTL_MS } from '@/utils/storage/ttl-cache'
 import type { ApiResponse } from '@/utils/table/tableCache'
 import {
   getCache,

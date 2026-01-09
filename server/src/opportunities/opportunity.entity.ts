@@ -35,6 +35,10 @@ export class Opportunity {
   @Column('varchar', { length: 10, default: '跟进中' })
   status!: OpportunityStatus
 
+  /** 战败原因 */
+  @Column('varchar', { length: 50, nullable: true })
+  failReason?: string
+
   @Index('idx_level')
   @Column('varchar', { length: 2, default: 'C' })
   opportunityLevel!: 'H' | 'A' | 'B' | 'C' | 'O'

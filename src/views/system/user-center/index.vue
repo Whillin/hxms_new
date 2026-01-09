@@ -86,7 +86,7 @@
               <ElFormItem label="地址" prop="address" class="right-input">
                 <ElCascader
                   v-model="addressSelect"
-                  :options="regionData"
+                  :options="regionOptions"
                   :props="addressProps"
                   :disabled="!isEdit"
                   filterable
@@ -221,11 +221,13 @@
   // 标签区块已移除
 
   // 地址选择（省/市/区），保存为字符串
-  const addressSelect = ref<string[]>([])
+  const addressSelect = ref<any[]>([])
   const addressProps = { value: 'label', label: 'label', children: 'children' }
+  const regionOptions = regionData as any
 
-  const handleAddressChange = (val: string[]) => {
-    form.address = (val || []).join(' ')
+  const handleAddressChange = (val: any) => {
+    const arr = Array.isArray(val) ? val.map((v) => String(v)) : []
+    form.address = arr.join(' ')
   }
 
   onMounted(async () => {
@@ -292,7 +294,7 @@
           email: form.email,
           mobile: form.mobile,
           address: form.address,
-          sex: Number(form.sex || 2),
+          sex: String(form.sex || '2'),
           des: form.des
         }
         await fetchSaveProfile(payload)

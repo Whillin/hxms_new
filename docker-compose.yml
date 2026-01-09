@@ -52,6 +52,7 @@ services:
       - ./server/.env.production
       - ./server/.env
     environment:
+      - PORT=3001
       - NODE_OPTIONS=--max-old-space-size=256
       # 显式覆盖容器内的服务主机，避免 .env 中使用 localhost 导致连接失败
       - MYSQL_HOST=mysql
@@ -119,3 +120,4 @@ volumes:
 networks:
   hxms_net:
     name: hxms_net
+    external: true

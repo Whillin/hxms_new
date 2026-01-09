@@ -133,7 +133,7 @@
           <ElDescriptionsItem label="归属门店">{{
             (() => {
               const id = Number(currentDetail?.storeId)
-              const name = storeNameById.value[id]
+              const name = storeNameById[id]
               return name || (Number.isFinite(id) ? String(id) : '-')
             })()
           }}</ElDescriptionsItem>
@@ -465,9 +465,24 @@
     convertOrRetentionModel?: string
     referrer?: string
     contactTimes?: number
-    opportunityLevel?: 'H' | 'A' | 'B' | 'C'
+    opportunityLevel?: 'H' | 'A' | 'B' | 'C' | 'O'
+    userGender?: '男' | '女' | '未知'
+    userAge?: number
+    buyExperience?: '首购' | '换购' | '增购'
+    userPhoneModel?: string
+    currentBrand?: string
+    currentModel?: string
+    carAge?: number
+    mileage?: number
+    livingArea?: string | string[]
     // 新增：归属门店
     storeId?: number
+    regionId?: number
+    brandId?: number
+    departmentId?: number
+    createdBy?: number
+    createdAt?: string
+    updatedAt?: string
     // 新增：快照字段（只读）
     customerSnapshot?: {
       id?: number
@@ -1689,6 +1704,21 @@
 
   // 导入处理
   const handleImportSuccess = (rows: any[]) => {
+    // 校验必填字段
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i]
+      const enterTime = r['进店时间'] || r['enterTime']
+      const leaveTime = r['离店时间'] || r['leaveTime']
+      if (!enterTime) {
+        ElMessage.error(`导入失败：第 ${i + 1} 行缺少进店时间`)
+        return
+      }
+      if (!leaveTime) {
+        ElMessage.error(`导入失败：第 ${i + 1} 行缺少离店时间`)
+        return
+      }
+    }
+
     // 字段映射（中文列名 -> 数据键）
     const mapped = rows.map((r, i) => ({
       id: String(i + 1),
@@ -1846,7 +1876,7 @@
     }
     return res
   })
-  const storeNameById = computed(() => {
+  const storeNameById = computed<Record<number, string>>(() => {
     const map: Record<number, string> = {}
     for (const o of storeOptions.value) map[o.value] = o.label
     return map

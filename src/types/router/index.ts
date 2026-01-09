@@ -48,9 +48,11 @@ export interface RouteMeta extends Record<string | number | symbol, unknown> {
 }
 
 // 扩展路由记录
-export interface AppRouteRecord extends Omit<RouteRecordRaw, 'meta' | 'children' | 'component'> {
+export interface AppRouteRecord
+  extends Omit<RouteRecordRaw, 'meta' | 'children' | 'component' | 'redirect'> {
   id?: number
   meta: RouteMeta
   children?: AppRouteRecord[]
   component?: string | (() => Promise<any>)
+  redirect?: any
 }

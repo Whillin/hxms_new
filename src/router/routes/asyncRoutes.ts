@@ -94,6 +94,15 @@ export const asyncRoutes: AppRouteRecord[] = [
           title: '个人/小组转化分析',
           keepAlive: true
         }
+      },
+      {
+        path: 'store-clue-portrait',
+        name: 'StoreCluePortrait',
+        component: '/bi/store-clue-portrait/index',
+        meta: {
+          title: '到店线索画像分析',
+          keepAlive: true
+        }
       }
     ]
   },
