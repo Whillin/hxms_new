@@ -1,0 +1,4 @@
+services:
+  jaeger:
+    environment:
+      COLLECTOR_OTLP_ENABLED: 'true'

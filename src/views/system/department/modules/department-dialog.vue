@@ -109,7 +109,8 @@
     brand: 'department',
     department: 'region',
     region: 'store',
-    store: 'team'
+    store: 'team',
+    team: 'team'
   }
 
   const findNodeById = (nodes: any[] = [], id?: number): any | undefined => {

@@ -133,7 +133,7 @@
           <ElDescriptionsItem label="归属门店">{{
             (() => {
               const id = Number(currentDetail?.storeId)
-              const name = storeNameById.value[id]
+              const name = storeNameById[id]
               return name || (Number.isFinite(id) ? String(id) : '-')
             })()
           }}</ElDescriptionsItem>
@@ -465,9 +465,24 @@
     convertOrRetentionModel?: string
     referrer?: string
     contactTimes?: number
-    opportunityLevel?: 'H' | 'A' | 'B' | 'C'
+    opportunityLevel?: 'H' | 'A' | 'B' | 'C' | 'O'
+    userGender?: '男' | '女' | '未知'
+    userAge?: number
+    buyExperience?: '首购' | '换购' | '增购'
+    userPhoneModel?: string
+    currentBrand?: string
+    currentModel?: string
+    carAge?: number
+    mileage?: number
+    livingArea?: string | string[]
     // 新增：归属门店
     storeId?: number
+    regionId?: number
+    brandId?: number
+    departmentId?: number
+    createdBy?: number
+    createdAt?: string
+    updatedAt?: string
     // 新增：快照字段（只读）
     customerSnapshot?: {
       id?: number
@@ -1846,7 +1861,7 @@
     }
     return res
   })
-  const storeNameById = computed(() => {
+  const storeNameById = computed<Record<number, string>>(() => {
     const map: Record<number, string> = {}
     for (const o of storeOptions.value) map[o.value] = o.label
     return map

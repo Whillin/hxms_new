@@ -264,6 +264,10 @@ export class ChannelOnlineDailyController {
   /** 开放版清理（开发/演示用途） */
   @Post('clear/open')
   async clearOpen(@Body() body: any) {
+    const isProd = String(process.env.NODE_ENV || '').toLowerCase() === 'production'
+    if (isProd || process.env.SEED_ENABLED !== 'true') {
+      return { code: 403, msg: '接口未开放', data: { deleted: 0 } }
+    }
     const storeId = Number(body.storeId)
     const date = String(body.date || '').trim()
     const start = String(body.start || '').trim()
@@ -282,6 +286,10 @@ export class ChannelOnlineDailyController {
 
   @Get('clear/open')
   async clearOpenGet(@Query() query: any) {
+    const isProd = String(process.env.NODE_ENV || '').toLowerCase() === 'production'
+    if (isProd || process.env.SEED_ENABLED !== 'true') {
+      return { code: 403, msg: '接口未开放', data: { deleted: 0 } }
+    }
     const body = {
       storeId: Number(query.storeId || 0),
       date: String(query.date || ''),
@@ -294,6 +302,10 @@ export class ChannelOnlineDailyController {
   @SkipThrottle()
   @Get('seed')
   async seed(@Query() query: any) {
+    const isProd = String(process.env.NODE_ENV || '').toLowerCase() === 'production'
+    if (isProd || process.env.SEED_ENABLED !== 'true') {
+      return { code: 403, msg: '接口未开放', data: null }
+    }
     await this.seedDictIfEmpty()
     const storeId = Number(query.storeId || 1)
     const date = String(query.date || new Date().toISOString().slice(0, 10))

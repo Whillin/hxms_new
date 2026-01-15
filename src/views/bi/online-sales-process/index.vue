@@ -977,7 +977,7 @@
       }
 
       const buildRows = (
-        arr: { stage: string; percent: number; value: number; mom: number; percentRaw?: number }[]
+        arr: { stage: string; value: number; mom?: number; percent?: number; percentRaw?: number }[]
       ) => {
         const valueMap: Record<string, number> = {}
         arr.forEach((it) => {

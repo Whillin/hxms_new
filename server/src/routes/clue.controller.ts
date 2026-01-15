@@ -315,6 +315,26 @@ export class ClueController {
   @UseGuards(JwtGuard)
   @Post('save')
   async save(@Req() req: any, @Body() body: any) {
+    const isProd = String(process.env.NODE_ENV || '').toLowerCase() === 'production'
+    if (isProd && process.env.SEED_ENABLED !== 'true') {
+      const inviter = String(body?.inviter || '').trim()
+      const customerName = String(body?.customerName || '').trim()
+      if (
+        customerName &&
+        customerName.startsWith('邀约') &&
+        (customerName.includes('线索') || customerName.includes('邀约专员-'))
+      ) {
+        return { code: 403, msg: '接口未开放', data: false }
+      }
+      if (
+        inviter &&
+        customerName &&
+        inviter.startsWith('邀约专员') &&
+        customerName.startsWith(`邀约${inviter}`)
+      ) {
+        return { code: 403, msg: '接口未开放', data: false }
+      }
+    }
     // 统一布尔解析，避免字符串 "false" 被误判为 true
     const toBool = (v: any): boolean => {
       if (typeof v === 'boolean') return v

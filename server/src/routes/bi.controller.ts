@@ -363,7 +363,8 @@ export class BiController {
 
   @Get('sales-funnel/open')
   async salesFunnelOpen(@Query() query: any) {
-    if (String(process.env.NODE_ENV || '').toLowerCase() === 'production') {
+    const isProd = String(process.env.NODE_ENV || '').toLowerCase() === 'production'
+    if (isProd || process.env.SEED_ENABLED !== 'true') {
       return { code: 403, msg: '生产环境不开放销售转化分析接口', data: { items: [] } }
     }
     const reqMock: any = { user: { roles: ['R_SUPER'] } }
