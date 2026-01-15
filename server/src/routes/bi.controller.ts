@@ -700,8 +700,24 @@ export class BiController {
               qb.andWhere('o.storeId IN (:...stores)', { stores: storesToQuery })
             const rows = await qb.getMany()
             for (const r of rows) {
-              const reason = String(r.failReason || '').trim() || '其他'
-              failReasonStats.set(reason, (failReasonStats.get(reason) || 0) + 1)
+              const rawReason = String(r.failReason || '').trim()
+              if (!rawReason) {
+                const reason = '其他'
+                failReasonStats.set(reason, (failReasonStats.get(reason) || 0) + 1)
+              } else {
+                const reasons = rawReason
+                  .split(/[、,，]/)
+                  .map((s) => s.trim())
+                  .filter(Boolean)
+                if (reasons.length === 0) {
+                  const reason = '其他'
+                  failReasonStats.set(reason, (failReasonStats.get(reason) || 0) + 1)
+                } else {
+                  for (const reason of reasons) {
+                    failReasonStats.set(reason, (failReasonStats.get(reason) || 0) + 1)
+                  }
+                }
+              }
             }
           }
         }
@@ -717,8 +733,24 @@ export class BiController {
             qb.andWhere('o.customerPhone IN (:...ps)', { ps: batch })
             const rows = await qb.getMany()
             for (const r of rows) {
-              const reason = String(r.failReason || '').trim() || '其他'
-              failReasonStats.set(reason, (failReasonStats.get(reason) || 0) + 1)
+              const rawReason = String(r.failReason || '').trim()
+              if (!rawReason) {
+                const reason = '其他'
+                failReasonStats.set(reason, (failReasonStats.get(reason) || 0) + 1)
+              } else {
+                const reasons = rawReason
+                  .split(/[、,，]/)
+                  .map((s) => s.trim())
+                  .filter(Boolean)
+                if (reasons.length === 0) {
+                  const reason = '其他'
+                  failReasonStats.set(reason, (failReasonStats.get(reason) || 0) + 1)
+                } else {
+                  for (const reason of reasons) {
+                    failReasonStats.set(reason, (failReasonStats.get(reason) || 0) + 1)
+                  }
+                }
+              }
             }
           }
         }
@@ -729,6 +761,23 @@ export class BiController {
         value
       }))
 
+      const processTop5 = (items: { name: string; value: number }[]) => {
+        if (items.length <= 5) return items.sort((a, b) => b.value - a.value)
+        const sorted = items.slice().sort((a, b) => b.value - a.value)
+        const top5 = sorted.slice(0, 5)
+        const rest = sorted.slice(5)
+        const otherVal = rest.reduce((sum, x) => sum + x.value, 0)
+        if (otherVal > 0) {
+          const exist = top5.find((x) => x.name === '其他')
+          if (exist) {
+            exist.value += otherVal
+          } else {
+            top5.push({ name: '其他', value: otherVal })
+          }
+        }
+        return top5.sort((a, b) => b.value - a.value)
+      }
+
       return {
         code: 200,
         msg: 'ok',
@@ -737,12 +786,12 @@ export class BiController {
           avgAge,
           avgCarAge,
           avgMileage,
-          gender: countBy((c) => String((c as any).userGender || '未知')),
-          buyExperience: countBy((c) => String((c as any).buyExperience || '未知')),
-          visitCategory: countBy((c) => String((c as any).visitCategory || '未知')),
-          channelType,
-          channelSource,
-          failReason
+          gender: processTop5(countBy((c) => String((c as any).userGender || '未知'))),
+          buyExperience: processTop5(countBy((c) => String((c as any).buyExperience || '未知'))),
+          visitCategory: processTop5(countBy((c) => String((c as any).visitCategory || '未知'))),
+          channelType: processTop5(channelType),
+          channelSource: processTop5(channelSource),
+          failReason: processTop5(failReason)
         }
       }
     } catch (e: any) {

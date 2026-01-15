@@ -120,6 +120,20 @@ export class OpportunityService {
       exist.customerName = String(body.customerName || exist.customerName)
       exist.customerPhone = String(body.customerPhone || exist.customerPhone)
       exist.status = status
+      if (status === '已战败') {
+        const rawFailReason = body.failReason ?? body.defeatReasons
+        if (Array.isArray(rawFailReason)) {
+          exist.failReason = rawFailReason
+            .map((v: any) => String(v || '').trim())
+            .filter(Boolean)
+            .join('、')
+        } else {
+          const s = String(rawFailReason || '').trim()
+          exist.failReason = s || null
+        }
+      } else {
+        exist.failReason = null
+      }
       exist.opportunityLevel =
         (String(body.opportunityLevel || exist.opportunityLevel) as any) || exist.opportunityLevel
       exist.focusModelId =

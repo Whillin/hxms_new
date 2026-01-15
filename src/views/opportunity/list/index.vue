@@ -198,13 +198,13 @@
             <ElFormItem
               label="战败原因"
               prop="defeatReasons"
-              :required="formModel.latestStatus !== '已成交'"
+              :required="formModel.latestStatus === '已战败'"
             >
               <ElSelect
                 v-model="formModel.defeatReasons"
                 multiple
                 collapse-tags
-                :disabled="formModel.latestStatus === '已成交'"
+                :disabled="formModel.latestStatus !== '已战败'"
                 placeholder="请选择原因"
               >
                 <ElOption v-for="opt in defeatReasonOptions" :key="opt.value" v-bind="opt" />
@@ -250,11 +250,6 @@
                 value-format="YYYY-MM-DD HH:mm:ss"
                 placeholder="选择下次联系时间"
               />
-            </ElFormItem>
-            <ElFormItem label="跟进状态" prop="status">
-              <ElSelect v-model="followForm.status" placeholder="请选择">
-                <ElOption v-for="opt in followStatusOptions" :key="opt.value" v-bind="opt" />
-              </ElSelect>
             </ElFormItem>
             <ElFormItem label="跟进方式" prop="method">
               <ElSelect v-model="followForm.method" placeholder="请选择">
@@ -366,16 +361,7 @@
     remark: string
   }
 
-  interface FollowUpRecord {
-    id: string
-    opportunityId: string
-    opportunityName?: string
-    content: string
-    nextContactTime: string
-    status: string
-    method: string
-    createdAt: string
-  }
+  type FollowUpRecord = import('@/store/modules/opportunityFollow').FollowUpRecord
 
   const searchRef = ref()
   const cityCascaderOptionsRef = ref<any[]>(regionData as any)
@@ -663,12 +649,6 @@
   const followRecords = ref<FollowUpRecord[]>([])
   // 全局跟进记录 store（用于二级菜单“跟进记录”页展示）
   const followStore = useOpportunityFollowStore()
-  // 首次挂载：如全局为空，则用当前本地示例数据进行一次性初始化
-  onMounted(() => {
-    if (!followStore.records.length && followRecords.value.length) {
-      followStore.addBatch(followRecords.value)
-    }
-  })
   const todayOpportunityIds = computed(() => {
     const today = todayStr()
     const ids = new Set<string>()
@@ -719,7 +699,10 @@
       carAge: 0,
       livingArea: [],
       latestStatus: item.status as any,
-      defeatReasons: [],
+      defeatReasons: String(item.failReason || '')
+        .split(/[、,，]/)
+        .map((v) => v.trim())
+        .filter((v) => !!v),
       remark: ''
     }
   }
@@ -861,6 +844,14 @@
     remark: ''
   })
   const formModel = ref<OpportunityItem>(initForm())
+  watch(
+    () => formModel.value.latestStatus,
+    (val) => {
+      if (val !== '已战败') {
+        formModel.value.defeatReasons = []
+      }
+    }
+  )
   const formRules = computed(() => ({
     visitDate: [{ required: true, message: '请选择留档日期', trigger: 'change' }],
     salesConsultant: [{ required: true, message: '请输入销售顾问', trigger: 'blur' }],
@@ -876,7 +867,7 @@
       {
         validator: (_: any, value: any, cb: any) => {
           if (
-            formModel.value.latestStatus !== '已成交' &&
+            formModel.value.latestStatus === '已战败' &&
             (!value || (Array.isArray(value) && value.length === 0))
           ) {
             cb(new Error('请填写战败原因'))
@@ -992,7 +983,13 @@
       testDrive: !!formModel.value.testDrive,
       bargaining: !!formModel.value.bargaining,
       latestStatus: formModel.value.latestStatus,
-      channelLevel1: formModel.value.channelLevel1
+      channelLevel1: formModel.value.channelLevel1,
+      failReason:
+        formModel.value.latestStatus === '已战败'
+          ? Array.isArray(formModel.value.defeatReasons)
+            ? formModel.value.defeatReasons.join('、')
+            : String(formModel.value.defeatReasons || '')
+          : ''
     }
     try {
       await fetchSaveOpportunity(dataForSave)
@@ -1007,24 +1004,17 @@
   const followDrawerVisible = ref(false)
   const currentFollowOpportunityId = ref<string>('')
   const currentFollowOpportunityName = ref<string>('')
+  const currentFollowOpportunityStatus = ref<string>('跟进中')
   const followFormRef = ref()
   const followForm = ref<{
     content: string
     nextContactTime: string
-    status: string
     method: string
   }>({
     content: '',
     nextContactTime: '',
-    status: '跟进中',
     method: '电话'
   })
-  const followStatusOptions = [
-    { label: '新客', value: '新客' },
-    { label: '跟进中', value: '跟进中' },
-    { label: '已战败', value: '已战败' },
-    { label: '已成交', value: '已成交' }
-  ]
   const followMethodOptions = [
     { label: '电话', value: '电话' },
     { label: '微信', value: '微信' },
@@ -1035,7 +1025,6 @@
   const followRules = computed(() => ({
     content: [{ required: true, message: '请填写跟进内容', trigger: 'blur' }],
     nextContactTime: [{ required: true, message: '请选择下次联系时间', trigger: 'change' }],
-    status: [{ required: true, message: '请选择跟进状态', trigger: 'change' }],
     method: [{ required: true, message: '请选择跟进方式', trigger: 'change' }]
   }))
 
@@ -1043,6 +1032,7 @@
     currentFollowOpportunityId.value = row.id
     // 使用商机编码作为跟进列表的“商机名称”展示
     currentFollowOpportunityName.value = row.opportunityCode
+    currentFollowOpportunityStatus.value = String(row.latestStatus || '跟进中')
     followDrawerVisible.value = true
     refreshFollowData()
   }
@@ -1054,8 +1044,9 @@
       id: `F${Date.now()}`,
       opportunityId: currentFollowOpportunityId.value,
       content: followForm.value.content,
+      followResult: '',
       nextContactTime: followForm.value.nextContactTime,
-      status: followForm.value.status,
+      status: currentFollowOpportunityStatus.value,
       method: followForm.value.method,
       createdAt: formatDateTime(now)
     }
@@ -1063,7 +1054,7 @@
     // 同步写入全局 store，供二级菜单“跟进记录”页面展示
     followStore.addRecord({ ...newRecord, opportunityName: currentFollowOpportunityName.value })
     ElMessage.success('跟进保存成功')
-    followForm.value = { content: '', nextContactTime: '', status: '跟进中', method: '电话' }
+    followForm.value = { content: '', nextContactTime: '', method: '电话' }
     refreshFollowData()
     // 同步刷新主列表，使“今日跟进商机”立即生效
     refreshData()

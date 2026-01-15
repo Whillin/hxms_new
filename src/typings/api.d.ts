@@ -265,6 +265,8 @@ declare namespace Api {
       businessSource?: string
       channelLevel1?: string
       channelLevel2?: string
+      /** 战败原因（后端存储字符串，前端自行拆分） */
+      failReason?: string | null
       createdAt?: string
     }
 

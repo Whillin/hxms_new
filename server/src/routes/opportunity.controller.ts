@@ -181,6 +181,8 @@ export class OpportunityController {
         businessSource: r.businessSource,
         channelLevel1: r.channelLevel1,
         channelLevel2: r.channelLevel2,
+        failReason: r.failReason || null,
+        defeatReasons: r.failReason ? r.failReason.split('、') : [],
         createdAt: (r.createdAt as any)?.toISOString?.() || ''
       })),
       total,

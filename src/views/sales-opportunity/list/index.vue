@@ -57,11 +57,15 @@
       >
         <template #operation="{ row }">
           <div style="display: flex; gap: 6px; align-items: center; justify-content: center">
-            <!-- 新增：眼睛图标查看详情 -->
             <ArtButtonTable type="view" @click="openDetailDrawer(row)" />
-            <!-- 跟进记录与操作：更换为“更多”图标 -->
-            <ArtButtonTable type="more" @click="openFollowDrawer(row)" />
-            <!-- 编辑：已战败/已成交不可编辑 -->
+            <ArtButtonTable
+              type="more"
+              @click="openFollowDrawer(row)"
+              :style="{
+                visibility: canFollow(row) ? 'visible' : 'hidden',
+                pointerEvents: canFollow(row) ? 'auto' : 'none'
+              }"
+            />
             <ArtButtonTable
               type="edit"
               @click="editRow(row)"
@@ -198,13 +202,13 @@
             <ElFormItem
               label="战败原因"
               prop="defeatReasons"
-              :required="formModel.latestStatus !== '已成交'"
+              :required="formModel.latestStatus === '已战败'"
             >
               <ElSelect
                 v-model="formModel.defeatReasons"
                 multiple
                 collapse-tags
-                :disabled="formModel.latestStatus === '已成交'"
+                :disabled="formModel.latestStatus !== '已战败'"
                 placeholder="请选择原因"
               >
                 <ElOption v-for="opt in defeatReasonOptions" :key="opt.value" v-bind="opt" />
@@ -259,11 +263,6 @@
                 placeholder="选择下次联系时间"
                 :disabled-date="(time) => time.getTime() < Date.now() - 8.64e7"
               />
-            </ElFormItem>
-            <ElFormItem label="跟进状态" prop="status">
-              <ElSelect v-model="followForm.status" placeholder="请选择">
-                <ElOption v-for="opt in followStatusOptions" :key="opt.value" v-bind="opt" />
-              </ElSelect>
             </ElFormItem>
             <ElFormItem label="跟进方式" prop="method">
               <ElSelect v-model="followForm.method" placeholder="请选择">
@@ -728,7 +727,10 @@
       carAge: 0,
       livingArea: [],
       latestStatus: item.status as any,
-      defeatReasons: [],
+      defeatReasons: String(item.failReason || '')
+        .split(/[、,，]/)
+        .map((v) => v.trim())
+        .filter((v) => !!v),
       remark: ''
     }
   }
@@ -869,6 +871,14 @@
     remark: ''
   })
   const formModel = ref<OpportunityItem>(initForm())
+  watch(
+    () => formModel.value.latestStatus,
+    (val) => {
+      if (val !== '已战败') {
+        formModel.value.defeatReasons = []
+      }
+    }
+  )
   const formRules = computed(() => ({
     visitDate: [{ required: true, message: '请选择留档日期', trigger: 'change' }],
     salesConsultant: [{ required: true, message: '请输入销售顾问', trigger: 'blur' }],
@@ -884,7 +894,7 @@
       {
         validator: (_: any, value: any, cb: any) => {
           if (
-            formModel.value.latestStatus !== '已成交' &&
+            formModel.value.latestStatus === '已战败' &&
             (!value || (Array.isArray(value) && value.length === 0))
           ) {
             cb(new Error('请填写战败原因'))
@@ -1000,7 +1010,13 @@
       testDrive: !!formModel.value.testDrive,
       bargaining: !!formModel.value.bargaining,
       latestStatus: formModel.value.latestStatus,
-      channelLevel1: formModel.value.channelLevel1
+      channelLevel1: formModel.value.channelLevel1,
+      failReason:
+        formModel.value.latestStatus === '已战败'
+          ? Array.isArray(formModel.value.defeatReasons)
+            ? formModel.value.defeatReasons.join('、')
+            : String(formModel.value.defeatReasons || '')
+          : ''
     }
     try {
       await fetchSaveOpportunity(dataForSave)
@@ -1015,26 +1031,19 @@
   const followDrawerVisible = ref(false)
   const currentFollowOpportunityId = ref<string>('')
   const currentFollowOpportunityName = ref<string>('')
+  const currentFollowOpportunityStatus = ref<string>('跟进中')
   const followFormRef = ref()
   const followForm = ref<{
     content: string
     followResult: string
     nextContactTime: string
-    status: string
     method: string
   }>({
     content: '',
     followResult: '',
     nextContactTime: '',
-    status: '跟进中',
     method: '电话'
   })
-  const followStatusOptions = [
-    { label: '新客', value: '新客' },
-    { label: '跟进中', value: '跟进中' },
-    { label: '已战败', value: '已战败' },
-    { label: '已成交', value: '已成交' }
-  ]
   const followMethodOptions = [
     { label: '电话', value: '电话' },
     { label: '微信', value: '微信' },
@@ -1047,7 +1056,7 @@
     followResult: [
       {
         validator: (_: any, value: any, cb: any) => {
-          if (followForm.value.status !== '跟进中' && !value) {
+          if (currentFollowOpportunityStatus.value !== '跟进中' && !value) {
             cb(new Error('请填写跟进结果'))
           } else cb()
         },
@@ -1055,7 +1064,6 @@
       }
     ],
     nextContactTime: [{ required: true, message: '请选择下次联系时间', trigger: 'change' }],
-    status: [{ required: true, message: '请选择跟进状态', trigger: 'change' }],
     method: [{ required: true, message: '请选择跟进方式', trigger: 'change' }]
   }))
 
@@ -1063,6 +1071,7 @@
     currentFollowOpportunityId.value = row.id
     // 使用商机编码作为跟进列表的“商机名称”展示
     currentFollowOpportunityName.value = row.opportunityCode
+    currentFollowOpportunityStatus.value = String(row.latestStatus || '跟进中')
     followDrawerVisible.value = true
     refreshFollowData()
   }
@@ -1081,7 +1090,7 @@
       content: followForm.value.content,
       followResult: followForm.value.followResult,
       nextContactTime: followForm.value.nextContactTime,
-      status: followForm.value.status,
+      status: currentFollowOpportunityStatus.value,
       method: followForm.value.method
     }
     const saved = await fetchSaveOpportunityFollow(payload)
@@ -1102,7 +1111,6 @@
       content: '',
       followResult: '',
       nextContactTime: '',
-      status: '跟进中',
       method: '电话'
     }
     refreshFollowData()
@@ -1225,6 +1233,10 @@
   })
   // 操作列编辑禁用逻辑
   const canEdit = (row: OpportunityItem) => {
+    const s = String(row.latestStatus || '')
+    return s !== '已战败' && s !== '已成交'
+  }
+  const canFollow = (row: OpportunityItem) => {
     const s = String(row.latestStatus || '')
     return s !== '已战败' && s !== '已成交'
   }
