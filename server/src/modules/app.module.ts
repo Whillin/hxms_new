@@ -40,6 +40,7 @@ import { MetricsController } from '../routes/metrics.controller'
 import { OpportunityController } from '../routes/opportunity.controller'
 import { BiController } from '../routes/bi.controller'
 import { Opportunity } from '../opportunities/opportunity.entity'
+import { OpportunityFollow } from '../opportunities/opportunity-follow.entity'
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler'
 import { APP_GUARD } from '@nestjs/core'
 import { BullModule } from '@nestjs/bull'
@@ -51,6 +52,7 @@ import { FeatureFlagsService } from '../common/feature-flags.service'
 import { MiddlewareConsumer } from '@nestjs/common'
 import { OpportunityService } from '../opportunities/opportunity.service'
 import { DbEnsureService } from '../common/db-ensure.service'
+import { AiService } from '../common/ai.service'
 
 @Module({
   imports: [
@@ -75,7 +77,8 @@ import { DbEnsureService } from '../common/db-ensure.service'
             ProductModel,
             ProductCategory,
             ProductCategoryLink,
-            Opportunity
+            Opportunity,
+            OpportunityFollow
           ],
           synchronize: String(process.env.TYPEORM_SYNC || '').toLowerCase() === 'true',
           maxQueryExecutionTime: Number(process.env.TYPEORM_MAX_MS || 2000),
@@ -141,7 +144,8 @@ import { DbEnsureService } from '../common/db-ensure.service'
       ProductModel,
       ProductCategory,
       ProductCategoryLink,
-      Opportunity
+      Opportunity,
+      OpportunityFollow
     ]),
     AuthModule,
     UserModule,
@@ -206,6 +210,7 @@ import { DbEnsureService } from '../common/db-ensure.service'
     DebounceMiddleware,
     FeatureFlagsService,
     OpportunityService,
+    AiService,
     // 注册队列处理器（当启用 Redis 与 Bull 时）
     ...(String(process.env.NO_REDIS || '').toLowerCase() === 'true' ? [] : [ClueProcessor])
   ]

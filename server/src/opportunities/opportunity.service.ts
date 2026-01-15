@@ -95,7 +95,7 @@ export class OpportunityService {
   /** 直接保存/更新商机（不依赖线索，不回写线索） */
   async upsertDirect(body: Record<string, any>): Promise<Opportunity | undefined> {
     const id = body?.id !== undefined && body?.id !== null ? Number(body.id) : undefined
-    const storeId = Number(body.storeId)
+    const storeId = Number(body.storeId || 0)
     const visitDate = String(body.visitDate || body.latestVisitDate || '')
     const status: OpportunityStatus =
       (String(body.latestStatus || body.status || '跟进中') as OpportunityStatus) || '跟进中'
@@ -139,6 +139,9 @@ export class OpportunityService {
         exist.ownerId = ownerResolved.id ?? exist.ownerId
         exist.ownerName = ownerResolved.name ?? exist.ownerName
         exist.ownerDepartmentId = ownerResolved.departmentId ?? exist.ownerDepartmentId
+      }
+      if (!exist.opportunityCode && storeId > 0) {
+        exist.opportunityCode = this.generateCode(storeId)
       }
       return await this.repo.save(exist)
     }

@@ -7,6 +7,7 @@ import { Opportunity } from '../opportunities/opportunity.entity'
 import { DataScopeService } from '../common/data-scope.service'
 import { OnlineChannelDaily } from '../channels/online-channel-daily.entity'
 import { OnlineChannel } from '../channels/online-channel.entity'
+import { AiService } from '../common/ai.service'
 
 @Controller('api/bi')
 export class BiController {
@@ -16,7 +17,8 @@ export class BiController {
     @InjectRepository(OnlineChannelDaily)
     private readonly onlineDailyRepo: Repository<OnlineChannelDaily>,
     @InjectRepository(OnlineChannel) private readonly onlineChannelRepo: Repository<OnlineChannel>,
-    @Inject(DataScopeService) private readonly dataScopeService: DataScopeService
+    @Inject(DataScopeService) private readonly dataScopeService: DataScopeService,
+    @Inject(AiService) private readonly aiService: AiService
   ) {}
 
   @UseGuards(JwtGuard)
@@ -361,6 +363,15 @@ export class BiController {
       }
       return { code: 200, msg: 'ok', data: { items: [] } }
     }
+  }
+
+  @UseGuards(JwtGuard)
+  @Get('sales-funnel-insight')
+  async salesFunnelInsight(@Req() req: any, @Query() query: any) {
+    const base = await this.salesFunnel(req, query)
+    const items = Array.isArray((base as any)?.data?.items) ? (base as any).data.items : []
+    const insight = await this.aiService.generateSalesFunnelInsight(items, query || {})
+    return { code: 200, msg: 'ok', data: { insight } }
   }
 
   @UseGuards(JwtGuard)

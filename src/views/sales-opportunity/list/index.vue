@@ -56,15 +56,20 @@
         @pagination:current-change="handleCurrentChange"
       >
         <template #operation="{ row }">
-          <div style="text-align: right">
+          <div style="display: flex; gap: 6px; align-items: center; justify-content: center">
             <!-- 新增：眼睛图标查看详情 -->
             <ArtButtonTable type="view" @click="openDetailDrawer(row)" />
             <!-- 跟进记录与操作：更换为“更多”图标 -->
             <ArtButtonTable type="more" @click="openFollowDrawer(row)" />
             <!-- 编辑：已战败/已成交不可编辑 -->
-            <template v-if="canEdit(row)">
-              <ArtButtonTable type="edit" @click="editRow(row)" />
-            </template>
+            <ArtButtonTable
+              type="edit"
+              @click="editRow(row)"
+              :style="{
+                visibility: canEdit(row) ? 'visible' : 'hidden',
+                pointerEvents: canEdit(row) ? 'auto' : 'none'
+              }"
+            />
             <ElPopconfirm title="确认删除该商机？" @confirm="deleteRow(row)">
               <template #reference>
                 <ArtButtonTable type="delete" v-roles="['R_SUPER', 'R_ADMIN']" />
@@ -225,7 +230,7 @@
     </ElDialog>
 
     <!-- 跟进记录与操作抽屉 -->
-    <ElDrawer v-model="followDrawerVisible" title="跟进记录与操作" size="60%" destroy-on-close>
+    <ElDrawer v-model="followDrawerVisible" title="跟进记录与操作" size="80%" destroy-on-close>
       <div class="follow-panel">
         <div class="follow-form">
           <h4>跟进操作</h4>
@@ -238,12 +243,21 @@
                 placeholder="请输入跟进内容"
               />
             </ElFormItem>
+            <ElFormItem label="跟进结果" prop="followResult">
+              <ElInput
+                v-model="followForm.followResult"
+                type="textarea"
+                :rows="2"
+                placeholder="请输入本次跟进结果"
+              />
+            </ElFormItem>
             <ElFormItem label="下次联系时间" prop="nextContactTime">
               <ElDatePicker
                 v-model="followForm.nextContactTime"
                 type="datetime"
                 value-format="YYYY-MM-DD HH:mm:ss"
                 placeholder="选择下次联系时间"
+                :disabled-date="(time) => time.getTime() < Date.now() - 8.64e7"
               />
             </ElFormItem>
             <ElFormItem label="跟进状态" prop="status">
@@ -270,6 +284,11 @@
           >
             <template #operation="{ row }">
               <div style="text-align: right">
+                <ArtButtonTable
+                  v-if="!row.followResult"
+                  type="edit"
+                  @click="openEditFollowResult(row)"
+                />
                 <ElPopconfirm title="确认删除该跟进记录？" @confirm="deleteFollowRow(row)">
                   <template #reference>
                     <ArtButtonTable type="delete" />
@@ -281,6 +300,27 @@
         </div>
       </div>
     </ElDrawer>
+    <ElDialog
+      v-model="followResultDialogVisible"
+      title="编辑跟进结果"
+      width="500px"
+      destroy-on-close
+    >
+      <ElForm label-width="90px">
+        <ElFormItem label="跟进结果">
+          <ElInput
+            v-model="editingFollowResult"
+            type="textarea"
+            :rows="3"
+            placeholder="请填写本次跟进结果"
+          />
+        </ElFormItem>
+      </ElForm>
+      <template #footer>
+        <ElButton @click="followResultDialogVisible = false">取消</ElButton>
+        <ElButton type="primary" @click="saveFollowResultOnly">保存</ElButton>
+      </template>
+    </ElDialog>
     <!-- 商机详情抽屉 -->
     <ElDrawer v-model="detailDrawerVisible" title="商机详情" size="50%" destroy-on-close>
       <ElDescriptions :column="2" border>
@@ -327,13 +367,16 @@
   import { useProductStore } from '@/store/modules/product'
   import { useProductCategoryStore } from '@/store/modules/productCategory'
   import { storeToRefs } from 'pinia'
-  import { useOpportunityFollowStore } from '@/store/modules/opportunityFollow'
   import { fetchChannelOptions } from '@/api/channel'
   import { useUserStore } from '@/store/modules/user'
   import {
     fetchGetOpportunityList,
     fetchSaveOpportunity,
-    fetchDeleteOpportunity
+    fetchDeleteOpportunity,
+    fetchGetOpportunityFollowList,
+    fetchSaveOpportunityFollow,
+    fetchDeleteOpportunityFollow,
+    fetchUpdateOpportunityFollowResult
   } from '@/api/opportunity'
   import { fetchGetCustomerList } from '@/api/customer'
   import { fetchGetModelsByStore } from '@/api/product'
@@ -366,6 +409,7 @@
     opportunityId: string
     opportunityName?: string
     content: string
+    followResult: string
     nextContactTime: string
     status: string
     method: string
@@ -490,6 +534,7 @@
       }
     }
   )
+  const dialogVisible = ref(false)
   watch(
     () => dialogVisible.value,
     (v) => {
@@ -639,44 +684,13 @@
   // 后端数据源切换：不再生成本地数据（移除 mockData）
 
   // 跟进记录本地数据源
-  const formatDateTime = (d: Date) => {
-    const pad = (n: number) => String(n).padStart(2, '0')
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
-  }
   const formatDate = (d: Date) => {
     const pad = (n: number) => String(n).padStart(2, '0')
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
   }
-  const isSameDay = (a: string, b: string) => {
-    if (!a || !b) return false
-    const da = a.split(' ')[0]
-    const db = b.split(' ')[0]
-    return da === db
-  }
   const todayStr = () => formatDate(new Date())
 
   const followRecords = ref<FollowUpRecord[]>([])
-  // 全局跟进记录 store（用于二级菜单“跟进记录”页展示）
-  const followStore = useOpportunityFollowStore()
-  // 首次挂载：如全局为空，则用当前本地示例数据进行一次性初始化
-  onMounted(() => {
-    if (!followStore.records.length && followRecords.value.length) {
-      followStore.addBatch(followRecords.value)
-    }
-  })
-  const todayOpportunityIds = computed(() => {
-    const today = todayStr()
-    const ids = new Set<string>()
-    followRecords.value.forEach((r) => {
-      // 仅按“下次联系时间”的日期是否为今天来判断
-      if (isSameDay(r.nextContactTime, `${today} 00:00:00`)) {
-        ids.add(r.opportunityId)
-      }
-    })
-    return ids
-  })
-  // 读取一次以避免未使用的变量报错（模板可能使用）
-  void todayOpportunityIds.value
 
   // 构建后端查询参数（仅映射支持的字段）
   const buildListQuery = (current: number, size: number): Api.Opportunity.SearchParams => {
@@ -832,7 +846,6 @@
   }
 
   // 表单：新增/编辑
-  const dialogVisible = ref(false)
   const formRef = ref()
   const editingId = ref<string | null>(null)
   const initForm = (): OpportunityItem => ({
@@ -1005,11 +1018,13 @@
   const followFormRef = ref()
   const followForm = ref<{
     content: string
+    followResult: string
     nextContactTime: string
     status: string
     method: string
   }>({
     content: '',
+    followResult: '',
     nextContactTime: '',
     status: '跟进中',
     method: '电话'
@@ -1029,6 +1044,16 @@
   ]
   const followRules = computed(() => ({
     content: [{ required: true, message: '请填写跟进内容', trigger: 'blur' }],
+    followResult: [
+      {
+        validator: (_: any, value: any, cb: any) => {
+          if (followForm.value.status !== '跟进中' && !value) {
+            cb(new Error('请填写跟进结果'))
+          } else cb()
+        },
+        trigger: 'blur'
+      }
+    ],
     nextContactTime: [{ required: true, message: '请选择下次联系时间', trigger: 'change' }],
     status: [{ required: true, message: '请选择跟进状态', trigger: 'change' }],
     method: [{ required: true, message: '请选择跟进方式', trigger: 'change' }]
@@ -1043,22 +1068,43 @@
   }
 
   const saveFollow = async () => {
+    if (followRecords.value.length > 0) {
+      const last = followRecords.value[followRecords.value.length - 1]
+      if (!String(last.followResult || '').trim()) {
+        ElMessage.error('上一条跟进记录未填写跟进结果，请先在列表中通过“编辑结果”补充后再新增')
+        return
+      }
+    }
     await followFormRef.value?.validate?.()
-    const now = new Date()
-    const newRecord: FollowUpRecord = {
-      id: `F${Date.now()}`,
-      opportunityId: currentFollowOpportunityId.value,
+    const payload = {
+      opportunityId: Number(currentFollowOpportunityId.value),
       content: followForm.value.content,
+      followResult: followForm.value.followResult,
       nextContactTime: followForm.value.nextContactTime,
       status: followForm.value.status,
-      method: followForm.value.method,
-      createdAt: formatDateTime(now)
+      method: followForm.value.method
     }
-    followRecords.value = [newRecord, ...followRecords.value]
-    // 同步写入全局 store，供二级菜单“跟进记录”页面展示
-    followStore.addRecord({ ...newRecord, opportunityName: currentFollowOpportunityName.value })
+    const saved = await fetchSaveOpportunityFollow(payload)
+    const newRecord: FollowUpRecord = {
+      id: String(saved.id),
+      opportunityId: String(saved.opportunityId),
+      opportunityName: saved.opportunityName,
+      content: saved.content,
+      followResult: saved.followResult || '',
+      nextContactTime: saved.nextContactTime,
+      status: saved.status,
+      method: saved.method,
+      createdAt: saved.createdAt
+    }
+    followRecords.value = [...followRecords.value, newRecord]
     ElMessage.success('跟进保存成功')
-    followForm.value = { content: '', nextContactTime: '', status: '跟进中', method: '电话' }
+    followForm.value = {
+      content: '',
+      followResult: '',
+      nextContactTime: '',
+      status: '跟进中',
+      method: '电话'
+    }
     refreshFollowData()
     // 同步刷新主列表，使“今日跟进商机”立即生效
     refreshData()
@@ -1066,16 +1112,54 @@
   }
 
   const deleteFollowRow = (row: FollowUpRecord) => {
-    const idx = followRecords.value.findIndex((r) => r.id === row.id)
-    if (idx >= 0) {
-      followRecords.value.splice(idx, 1)
-      // 同步删除全局 store 中的记录
-      followStore.deleteRecord(row.id)
-      ElMessage.success('删除成功')
-      refreshFollowData()
-    } else {
-      ElMessage.error('删除失败，未找到该记录')
+    fetchDeleteOpportunityFollow(Number(row.id))
+      .then((ok) => {
+        if (ok) {
+          const idx = followRecords.value.findIndex((r) => r.id === row.id)
+          if (idx >= 0) followRecords.value.splice(idx, 1)
+          ElMessage.success('删除成功')
+          refreshFollowData()
+        } else {
+          ElMessage.error('删除失败')
+        }
+      })
+      .catch(() => {
+        ElMessage.error('删除失败')
+      })
+  }
+
+  const editingFollowResult = ref('')
+  const editingFollowId = ref<string | null>(null)
+  const followResultDialogVisible = ref(false)
+  const openEditFollowResult = (row: FollowUpRecord) => {
+    if (String(row.followResult || '').trim()) {
+      ElMessage.error('该跟进记录已填写结果，不能再次编辑')
+      return
     }
+    editingFollowId.value = row.id
+    editingFollowResult.value = row.followResult || ''
+    followResultDialogVisible.value = true
+  }
+  const saveFollowResultOnly = async () => {
+    const idNum = Number(editingFollowId.value)
+    if (!idNum || Number.isNaN(idNum)) {
+      followResultDialogVisible.value = false
+      return
+    }
+    const saved = await fetchUpdateOpportunityFollowResult({
+      id: idNum,
+      followResult: editingFollowResult.value
+    })
+    const idx = followRecords.value.findIndex((r) => r.id === String(saved.id))
+    if (idx >= 0) {
+      followRecords.value[idx] = {
+        ...followRecords.value[idx],
+        followResult: saved.followResult || ''
+      }
+    }
+    ElMessage.success('跟进结果已更新')
+    followResultDialogVisible.value = false
+    refreshFollowData()
   }
 
   // 跟进记录表
@@ -1093,18 +1177,37 @@
         current,
         size
       }: Api.Common.CommonSearchParams): Promise<Api.Common.PaginatedResponse<FollowUpRecord>> => {
-        const all = followRecords.value.filter(
-          (r) => r.opportunityId === currentFollowOpportunityId.value
-        )
-        const total = all.length
-        const start = (current - 1) * size
-        const end = start + size
-        return { records: all.slice(start, end), total, current, size }
+        const page = await fetchGetOpportunityFollowList({
+          current,
+          size,
+          opportunityId: Number(currentFollowOpportunityId.value)
+        })
+        const mapped = page.records.map((r) => ({
+          id: String(r.id),
+          opportunityId: String(r.opportunityId),
+          opportunityName: r.opportunityName,
+          content: r.content,
+          followResult: r.followResult || '',
+          nextContactTime: r.nextContactTime,
+          status: r.status,
+          method: r.method,
+          createdAt: r.createdAt
+        }))
+        followRecords.value = mapped
+          .slice()
+          .sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''))
+        return {
+          records: followRecords.value,
+          total: page.total ?? followRecords.value.length,
+          current: page.current ?? current,
+          size: page.size ?? size
+        }
       },
       apiParams: { current: 1, size: 10 },
       columnsFactory: (): ColumnOption<FollowUpRecord>[] => [
         { type: 'globalIndex', label: '序号', width: 80 },
         { prop: 'content', label: '跟进内容', minWidth: 180 },
+        { prop: 'followResult', label: '跟进结果', minWidth: 180 },
         { prop: 'status', label: '跟进状态', width: 110 },
         { prop: 'method', label: '跟进方式', width: 110 },
         { prop: 'nextContactTime', label: '下次联系时间', minWidth: 160 },
@@ -1154,11 +1257,15 @@
 
   .follow-panel {
     display: grid;
-    grid-template-columns: 360px 1fr;
+    grid-template-columns: 360px minmax(0, 1fr);
     gap: 16px;
   }
 
   .follow-form h4 {
     margin: 0 0 8px;
+  }
+
+  .follow-table {
+    overflow: auto;
   }
 </style>

@@ -24,3 +24,41 @@ export function fetchDeleteOpportunity(id: number) {
     showSuccessMessage: true
   })
 }
+
+export function fetchGetOpportunityFollowList(params: Api.Opportunity.FollowSearchParams) {
+  return request.get<Api.Opportunity.FollowList>({
+    url: '/api/opportunity/follow/list',
+    params
+  })
+}
+
+export function fetchSaveOpportunityFollow(data: {
+  opportunityId: number
+  content: string
+  followResult?: string
+  nextContactTime: string
+  status: string
+  method: string
+}) {
+  return request.post<Api.Opportunity.FollowItem>({
+    url: '/api/opportunity/follow/save',
+    data,
+    showSuccessMessage: false
+  })
+}
+
+export function fetchDeleteOpportunityFollow(id: number) {
+  return request.post<boolean>({
+    url: '/api/opportunity/follow/delete',
+    data: { id },
+    showSuccessMessage: false
+  })
+}
+
+export function fetchUpdateOpportunityFollowResult(data: { id: number; followResult?: string }) {
+  return request.post<Api.Opportunity.FollowItem>({
+    url: '/api/opportunity/follow/updateResult',
+    data,
+    showSuccessMessage: true
+  })
+}

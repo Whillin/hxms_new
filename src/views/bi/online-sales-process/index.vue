@@ -183,6 +183,14 @@
         <el-button type="primary" size="small" style="margin-left: 8px" @click="apply">
           应用
         </el-button>
+        <el-button
+          size="small"
+          style="margin-left: 8px"
+          :loading="insightLoading"
+          @click="fetchInsight"
+        >
+          智能解读
+        </el-button>
 
         <el-switch
           v-model="enableCompare"
@@ -364,6 +372,38 @@
         </el-table>
       </el-card>
     </div>
+
+    <el-card class="art-custom-card" v-if="insight">
+      <div class="card-title">{{ insight.title }}</div>
+      <div class="insight-block">
+        <div class="insight-section">
+          <div class="insight-subtitle">概要</div>
+          <ul>
+            <li v-for="(s, i) in insight.summary" :key="'s-' + i">{{ s }}</li>
+          </ul>
+        </div>
+        <div class="insight-section">
+          <div class="insight-subtitle">关键指标</div>
+          <div class="metrics">
+            <span v-for="m in insight.metrics" :key="m.name" class="metric">
+              {{ m.name }}：{{ m.value }}（{{ m.percent }}%）
+            </span>
+          </div>
+        </div>
+        <div class="insight-section" v-if="insight.issues && insight.issues.length">
+          <div class="insight-subtitle">问题定位</div>
+          <ul>
+            <li v-for="(s, i) in insight.issues" :key="'i-' + i">{{ s }}</li>
+          </ul>
+        </div>
+        <div class="insight-section">
+          <div class="insight-subtitle">行动建议</div>
+          <ul>
+            <li v-for="(s, i) in insight.actions" :key="'a-' + i">{{ s }}</li>
+          </ul>
+        </div>
+      </div>
+    </el-card>
   </div>
 </template>
 
@@ -756,6 +796,14 @@
   })
   const overlayTitle = computed(() => `${String(props.title || '线上线索转化分析')}（叠加）`)
   const hasCompareSelection = ref(false)
+  const insightLoading = ref(false)
+  const insight = ref<{
+    title: string
+    summary: string[]
+    metrics: { name: string; value: number; percent: number }[]
+    issues: string[]
+    actions: string[]
+  } | null>(null)
   const requestFunnelCache = new Map<
     string,
     {
@@ -1171,6 +1219,59 @@
     }
   }
 
+  const fetchInsight = async () => {
+    const period = periodType.value
+    let dateStart = ''
+    let dateEnd = ''
+    let month = ''
+    let year = ''
+    if (period === 'day') {
+      const r = dateDay.value
+      if (Array.isArray(r) && r.length === 2) {
+        dateStart = String(r[0] || '')
+        dateEnd = String(r[1] || '')
+      }
+    } else if (period === 'week') {
+      dateStart = String(dateWeek.value || '')
+    } else if (period === 'month') {
+      month = getMonthStr(dateMonth.value)
+    } else if (period === 'year') {
+      year = String(dateYear.value || '')
+    }
+    const params: Record<string, any> = { period }
+    if (dateStart && dateEnd) {
+      params.start = dateStart
+      params.end = dateEnd
+    }
+    if (month) params.month = month
+    if (year) params.year = year
+    const sid = Number(storeId.value || 0)
+    const tid = Number(teamId.value || 0)
+    const cid = Number(consultantId.value || 0)
+    const mid = Number(modelId.value || 0)
+    if (sid) params.storeId = sid
+    if (tid) params.teamId = tid
+    if (cid) params.consultantId = cid
+    if (mid) params.modelId = mid
+    params.channelCategory = '线上'
+    params.businessSource = '线上'
+    if (channelType.value) params.channelLevel1 = channelType.value
+    if (channelLevel2.value) params.channelLevel2 = channelLevel2.value
+    insightLoading.value = true
+    try {
+      const r = await request.get<{ insight: any }>({
+        url: '/api/bi/sales-funnel-insight',
+        params,
+        showErrorMessage: false
+      })
+      insight.value = (r as any)?.insight || null
+    } catch {
+      insight.value = null
+    } finally {
+      insightLoading.value = false
+    }
+  }
+
   const reset = () => {
     periodType.value = 'month'
     dateDay.value = ''
@@ -1235,6 +1336,36 @@
   .charts-row {
     display: flex;
     gap: 12px;
+  }
+
+  .insight-block {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .insight-section {
+    padding: 4px 8px;
+  }
+
+  .insight-subtitle {
+    margin-bottom: 6px;
+    font-weight: 600;
+  }
+
+  .metrics {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .metric {
+    display: inline-block;
+    padding: 2px 8px;
+    font-size: 12px;
+    color: var(--el-color-primary);
+    background: var(--el-color-primary-light-9);
+    border-radius: 12px;
   }
 
   .filters {

@@ -279,5 +279,29 @@ declare namespace Api {
       /** 最新联系时间范围：YYYY-MM-DD 两端闭区间 */
       daterange?: string[]
     }
+
+    /** 商机跟进记录项 */
+    interface FollowItem {
+      id: number
+      opportunityId: number
+      opportunityName?: string
+      content: string
+      followResult?: string
+      nextContactTime: string
+      status: string
+      method: string
+      createdAt: string
+    }
+
+    /** 商机跟进记录分页列表 */
+    type FollowList = Api.Common.PaginatedResponse<FollowItem>
+
+    /** 商机跟进记录查询参数 */
+    type FollowSearchParams = Partial<
+      Pick<FollowItem, 'status' | 'method'> & {
+        opportunityId?: number
+        keyword?: string
+      } & Api.Common.CommonSearchParams
+    >
   }
 }

@@ -56,15 +56,20 @@
         @pagination:current-change="handleCurrentChange"
       >
         <template #operation="{ row }">
-          <div style="text-align: right">
+          <div style="display: flex; gap: 6px; align-items: center; justify-content: center">
             <!-- 新增：眼睛图标查看详情 -->
             <ArtButtonTable type="view" @click="openDetailDrawer(row)" />
             <!-- 跟进记录与操作：更换为“更多”图标 -->
             <ArtButtonTable type="more" @click="openFollowDrawer(row)" />
             <!-- 编辑：已战败/已成交不可编辑 -->
-            <template v-if="canEdit(row)">
-              <ArtButtonTable type="edit" @click="editRow(row)" />
-            </template>
+            <ArtButtonTable
+              type="edit"
+              @click="editRow(row)"
+              :style="{
+                visibility: canEdit(row) ? 'visible' : 'hidden',
+                pointerEvents: canEdit(row) ? 'auto' : 'none'
+              }"
+            />
             <ElPopconfirm title="确认删除该商机？" @confirm="deleteRow(row)">
               <template #reference>
                 <ArtButtonTable type="delete" v-roles="['R_SUPER', 'R_ADMIN']" />
@@ -1112,7 +1117,7 @@
         {
           prop: 'operation',
           label: '操作',
-          width: 140,
+          width: 180,
           align: 'center',
           fixed: 'right',
           useSlot: true

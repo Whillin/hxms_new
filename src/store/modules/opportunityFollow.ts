@@ -6,6 +6,7 @@ export interface FollowUpRecord {
   opportunityId: string
   opportunityName?: string
   content: string
+  followResult: string
   nextContactTime: string
   status: string
   method: string
@@ -50,6 +51,7 @@ export const useOpportunityFollowStore = defineStore(
         opportunityId: String(payload.opportunityId || ''),
         opportunityName: payload.opportunityName || '',
         content: payload.content || '',
+        followResult: payload.followResult || '',
         nextContactTime: payload.nextContactTime || `${formatDate(now)} 00:00:00`,
         status: payload.status || '跟进中',
         method: payload.method || '电话',

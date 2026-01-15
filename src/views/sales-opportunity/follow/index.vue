@@ -23,6 +23,11 @@
       >
         <template #operation="{ row }">
           <div style="text-align: right">
+            <ArtButtonTable
+              v-if="!row.followResult"
+              type="edit"
+              @click="openEditFollowResult(row)"
+            />
             <ElPopconfirm title="确认删除该跟进记录？" @confirm="handleDelete(row)">
               <template #reference>
                 <ArtButtonTable type="delete" />
@@ -37,6 +42,27 @@
           <span>【{{ row.status }}】 {{ row.content }}</span>
         </template>
       </ArtTable>
+      <ElDialog
+        v-model="followResultDialogVisible"
+        title="编辑跟进结果"
+        width="500px"
+        destroy-on-close
+      >
+        <ElForm label-width="90px">
+          <ElFormItem label="跟进结果">
+            <ElInput
+              v-model="editingFollowResult"
+              type="textarea"
+              :rows="3"
+              placeholder="请填写本次跟进结果"
+            />
+          </ElFormItem>
+        </ElForm>
+        <template #footer>
+          <ElButton @click="followResultDialogVisible = false">取消</ElButton>
+          <ElButton type="primary" @click="saveFollowResultOnly">保存</ElButton>
+        </template>
+      </ElDialog>
     </ElCard>
   </div>
 </template>
@@ -46,12 +72,14 @@
   import ArtButtonTable from '@/components/core/forms/art-button-table/index.vue'
   import { useTable } from '@/composables/useTable'
   import type { ColumnOption } from '@/types/component'
-  import { useOpportunityFollowStore, type FollowUpRecord } from '@/store/modules/opportunityFollow'
-  import { ElMessage } from 'element-plus'
+  import { ElButton, ElMessage } from 'element-plus'
+  import {
+    fetchGetOpportunityFollowList,
+    fetchDeleteOpportunityFollow,
+    fetchUpdateOpportunityFollowResult
+  } from '@/api/opportunity'
 
   defineOptions({ name: 'OpportunityFollow' })
-
-  const followStore = useOpportunityFollowStore()
 
   // 搜索栏配置
   const searchRef = ref()
@@ -96,34 +124,21 @@
         apiFn: async ({
           current,
           size
-        }: Api.Common.CommonSearchParams): Promise<
-          Api.Common.PaginatedResponse<FollowUpRecord>
-        > => {
-          let all = followStore.records
-          // 筛选：方式
-          if (searchParams.method) {
-            all = all.filter((r) => r.method === searchParams.method)
-          }
-          // 筛选：关键词（商机名称或内容）
-          const kw = (searchParams.keyword || '').trim()
-          if (kw) {
-            all = all.filter(
-              (r) => (r.opportunityName || '').includes(kw) || (r.content || '').includes(kw)
-            )
-          }
-          // 按创建时间倒序
-          all = all.slice().sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
-
-          const total = all.length
-          const start = (current - 1) * size
-          const end = start + size
-          return { records: all.slice(start, end), total, current, size }
+        }: Api.Common.CommonSearchParams): Promise<Api.Opportunity.FollowList> => {
+          const page = await fetchGetOpportunityFollowList({
+            current,
+            size,
+            method: searchParams.method,
+            keyword: searchParams.keyword
+          })
+          return page
         },
         apiParams: { current: 1, size: 10 },
-        columnsFactory: (): ColumnOption<FollowUpRecord>[] => [
+        columnsFactory: (): ColumnOption<Api.Opportunity.FollowItem>[] => [
           { type: 'globalIndex', label: '序号', width: 80 },
           { prop: 'opportunityName', label: '商机编码', minWidth: 160 },
           { prop: 'content', label: '跟进内容', minWidth: 220, useSlot: true },
+          { prop: 'followResult', label: '跟进结果', minWidth: 220 },
           { prop: 'method', label: '跟进方式', width: 110, useSlot: true },
           { prop: 'nextContactTime', label: '下次联系时间', minWidth: 160 },
           { prop: 'createdAt', label: '创建时间', minWidth: 160 },
@@ -139,9 +154,44 @@
       }
     })
 
-  const handleDelete = (row: FollowUpRecord) => {
-    followStore.deleteRecord(row.id)
-    ElMessage.success('删除成功')
+  const handleDelete = (row: Api.Opportunity.FollowItem) => {
+    fetchDeleteOpportunityFollow(row.id)
+      .then((ok) => {
+        if (ok) {
+          ElMessage.success('删除成功')
+          refreshData()
+        } else {
+          ElMessage.error('删除失败')
+        }
+      })
+      .catch(() => {
+        ElMessage.error('删除失败')
+      })
+  }
+
+  const editingFollowResult = ref('')
+  const editingFollowId = ref<number | null>(null)
+  const followResultDialogVisible = ref(false)
+  const openEditFollowResult = (row: Api.Opportunity.FollowItem) => {
+    if (String(row.followResult || '').trim()) {
+      ElMessage.error('该跟进记录已填写结果，不能再次编辑')
+      return
+    }
+    editingFollowId.value = row.id
+    editingFollowResult.value = row.followResult || ''
+    followResultDialogVisible.value = true
+  }
+  const saveFollowResultOnly = async () => {
+    if (!editingFollowId.value) {
+      followResultDialogVisible.value = false
+      return
+    }
+    await fetchUpdateOpportunityFollowResult({
+      id: editingFollowId.value,
+      followResult: editingFollowResult.value
+    })
+    ElMessage.success('跟进结果已更新')
+    followResultDialogVisible.value = false
     refreshData()
   }
 </script>
