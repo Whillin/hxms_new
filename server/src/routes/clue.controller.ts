@@ -335,19 +335,6 @@ export class ClueController {
         return { code: 403, msg: '接口未开放', data: false }
       }
     }
-
-    // 基础必填校验（提前到所有逻辑之前，确保直存和队列模式都生效）
-    const id = Number(body?.id || 0) || undefined
-    const { customerName, customerPhone, storeId, visitDate, enterTime, leaveTime } = body || {}
-
-    // 新增记录必须校验进离店时间
-    if (
-      !id &&
-      (!customerName || !customerPhone || !storeId || !visitDate || !enterTime || !leaveTime)
-    ) {
-      return { code: 400, msg: '缺少必填字段：请检查进店/离店时间', data: false }
-    }
-
     // 统一布尔解析，避免字符串 "false" 被误判为 true
     const toBool = (v: any): boolean => {
       if (typeof v === 'boolean') return v
@@ -365,15 +352,12 @@ export class ClueController {
       const currentUser = userId ? await this.userService.findById(userId) : null
       const employeeId = currentUser?.employeeId
 
-      // [Fix] 防御性处理：如果 dealModelName 是纯数字（通常是ID误传），尝试用 dealModelId 修正为中文名称
-      if (body.dealModelName && /^\d+$/.test(String(body.dealModelName))) {
-        const dId = Number(body.dealModelId)
-        if (dId && dId > 0) {
-          const pm = await this.productModelRepo.findOne({ where: { id: dId } })
-          if (pm && pm.name) {
-            body.dealModelName = pm.name
-          }
-        }
+      const id = Number(body?.id || 0) || undefined
+      const { customerName, customerPhone, storeId, visitDate } = body || {}
+
+      // 基础必填校验（新增必须；编辑建议也携带）
+      if (!id && (!customerName || !customerPhone || !storeId || !visitDate)) {
+        return { code: 400, msg: '缺少必填字段', data: false }
       }
 
       // 编辑更新：带 id 时走更新路径（包含范围校验）

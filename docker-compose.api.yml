@@ -1,0 +1,64 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: hxms_new-mysql-1
+    environment:
+      MYSQL_ROOT_PASSWORD: '123456'
+      MYSQL_DATABASE: 'hxms_dev'
+    command: --server-id=1 --skip-log-bin --innodb-buffer-pool-size=256M --max-connections=100
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ['CMD-SHELL', 'mysqladmin ping -h 127.0.0.1 -uroot -p;MYSQL_ROOT_PASSWORD || exit 1']
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+    ports:
+      - '127.0.0.1:13306:3306'
+    restart: always
+    networks:
+      - hxms_net
+
+  redis:
+    image: redis:7.0
+    container_name: hxms_redis
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis-data:/data
+    networks:
+      - hxms_net
+
+  api:
+    build: ./server
+    container_name: hxms_api
+    env_file:
+      - ./server/.env.production
+      - ./server/.env
+    environment:
+      - NODE_OPTIONS=--max-old-space-size=256
+      - MYSQL_HOST=mysql
+      - MYSQL_PORT=3306
+      - MYSQL_USER=root
+      - MYSQL_PASSWORD=123456
+      - MYSQL_DB=hxms_dev
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    ports:
+      - '3001:3001'
+    depends_on:
+      mysql:
+        condition: service_started
+      redis:
+        condition: service_started
+    networks:
+      - hxms_net
+
+volumes:
+  mysql-data:
+  redis-data:
+
+networks:
+  hxms_net:
+    name: hxms_net

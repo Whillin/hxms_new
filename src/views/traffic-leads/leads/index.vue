@@ -1704,21 +1704,6 @@
 
   // 导入处理
   const handleImportSuccess = (rows: any[]) => {
-    // 校验必填字段
-    for (let i = 0; i < rows.length; i++) {
-      const r = rows[i]
-      const enterTime = r['进店时间'] || r['enterTime']
-      const leaveTime = r['离店时间'] || r['leaveTime']
-      if (!enterTime) {
-        ElMessage.error(`导入失败：第 ${i + 1} 行缺少进店时间`)
-        return
-      }
-      if (!leaveTime) {
-        ElMessage.error(`导入失败：第 ${i + 1} 行缺少离店时间`)
-        return
-      }
-    }
-
     // 字段映射（中文列名 -> 数据键）
     const mapped = rows.map((r, i) => ({
       id: String(i + 1),
