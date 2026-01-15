@@ -129,10 +129,10 @@ export class OpportunityService {
             .join('、')
         } else {
           const s = String(rawFailReason || '').trim()
-          exist.failReason = s || null
+          exist.failReason = s || undefined
         }
       } else {
-        exist.failReason = null
+        exist.failReason = undefined
       }
       exist.opportunityLevel =
         (String(body.opportunityLevel || exist.opportunityLevel) as any) || exist.opportunityLevel
