@@ -275,8 +275,28 @@ declare namespace Api {
 
     /** 商机搜索参数 */
     type SearchParams = Partial<
-      Pick<Item, 'customerName' | 'customerPhone' | 'opportunityLevel' | 'status'> &
-        Api.Common.CommonSearchParams
+      Pick<
+        Item,
+        | 'customerName'
+        | 'customerPhone'
+        | 'opportunityLevel'
+        | 'status'
+        | 'opportunityCode'
+        | 'channelLevel1'
+        | 'focusModelId'
+        | 'focusModelName'
+        | 'testDrive'
+        | 'bargaining'
+      > &
+        Api.Common.CommonSearchParams & {
+          visitDate?: string
+          salesConsultant?: string
+          defeatReasons?: string[]
+          buyExperience?: string
+          currentModel?: string
+          carAge?: number
+          livingArea?: string | string[]
+        }
     > & {
       /** 最新联系时间范围：YYYY-MM-DD 两端闭区间 */
       daterange?: string[]

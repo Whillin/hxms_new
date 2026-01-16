@@ -87,9 +87,15 @@ export class OpportunityController {
       filters.latestVisitDate = Between(String(start), String(end))
     }
 
-    // 改用 QueryBuilder，避免 where 数组产生 OR 行为，确保范围限制为 AND
     const qb = this.repo.createQueryBuilder('o')
     qb.where('1=1')
+    let joinedCustomer = false
+    const ensureCustomerJoined = () => {
+      if (!joinedCustomer) {
+        qb.leftJoin('customers', 'c', 'c.id = o.customerId')
+        joinedCustomer = true
+      }
+    }
     if (isSales && typeof scope.employeeId === 'number') {
       qb.andWhere('o.ownerId = :employeeId', { employeeId: scope.employeeId })
     } else if (isSalesManager && typeof scope.departmentId === 'number') {
@@ -128,7 +134,6 @@ export class OpportunityController {
       }
     }
 
-    // 搜索过滤
     if (query.customerName)
       qb.andWhere('o.customerName LIKE :customerName', {
         customerName: `%${String(query.customerName)}%`
@@ -142,12 +147,99 @@ export class OpportunityController {
         oppLevel: String(query.opportunityLevel)
       })
     if (query.status) qb.andWhere('o.status = :status', { status: String(query.status) })
+    if (query.opportunityCode)
+      qb.andWhere('o.opportunityCode LIKE :opportunityCode', {
+        opportunityCode: `%${String(query.opportunityCode)}%`
+      })
+    if (query.channelLevel1)
+      qb.andWhere('o.channelLevel1 = :channelLevel1', {
+        channelLevel1: String(query.channelLevel1)
+      })
+    if (query.focusModelId) {
+      const focusModelId = Number(query.focusModelId)
+      if (!Number.isNaN(focusModelId) && focusModelId > 0) {
+        qb.andWhere('o.focusModelId = :focusModelId', { focusModelId })
+      }
+    }
+    if (query.focusModelName)
+      qb.andWhere('o.focusModelName LIKE :focusModelName', {
+        focusModelName: `%${String(query.focusModelName)}%`
+      })
+    if (
+      query.testDrive !== undefined &&
+      query.testDrive !== null &&
+      String(query.testDrive) !== ''
+    ) {
+      const val =
+        String(query.testDrive) === 'true' ||
+        String(query.testDrive) === '1' ||
+        query.testDrive === true
+      qb.andWhere('o.testDrive = :testDrive', { testDrive: val })
+    }
+    if (
+      query.bargaining !== undefined &&
+      query.bargaining !== null &&
+      String(query.bargaining) !== ''
+    ) {
+      const val =
+        String(query.bargaining) === 'true' ||
+        String(query.bargaining) === '1' ||
+        query.bargaining === true
+      qb.andWhere('o.bargaining = :bargaining', { bargaining: val })
+    }
+    if (query.visitDate)
+      qb.andWhere('o.openDate = :visitDate', { visitDate: String(query.visitDate) })
+    if (query.salesConsultant)
+      qb.andWhere('o.ownerName LIKE :ownerName', {
+        ownerName: `%${String(query.salesConsultant)}%`
+      })
     if (Array.isArray(query.daterange) && query.daterange.length === 2) {
       const [start, end] = query.daterange
       qb.andWhere('o.latestVisitDate BETWEEN :start AND :end', {
         start: String(start),
         end: String(end)
       })
+    }
+    if (query.buyExperience) {
+      ensureCustomerJoined()
+      qb.andWhere('c.buyExperience = :buyExperience', {
+        buyExperience: String(query.buyExperience)
+      })
+    }
+    if (query.currentModel) {
+      ensureCustomerJoined()
+      qb.andWhere('c.currentModel LIKE :currentModel', {
+        currentModel: `%${String(query.currentModel)}%`
+      })
+    }
+    if (query.carAge !== undefined && query.carAge !== null && String(query.carAge) !== '') {
+      const carAge = Number(query.carAge)
+      if (!Number.isNaN(carAge)) {
+        ensureCustomerJoined()
+        qb.andWhere('c.carAge = :carAge', { carAge })
+      }
+    }
+    if (query.livingArea) {
+      const livingArea = Array.isArray(query.livingArea)
+        ? (query.livingArea as string[]).join('/')
+        : String(query.livingArea)
+      if (livingArea) {
+        ensureCustomerJoined()
+        qb.andWhere('c.livingArea LIKE :livingArea', { livingArea: `${livingArea}%` })
+      }
+    }
+    if (Array.isArray(query.defeatReasons) && query.defeatReasons.length) {
+      const list = (query.defeatReasons as any[])
+        .map((v) => String(v || '').trim())
+        .filter((v) => !!v)
+      if (list.length) {
+        const conditions = list.map((_, idx) => `o.failReason LIKE :fr${idx}`)
+        const params: any = {}
+        list.forEach((v, idx) => {
+          params[`fr${idx}`] = `%${v}%`
+        })
+        qb.andWhere(`(${conditions.join(' OR ')})`, params)
+      }
     }
 
     qb.orderBy('o.updatedAt', 'DESC')

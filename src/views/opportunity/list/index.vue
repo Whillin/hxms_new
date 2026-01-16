@@ -348,6 +348,7 @@
     customerPhone: string
     opportunityCode: string
     channelLevel1: string
+    focusModelId?: number
     focusModelName: string
     opportunityLevel: 'H' | 'A' | 'B' | 'C' | 'O'
     testDrive: boolean
@@ -394,6 +395,7 @@
   const categoryStore = useProductCategoryStore()
   const userStore = useUserStore()
   const { info } = storeToRefs(userStore)
+  const { flatList } = storeToRefs(categoryStore)
 
   // 客户选择对话框（当同门店存在多条姓名+手机号匹配时处理）
   const customerSelectVisible = ref(false)
@@ -663,14 +665,43 @@
   // 读取一次以避免未使用的变量报错（模板可能使用）
   void todayOpportunityIds.value
 
-  // 构建后端查询参数（仅映射支持的字段）
   const buildListQuery = (current: number, size: number): Api.Opportunity.SearchParams => {
     const q: Api.Opportunity.SearchParams = { current, size }
     const s = searchForm.value as any
+    if (s.visitDate) (q as any).visitDate = s.visitDate
+    if (s.salesConsultant) (q as any).salesConsultant = s.salesConsultant
     if (s.customerName) q.customerName = s.customerName
     if (s.customerPhone) q.customerPhone = s.customerPhone
+    if (s.opportunityCode) (q as any).opportunityCode = s.opportunityCode
+    if (s.channelLevel1) (q as any).channelLevel1 = s.channelLevel1
+    if (s.focusModelName !== undefined && s.focusModelName !== null && s.focusModelName !== '') {
+      const num = Number(s.focusModelName)
+      if (Number.isFinite(num)) {
+        ;(q as any).focusModelId = num
+      } else {
+        ;(q as any).focusModelName = String(s.focusModelName)
+      }
+    }
     if (s.opportunityLevel) q.opportunityLevel = s.opportunityLevel
+    if (s.testDrive !== undefined && s.testDrive !== null && s.testDrive !== '') {
+      ;(q as any).testDrive = s.testDrive
+    }
+    if (s.bargaining !== undefined && s.bargaining !== null && s.bargaining !== '') {
+      ;(q as any).bargaining = s.bargaining
+    }
+    if (s.buyExperience) (q as any).buyExperience = s.buyExperience
+    if (s.currentModel) (q as any).currentModel = s.currentModel
+    if (s.carAge !== undefined && s.carAge !== null && s.carAge !== '') {
+      const age = Number(s.carAge)
+      if (!Number.isNaN(age)) (q as any).carAge = age
+    }
+    if (Array.isArray(s.livingArea) && s.livingArea.length) {
+      ;(q as any).livingArea = s.livingArea
+    }
     if (s.latestStatus) q.status = s.latestStatus
+    if (Array.isArray(s.defeatReasons) && s.defeatReasons.length) {
+      ;(q as any).defeatReasons = s.defeatReasons
+    }
     if (listMode.value === 'today') {
       const today = todayStr()
       q.daterange = [today, today]
@@ -679,6 +710,12 @@
   }
 
   // 适配后端记录到现有UI模型
+  const findCategoryName = (id?: number) => {
+    const list = flatList.value || []
+    const target = list.find((c: any) => c.id === id)
+    return target ? String(target.name || '') : ''
+  }
+
   const adaptOpportunity = (item: Api.Opportunity.Item): OpportunityItem => {
     const dateLike = String(item.openDate || item.latestVisitDate || item.createdAt || '')
     const visitDate = dateLike ? dateLike.slice(0, 10) : ''
@@ -690,7 +727,23 @@
       customerPhone: item.customerPhone,
       opportunityCode: item.opportunityCode || '',
       channelLevel1: item.channelLevel1 || '',
-      focusModelName: item.focusModelName || '',
+      focusModelId:
+        typeof (item as any).focusModelId === 'number'
+          ? ((item as any).focusModelId as number)
+          : undefined,
+      focusModelName: (() => {
+        const raw = String(item.focusModelName || '')
+        if (raw && !/^\d+$/.test(raw)) return raw
+        const id =
+          typeof (item as any).focusModelId === 'number'
+            ? ((item as any).focusModelId as number)
+            : Number(raw || 0)
+        if (Number.isFinite(id) && id > 0) {
+          const name = findCategoryName(id)
+          if (name) return name
+        }
+        return raw
+      })(),
       opportunityLevel: item.opportunityLevel as any,
       testDrive: !!item.testDrive,
       bargaining: !!item.bargaining,
@@ -748,7 +801,19 @@
         { prop: 'customerPhone', label: '电话', minWidth: 130 },
         { prop: 'opportunityCode', label: '商机编码', minWidth: 140 },
         { prop: 'channelLevel1', label: '一级渠道', minWidth: 120 },
-        { prop: 'focusModelName', label: '关注车型', minWidth: 140 },
+        {
+          prop: 'focusModelName',
+          label: '关注车型',
+          minWidth: 140,
+          formatter: (row: OpportunityItem) => {
+            if (row.focusModelName && !/^\d+$/.test(row.focusModelName)) return row.focusModelName
+            if (row.focusModelId && Number.isFinite(row.focusModelId)) {
+              const name = findCategoryName(row.focusModelId)
+              if (name) return name
+            }
+            return row.focusModelName
+          }
+        },
         { prop: 'opportunityLevel', label: '商机级别', width: 100 },
         {
           prop: 'testDrive',

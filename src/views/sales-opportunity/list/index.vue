@@ -691,14 +691,43 @@
 
   const followRecords = ref<FollowUpRecord[]>([])
 
-  // 构建后端查询参数（仅映射支持的字段）
   const buildListQuery = (current: number, size: number): Api.Opportunity.SearchParams => {
     const q: Api.Opportunity.SearchParams = { current, size }
     const s = searchForm.value as any
+    if (s.visitDate) (q as any).visitDate = s.visitDate
+    if (s.salesConsultant) (q as any).salesConsultant = s.salesConsultant
     if (s.customerName) q.customerName = s.customerName
     if (s.customerPhone) q.customerPhone = s.customerPhone
+    if (s.opportunityCode) (q as any).opportunityCode = s.opportunityCode
+    if (s.channelLevel1) (q as any).channelLevel1 = s.channelLevel1
+    if (s.focusModelName !== undefined && s.focusModelName !== null && s.focusModelName !== '') {
+      const num = Number(s.focusModelName)
+      if (Number.isFinite(num)) {
+        ;(q as any).focusModelId = num
+      } else {
+        ;(q as any).focusModelName = String(s.focusModelName)
+      }
+    }
     if (s.opportunityLevel) q.opportunityLevel = s.opportunityLevel
+    if (s.testDrive !== undefined && s.testDrive !== null && s.testDrive !== '') {
+      ;(q as any).testDrive = s.testDrive
+    }
+    if (s.bargaining !== undefined && s.bargaining !== null && s.bargaining !== '') {
+      ;(q as any).bargaining = s.bargaining
+    }
+    if (s.buyExperience) (q as any).buyExperience = s.buyExperience
+    if (s.currentModel) (q as any).currentModel = s.currentModel
+    if (s.carAge !== undefined && s.carAge !== null && s.carAge !== '') {
+      const age = Number(s.carAge)
+      if (!Number.isNaN(age)) (q as any).carAge = age
+    }
+    if (Array.isArray(s.livingArea) && s.livingArea.length) {
+      ;(q as any).livingArea = s.livingArea
+    }
     if (s.latestStatus) q.status = s.latestStatus
+    if (Array.isArray(s.defeatReasons) && s.defeatReasons.length) {
+      ;(q as any).defeatReasons = s.defeatReasons
+    }
     if (listMode.value === 'today') {
       const today = todayStr()
       q.daterange = [today, today]
