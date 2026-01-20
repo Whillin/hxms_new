@@ -467,11 +467,6 @@ async function mig010_fix_model_names_from_ids(conn, db) {
     JOIN \`${db}\`.product_models m ON o.focusModelId = m.id
     SET o.focusModelName = m.name
     WHERE o.focusModelId IS NOT NULL;
-
-    UPDATE \`${db}\`.opportunities o
-    JOIN \`${db}\`.product_models m ON o.dealModelId = m.id
-    SET o.dealModelName = m.name
-    WHERE o.dealModelId IS NOT NULL;
   `
 
   await conn.query(sql)

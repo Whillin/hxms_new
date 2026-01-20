@@ -116,7 +116,7 @@
   const rules = reactive<FormRules>({
     username: [
       { required: true, message: t('register.rules.username[0]'), trigger: 'blur' },
-      { min: 3, max: 20, message: t('register.rules.username[1]'), trigger: 'blur' }
+      { min: 2, max: 20, message: t('register.rules.username[1]'), trigger: 'blur' }
     ],
     name: [{ required: true, message: '请输入姓名', trigger: 'blur' }],
     phone: [

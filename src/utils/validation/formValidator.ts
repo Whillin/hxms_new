@@ -58,15 +58,15 @@ export function validateTelPhone(value: string): boolean {
  * 验证用户账号
  * @param value 账号字符串
  * @returns 返回验证结果，true表示格式正确
- * @description 规则：字母开头，5-20位，支持字母、数字、下划线
+ * @description 规则：字母开头，2-20位，支持字母、数字、下划线
  */
 export function validateAccount(value: string): boolean {
   if (!value || typeof value !== 'string') {
     return false
   }
 
-  // 字母开头，5-20位，支持字母、数字、下划线
-  const accountRegex = /^[a-zA-Z][a-zA-Z0-9_]{4,19}$/
+  // 字母开头，2-20位，支持字母、数字、下划线
+  const accountRegex = /^[a-zA-Z][a-zA-Z0-9_]{1,19}$/
   return accountRegex.test(value.trim())
 }
 
