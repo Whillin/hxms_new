@@ -244,6 +244,7 @@ export class UserService implements OnModuleInit {
             userPhone: emp?.phone || '',
             userDept: '',
             roleName: userRoles.join(','),
+            userRoles, // 返回角色数组供前端回显
             createTime: nowToStr(u.createdAt),
             loginIp: '',
             loginTime: nowToStr(u.updatedAt),
@@ -293,6 +294,7 @@ export class UserService implements OnModuleInit {
           userPhone: emp?.phone || '',
           userDept: '',
           roleName: userRoles.join(','),
+          userRoles, // 返回角色数组供前端回显
           createTime: nowToStr(u.createdAt),
           loginIp: '',
           loginTime: nowToStr(u.updatedAt),

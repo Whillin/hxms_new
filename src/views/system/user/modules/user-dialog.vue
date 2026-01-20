@@ -39,7 +39,7 @@
 </template>
 
 <script setup lang="ts">
-  import { fetchGetRoleList } from '@/api/system-manage'
+  import { fetchGetRoleList, fetchSaveUser } from '@/api/system-manage'
   import type { FormInstance, FormRules } from 'element-plus'
 
   interface Props {
@@ -146,11 +146,35 @@
   const handleSubmit = async () => {
     if (!formRef.value) return
 
-    await formRef.value.validate((valid) => {
+    await formRef.value.validate(async (valid) => {
       if (valid) {
-        ElMessage.success(dialogType.value === 'add' ? '添加成功' : '更新成功')
-        dialogVisible.value = false
-        emit('submit')
+        try {
+          const payload = {
+            id: props.userData?.id,
+            userName: formData.username,
+            phone: formData.phone,
+            gender: formData.gender,
+            role: formData.role
+          }
+          const res = await fetchSaveUser(payload)
+          // 根据后端返回判断成功与否
+          const isSuccess =
+            (res as any)?.code === 200 || res === true || (res as any)?.data === true
+
+          if (isSuccess) {
+            ElMessage.success(dialogType.value === 'add' ? '添加成功' : '更新成功')
+            dialogVisible.value = false
+            emit('submit')
+          } else {
+            // 如果 request 拦截器没有统一处理错误，这里兜底
+            if (!(res as any)?.msg) {
+              ElMessage.warning('保存未确认成功')
+            }
+          }
+        } catch (e) {
+          console.error(e)
+          // 拦截器通常会处理错误，这里仅作日志
+        }
       }
     })
   }

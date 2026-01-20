@@ -447,6 +447,38 @@ async function mig007_alloc_remove_role_and_unique_on_daily_employee(conn, db) {
   await markApplied(conn, db, version)
 }
 
+// 010: 回填 clues/opportunities 中关注车型与成交车型名称
+async function mig010_fix_model_names_from_ids(conn, db) {
+  const version = '010_fix_model_names_from_ids'
+  if (await wasApplied(conn, db, version)) return
+
+  const sql = `
+    UPDATE \`${db}\`.clues c
+    JOIN \`${db}\`.product_models m ON c.focusModelId = m.id
+    SET c.focusModelName = m.name
+    WHERE c.focusModelId IS NOT NULL;
+
+    UPDATE \`${db}\`.clues c
+    JOIN \`${db}\`.product_models m ON c.dealModelId = m.id
+    SET c.dealModelName = m.name
+    WHERE c.dealModelId IS NOT NULL;
+
+    UPDATE \`${db}\`.opportunities o
+    JOIN \`${db}\`.product_models m ON o.focusModelId = m.id
+    SET o.focusModelName = m.name
+    WHERE o.focusModelId IS NOT NULL;
+
+    UPDATE \`${db}\`.opportunities o
+    JOIN \`${db}\`.product_models m ON o.dealModelId = m.id
+    SET o.dealModelName = m.name
+    WHERE o.dealModelId IS NOT NULL;
+  `
+
+  await conn.query(sql)
+  console.log('[migrate] 010_fix_model_names_from_ids applied')
+  await markApplied(conn, db, version)
+}
+
 async function main() {
   const root = path.resolve(process.cwd(), 'server')
   parseEnvFile(path.join(root, '.env.production'))
@@ -464,6 +496,7 @@ async function main() {
     await mig008_online_channel_tables(conn, db)
     await mig009_online_daily_model(conn, db)
     await mig007_alloc_remove_role_and_unique_on_daily_employee(conn, db)
+    await mig010_fix_model_names_from_ids(conn, db)
     console.log('[OK] migrations applied')
   } finally {
     await conn.end()

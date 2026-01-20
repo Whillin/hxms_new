@@ -38,6 +38,15 @@ export function fetchGetUserList(params: Api.SystemManage.UserSearchParams) {
   })
 }
 
+// 保存用户（编辑）
+export function fetchSaveUser(data: any) {
+  return request.post<boolean>({
+    url: '/api/user/save',
+    data,
+    showSuccessMessage: true
+  })
+}
+
 // 删除用户
 export function fetchDeleteUser(id: number) {
   return request.post<boolean>({

@@ -149,6 +149,96 @@ export class UserController {
     return { code: 200, msg: '删除成功', data: true }
   }
 
+  // 管理员：保存用户（新增或编辑）
+  @UseGuards(JwtGuard)
+  @Post('save')
+  async save(@Req() req: any, @Body() body: any) {
+    const roles = Array.isArray(req.user?.roles) ? req.user.roles : []
+    const effectiveRoles = await this.userService.sanitizeRoles(roles)
+    const isAdmin = effectiveRoles.includes('R_ADMIN') || effectiveRoles.includes('R_SUPER')
+    if (!isAdmin) {
+      return { code: 403, msg: '无权限', data: null }
+    }
+
+    try {
+      const id = Number(body?.id)
+      const isEdit = id && !Number.isNaN(id)
+
+      // 提取表单字段
+      const userName = String(body?.userName || body?.username || '').trim()
+      const phone = String(body?.phone || body?.userPhone || '').trim()
+      const gender = String(body?.gender || body?.userGender || '').trim() // '男'/'女' or 'male'/'female'
+      const roleList = Array.isArray(body?.role)
+        ? body.role
+        : Array.isArray(body?.userRoles)
+          ? body.userRoles
+          : []
+
+      if (!userName) return { code: 400, msg: '用户名不能为空', data: false }
+
+      let user
+      if (isEdit) {
+        user = await this.userService.findById(id)
+        if (!user) return { code: 404, msg: '用户不存在', data: false }
+      } else {
+        // 新增用户逻辑暂未完全适配前端（缺少密码/真实姓名），此处仅处理编辑
+        // 如果需要新增，需完善 createUser 逻辑
+        return { code: 400, msg: '暂不支持新增用户，请确保是对现有用户进行编辑', data: false }
+      }
+
+      // 更新用户表字段
+      if (userName && userName !== user.userName) {
+        // 检查用户名唯一性
+        const exist = await this.userService.findByUserName(userName)
+        if (exist && exist.id !== user.id) {
+          return { code: 400, msg: '用户名已存在', data: false }
+        }
+        user.userName = userName
+      }
+
+      // 更新角色
+      if (roleList.length > 0) {
+        user.roles = await this.userService.sanitizeRoles(roleList)
+      } else {
+        // 如果传入空角色数组，可能意味着清空非默认角色
+        // sanitizeRoles 会兜底 R_FRONT_DESK，符合预期
+        user.roles = await this.userService.sanitizeRoles([])
+      }
+
+      await this.userService.save(user)
+
+      // 更新关联员工表字段（手机号、性别）
+      if (user.employeeId) {
+        const emp = await this.empRepo.findOne({ where: { id: user.employeeId } })
+        if (emp) {
+          let changed = false
+          if (phone && emp.phone !== phone) {
+            emp.phone = phone
+            changed = true
+          }
+          // 处理性别映射：前端可能是 '男'/'女' 或 'male'/'female'
+          let targetGender = ''
+          if (gender === '男' || gender === 'male') targetGender = 'male'
+          if (gender === '女' || gender === 'female') targetGender = 'female'
+
+          if (targetGender && emp.gender !== targetGender) {
+            emp.gender = targetGender as any
+            changed = true
+          }
+
+          if (changed) {
+            await this.empRepo.save(emp)
+          }
+        }
+      }
+
+      return { code: 200, msg: '保存成功', data: true }
+    } catch (e) {
+      console.error('[UserController.save] error:', e)
+      return { code: 500, msg: '保存失败', data: false }
+    }
+  }
+
   // 管理员：按用户名重置密码
   @UseGuards(JwtGuard)
   @Post('reset-password')
