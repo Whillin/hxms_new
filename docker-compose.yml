@@ -27,7 +27,7 @@ services:
     profiles:
       - observability
     environment:
-      COLLECTOR_OTLP_ENABLED: true
+      COLLECTOR_OTLP_ENABLED: 'true'
     ports:
       - '16686:16686'
       - '14268:14268'
