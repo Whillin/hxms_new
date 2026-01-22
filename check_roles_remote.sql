@@ -1,0 +1,1 @@
+SELECT id, HEX(userName), roles FROM users WHERE HEX(userName) LIKE 'E69D9C%' OR HEX(userName) LIKE 'E7868A%';

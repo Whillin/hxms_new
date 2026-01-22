@@ -69,18 +69,17 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
-      jaeger:
-        condition: service_started
       redis:
         condition: service_started
     networks:
       - hxms_net
 
   web:
-    build:
-      context: .
-      dockerfile: deploy/web.Dockerfile
+    image: nginx:stable-alpine
     container_name: hxms_web
+    volumes:
+      - ./dist:/usr/share/nginx/html
+      - ./deploy/nginx.conf:/etc/nginx/conf.d/default.conf
     depends_on:
       - api
     ports:

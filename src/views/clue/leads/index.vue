@@ -156,7 +156,7 @@
             resolvedDetail?.customerPhone
           }}</ElDescriptionsItem>
           <ElDescriptionsItem label="关注车型">{{
-            resolvedDetail?.focusModelName || findCategoryName(resolvedDetail?.focusModelId)
+            formatModelDisplay(resolvedDetail?.focusModelName, resolvedDetail?.focusModelId)
           }}</ElDescriptionsItem>
           <ElDescriptionsItem label="是否试驾">{{
             currentDetail?.testDrive ? '是' : '否'
@@ -168,7 +168,7 @@
             currentDetail?.dealDone ? '是' : '否'
           }}</ElDescriptionsItem>
           <ElDescriptionsItem label="成交车型">{{
-            resolvedDetail?.dealModelName || findCategoryName(resolvedDetail?.dealModelId)
+            formatModelDisplay(resolvedDetail?.dealModelName, resolvedDetail?.dealModelId)
           }}</ElDescriptionsItem>
           <ElDescriptionsItem label="商机来源">{{
             resolvedDetail?.businessSource
@@ -255,6 +255,7 @@
   const channelLevel1Options = ref<{ label: string; value: string }[]>([])
   const channelLevel2MapRef = ref<Record<string, { label: string; value: string }[]>>({})
   const channelMetaByL1Ref = ref<Record<string, { category: string; businessSource: string }>>({})
+  const modelLookupReady = ref(false)
 
   onMounted(async () => {
     try {
@@ -266,6 +267,13 @@
       console.error('[fetchChannelOptions] failed:', e)
     }
     try {
+      // 优先加载全量分类字典，确保 findModelNameById 能查到分类ID对应的名称
+      try {
+        await categoryStore.loadFromApi()
+      } catch (err) {
+        void err
+      }
+
       const sid = Number((info.value as any)?.storeId)
       if (Number.isFinite(sid) && sid > 0) {
         await productStore.loadProductsByStoreId(sid)
@@ -274,11 +282,6 @@
         const brand = (info.value as any)?.brandName || (info.value as any)?.brand || undefined
         let categoryId: number | undefined
         if (brand) {
-          try {
-            await categoryStore.loadFromApi()
-          } catch (err) {
-            void err
-          }
           const tree: any[] = (categoryStore as any).tree || []
           const node: any = tree.find((n: any) => n?.level === 1 && String(n?.name) === brand)
           if (node && typeof node.id === 'number') categoryId = node.id
@@ -293,6 +296,7 @@
     } catch (e: any) {
       void e
     }
+    modelLookupReady.value = true
   })
 
   // 监听品牌变化（中文brandName或英文brand），实时刷新关注/成交车型选项（按分类ID）
@@ -304,6 +308,13 @@
     ],
     async ([sid, brandName, brand]) => {
       try {
+        // 同样在监听变化时确保分类字典已加载
+        try {
+          await categoryStore.loadFromApi()
+        } catch (err) {
+          void err
+        }
+
         const sidNum = Number(sid)
         if (Number.isFinite(sidNum) && sidNum > 0) {
           await productStore.loadProductsByStoreId(sidNum)
@@ -312,11 +323,6 @@
         const b = brandName || brand || undefined
         let categoryId: number | undefined
         if (b) {
-          try {
-            await categoryStore.loadFromApi()
-          } catch (err) {
-            void err
-          }
           const tree: any[] = (categoryStore as any).tree || []
           const node: any = tree.find((n: any) => n?.level === 1 && String(n?.name) === b)
           if (node && typeof node.id === 'number') categoryId = node.id
@@ -542,9 +548,42 @@
     return v ? map[v] : ''
   }
 
-  const findCategoryName = (id?: number) => {
-    const item = (flatList.value || []).find((c: any) => c.id === id)
-    return item ? item.name : ''
+  const isNumericText = (v: any) => {
+    const s = v !== undefined && v !== null ? String(v).trim() : ''
+    return !!s && /^\d+$/.test(s)
+  }
+
+  const findModelNameById = (id?: any) => {
+    const idNum = Number(id)
+    if (!Number.isFinite(idNum)) return ''
+    const productsAny = (productStore as any)?.products
+    if (Array.isArray(productsAny)) {
+      const hit = productsAny.find((p: any) => Number(p?.id) === idNum)
+      if (hit?.name) return String(hit.name)
+    }
+    const opts = modelOptionsRef.value || []
+    const opt = opts.find((o) => Number((o as any)?.value) === idNum)
+    if (opt && (opt as any).label) return String((opt as any).label)
+    const cat = (flatList.value || []).find((c: any) => Number(c?.id) === idNum)
+    if (cat?.name) return String(cat.name)
+    return ''
+  }
+
+  const formatModelDisplay = (name: any, id: any) => {
+    const s = name !== undefined && name !== null ? String(name).trim() : ''
+    if (s && !isNumericText(s)) return s
+    const idFromName = isNumericText(s) ? Number(s) : undefined
+    const idNum = Number(id)
+    const pickedId = Number.isFinite(idFromName as any)
+      ? (idFromName as number)
+      : Number.isFinite(idNum)
+        ? idNum
+        : undefined
+    if (Number.isFinite(pickedId as any)) {
+      const n = findModelNameById(pickedId)
+      return n || '-'
+    }
+    return s || ''
   }
 
   // 统一解析：优先采用快照，再回退到冗余/原字段
@@ -606,6 +645,7 @@
         return { records: res.records, total: res.total, current, size }
       },
       apiParams: { current: 1, size: 10 },
+      immediate: false,
       columnsFactory: (): ColumnOption<ClueItem>[] => [
         { type: 'globalIndex', label: '序号', width: 80 },
         {
@@ -664,7 +704,7 @@
           width: 160,
           formatter: (row: any) => {
             const r = resolveClue(row)
-            return r.focusModelName || findCategoryName(r.focusModelId)
+            return formatModelDisplay(r.focusModelName, r.focusModelId)
           }
         },
         {
@@ -691,7 +731,7 @@
           width: 160,
           formatter: (row: any) => {
             const r = resolveClue(row)
-            return r.dealModelName || findCategoryName(r.dealModelId)
+            return formatModelDisplay(r.dealModelName, r.dealModelId)
           }
         },
         {
@@ -790,6 +830,18 @@
 
   const filteredData = computed(() => data.value)
 
+  const initialTableLoaded = ref(false)
+  watch(
+    () => modelLookupReady.value,
+    (ready) => {
+      if (ready && !initialTableLoaded.value) {
+        initialTableLoaded.value = true
+        void getData()
+      }
+    },
+    { immediate: true }
+  )
+
   // 构造导出数据：将数组字段转换为字符串以满足 ExportData 类型
   const excelData = computed(() =>
     (filteredData.value || []).map((row: any) => {
@@ -864,7 +916,7 @@
       title: '关注车型',
       width: 20,
       formatter: (_: any, __: any, row: any) =>
-        row.focusModelName || findCategoryName(row?.focusModelId)
+        formatModelDisplay(row.focusModelName, row?.focusModelId)
     },
     testDrive: { title: '是否试驾', width: 12, formatter: (v: any) => (v ? '是' : '否') },
     bargaining: { title: '是否议价', width: 12, formatter: (v: any) => (v ? '是' : '否') },
@@ -873,7 +925,7 @@
       title: '成交车型',
       width: 20,
       formatter: (_: any, __: any, row: any) =>
-        row.dealModelName || findCategoryName(row?.dealModelId)
+        formatModelDisplay(row.dealModelName, row?.dealModelId)
     },
     businessSource: { title: '商机来源', width: 14 },
     channelCategory: { title: '渠道分类', width: 14 },

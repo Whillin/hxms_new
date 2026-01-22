@@ -474,6 +474,44 @@ async function mig010_fix_model_names_from_ids(conn, db) {
   await markApplied(conn, db, version)
 }
 
+// 012: 修复 numeric names stored in focusModelName/dealModelName from product_categories
+async function mig012_fix_category_names(conn, db) {
+  const version = '012_fix_category_names'
+  if (await wasApplied(conn, db, version)) return
+
+  // 1. 通过 ID 关联修复 (优先信赖 ID)
+  // 注意：product_models 已经在 010 中修复过，这里只修复匹配到 categories 的
+  const sql1 = `
+    UPDATE \`${db}\`.clues c
+    JOIN \`${db}\`.product_categories cat ON c.focusModelId = cat.id
+    SET c.focusModelName = cat.name
+    WHERE c.focusModelId IS NOT NULL AND (c.focusModelName IS NULL OR c.focusModelName REGEXP '^[0-9]+$');
+
+    UPDATE \`${db}\`.clues c
+    JOIN \`${db}\`.product_categories cat ON c.dealModelId = cat.id
+    SET c.dealModelName = cat.name
+    WHERE c.dealModelId IS NOT NULL AND (c.dealModelName IS NULL OR c.dealModelName REGEXP '^[0-9]+$');
+  `
+  await conn.query(sql1)
+
+  // 2. 通过 Name (存的是 ID) 关联修复
+  const sql2 = `
+    UPDATE \`${db}\`.clues c
+    JOIN \`${db}\`.product_categories cat ON c.focusModelName = CAST(cat.id AS CHAR)
+    SET c.focusModelId = cat.id, c.focusModelName = cat.name
+    WHERE c.focusModelName REGEXP '^[0-9]+$';
+
+    UPDATE \`${db}\`.clues c
+    JOIN \`${db}\`.product_categories cat ON c.dealModelName = CAST(cat.id AS CHAR)
+    SET c.dealModelId = cat.id, c.dealModelName = cat.name
+    WHERE c.dealModelName REGEXP '^[0-9]+$';
+  `
+  await conn.query(sql2)
+
+  console.log('[migrate] 012_fix_category_names applied')
+  await markApplied(conn, db, version)
+}
+
 async function main() {
   const root = path.resolve(process.cwd(), 'server')
   parseEnvFile(path.join(root, '.env.production'))
@@ -492,10 +530,39 @@ async function main() {
     await mig009_online_daily_model(conn, db)
     await mig007_alloc_remove_role_and_unique_on_daily_employee(conn, db)
     await mig010_fix_model_names_from_ids(conn, db)
+    await mig011_fix_numeric_names(conn, db)
+    await mig012_fix_category_names(conn, db)
     console.log('[OK] migrations applied')
   } finally {
     await conn.end()
   }
+}
+
+// 011: 修复 numeric model names stored in focusModelName/dealModelName
+async function mig011_fix_numeric_names(conn, db) {
+  const version = '011_fix_numeric_names'
+  if (await wasApplied(conn, db, version)) return
+
+  const sql = `
+    UPDATE \`${db}\`.clues c
+    JOIN \`${db}\`.product_models m ON c.focusModelName = CAST(m.id AS CHAR)
+    SET c.focusModelId = m.id, c.focusModelName = m.name
+    WHERE c.focusModelId IS NULL AND c.focusModelName REGEXP '^[0-9]+$';
+
+    UPDATE \`${db}\`.clues c
+    JOIN \`${db}\`.product_models m ON c.dealModelName = CAST(m.id AS CHAR)
+    SET c.dealModelId = m.id, c.dealModelName = m.name
+    WHERE c.dealModelId IS NULL AND c.dealModelName REGEXP '^[0-9]+$';
+
+    UPDATE \`${db}\`.opportunities o
+    JOIN \`${db}\`.product_models m ON o.focusModelName = CAST(m.id AS CHAR)
+    SET o.focusModelId = m.id, o.focusModelName = m.name
+    WHERE o.focusModelId IS NULL AND o.focusModelName REGEXP '^[0-9]+$';
+  `
+
+  await conn.query(sql)
+  console.log('[migrate] 011_fix_numeric_names applied')
+  await markApplied(conn, db, version)
 }
 
 main().catch((e) => {

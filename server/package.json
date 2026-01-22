@@ -7,7 +7,8 @@
     "dev": "tsx src/main.ts",
     "start": "node dist/main.js",
     "build": "tsc -p tsconfig.json",
-    "migrate": "node scripts/migrate.mjs"
+    "migrate": "node scripts/migrate.mjs",
+    "fix:clue-names": "node scripts/fix_clue_model_names.mjs"
   },
   "dependencies": {
     "@nestjs/common": "^10.3.0",

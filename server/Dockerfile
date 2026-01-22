@@ -24,6 +24,7 @@ COPY --from=base /app/package.json ./package.json
 COPY --from=base /app/pnpm-lock.yaml ./pnpm-lock.yaml
 COPY --from=base /app/node_modules ./node_modules
 COPY --from=base /app/dist ./dist
+COPY --from=base /app/scripts ./scripts
 
 
 EXPOSE 3001

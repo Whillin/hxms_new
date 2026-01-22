@@ -1,0 +1,1 @@
+SELECT id, focusModelId, focusModelName FROM clues WHERE focusModelName IN ('1', '5', '4', '8');
