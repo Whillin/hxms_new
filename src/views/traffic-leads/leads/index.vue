@@ -36,7 +36,7 @@
               size="small"
               :data="excelData"
               filename="线索数据"
-              sheetName="到点客流登记表"
+              sheetName="到店客流登记表"
               type="success"
               :headers="exportHeaders"
               auto-index
