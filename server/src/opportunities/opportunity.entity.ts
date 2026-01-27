@@ -50,6 +50,25 @@ export class Opportunity {
   @Column('varchar', { length: 100, nullable: true })
   focusModelName?: string | null
 
+  /** 客户画像信息（冗余自Clue/Customer，用于商机详情展示） */
+  @Column({
+    type: 'varchar',
+    length: 10,
+    nullable: true,
+    charset: 'utf8mb4',
+    collation: 'utf8mb4_unicode_ci'
+  })
+  buyExperience?: '首购' | '换购' | '增购' | null
+
+  @Column('varchar', { length: 50, nullable: true })
+  currentModel?: string | null
+
+  @Column('int', { default: 0 })
+  carAge!: number
+
+  @Column('varchar', { length: 120, nullable: true })
+  livingArea?: string | null
+
   @Column('tinyint', { default: false })
   testDrive!: boolean
 

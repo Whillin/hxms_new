@@ -273,6 +273,10 @@ export class OpportunityController {
         businessSource: r.businessSource,
         channelLevel1: r.channelLevel1,
         channelLevel2: r.channelLevel2,
+        buyExperience: r.buyExperience || '',
+        currentModel: r.currentModel || '',
+        carAge: r.carAge || 0,
+        livingArea: r.livingArea || '',
         failReason: r.failReason || null,
         defeatReasons: r.failReason ? r.failReason.split('、') : [],
         createdAt: (r.createdAt as any)?.toISOString?.() || ''
@@ -283,6 +287,67 @@ export class OpportunityController {
     }
 
     return { code: 200, msg: 'ok', data: payload }
+  }
+
+  @UseGuards(JwtGuard)
+  @Get('latest-status')
+  async latestStatus(@Req() req: any, @Query() query: any) {
+    const storeId = Number(query.storeId)
+    const customerName = String(query.customerName || '').trim()
+    const customerPhone = String(query.customerPhone || '').trim()
+    if (!Number.isFinite(storeId) || storeId <= 0 || !customerName || !customerPhone) {
+      return { code: 200, msg: 'ok', data: '' }
+    }
+    const scope = await this.scopeService.getScope(req.user)
+    let allowedStoreIds = await this.scopeService.resolveAllowedStoreIds(scope)
+    if (scope.level === 'self' && typeof scope.employeeId === 'number') {
+      allowedStoreIds = await this.scopeService.getStoreIdsForEmployee(scope.employeeId)
+    }
+    if (scope.level !== 'all' && allowedStoreIds.length && !allowedStoreIds.includes(storeId)) {
+      return { code: 403, msg: '无权限查看该门店商机', data: '' }
+    }
+    const status = await this.opportunityService.getLatestStatus({
+      storeId,
+      customerName,
+      customerPhone
+    })
+    return { code: 200, msg: 'ok', data: status || '' }
+  }
+
+  /** 更新跟进中商机的客户画像信息 */
+  @UseGuards(JwtGuard)
+  @Post('update-customer-info')
+  async updateCustomerInfo(@Req() req: any, @Body() body: any) {
+    const storeId = Number(body.storeId)
+    const customerName = String(body.customerName || '').trim()
+    const customerPhone = String(body.customerPhone || '').trim()
+
+    if (!Number.isFinite(storeId) || storeId <= 0 || !customerName || !customerPhone) {
+      return { code: 400, msg: '参数错误', data: false }
+    }
+
+    const scope = await this.scopeService.getScope(req.user)
+    let allowedStoreIds = await this.scopeService.resolveAllowedStoreIds(scope)
+    if (scope.level === 'self' && typeof scope.employeeId === 'number') {
+      allowedStoreIds = await this.scopeService.getStoreIdsForEmployee(scope.employeeId)
+    }
+    if (scope.level !== 'all' && allowedStoreIds.length && !allowedStoreIds.includes(storeId)) {
+      return { code: 403, msg: '无权限操作该门店商机', data: false }
+    }
+
+    const updated = await this.opportunityService.updateCustomerInfoForInProgress({
+      storeId,
+      customerName,
+      customerPhone,
+      info: {
+        buyExperience: body.buyExperience,
+        currentModel: body.currentModel,
+        carAge: body.carAge !== undefined ? Number(body.carAge) : undefined,
+        livingArea: body.livingArea
+      }
+    })
+
+    return { code: 200, msg: 'ok', data: updated }
   }
 
   /** 保存/更新商机（不回写线索） */

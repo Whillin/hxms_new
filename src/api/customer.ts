@@ -5,6 +5,7 @@ export interface CustomerListParams {
   size: number
   userName?: string
   userPhone?: string
+  storeId?: number
   userGender?: '男' | '女' | '未知'
   userAge?: number
   buyExperience?: '首购' | '换购' | '增购'

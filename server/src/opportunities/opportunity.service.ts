@@ -61,6 +61,11 @@ export class OpportunityService {
         ownerDepartmentId: owner?.departmentId || undefined,
         openDate: clue.visitDate,
         latestVisitDate: clue.visitDate,
+        // 同步客户画像
+        buyExperience: clue.buyExperience || undefined,
+        currentModel: clue.currentModel || undefined,
+        carAge: clue.carAge || 0,
+        livingArea: clue.livingArea || undefined,
         channelCategory: String(clue.channelCategory || '线下'),
         businessSource: String(clue.businessSource || '自然到店'),
         channelLevel1: clue.channelLevel1 || undefined,
@@ -73,10 +78,18 @@ export class OpportunityService {
 
     // 更新最近来访与冗余字段
     latest.latestVisitDate = clue.visitDate
+    if (name) latest.customerName = name
+    if (phone) latest.customerPhone = phone
+    if (customerId && !latest.customerId) latest.customerId = customerId
     latest.focusModelId = clue.focusModelId || latest.focusModelId
     latest.focusModelName = clue.focusModelName || latest.focusModelName
     latest.testDrive = !!clue.testDrive || latest.testDrive
     latest.bargaining = !!clue.bargaining || latest.bargaining
+    // 同步客户画像
+    latest.buyExperience = clue.buyExperience || latest.buyExperience
+    latest.currentModel = clue.currentModel || latest.currentModel
+    latest.carAge = clue.carAge || latest.carAge
+    latest.livingArea = clue.livingArea || latest.livingArea
     // 若当前线索标记成交，则关闭该商机
     if (clue.dealDone) latest.status = '已成交'
     // 若顾问发生变化且能解析到员工，更新所有者
@@ -90,6 +103,73 @@ export class OpportunityService {
     latest.channelLevel1 = clue.channelLevel1 || latest.channelLevel1
     latest.channelLevel2 = clue.channelLevel2 || latest.channelLevel2
     return await this.repo.save(latest)
+  }
+
+  async getLatestStatus(params: {
+    storeId: number
+    customerName?: string
+    customerPhone?: string
+  }): Promise<OpportunityStatus | undefined> {
+    const storeId = Number(params.storeId)
+    const name = String(params.customerName || '').trim()
+    const phone = String(params.customerPhone || '').trim()
+    if (!Number.isFinite(storeId) || storeId <= 0 || !name || !phone) return undefined
+    const latest = await this.repo.findOne({
+      where: { storeId, customerName: name, customerPhone: phone },
+      order: { createdAt: 'DESC' }
+    })
+    return latest?.status
+  }
+
+  /** 更新跟进中商机的客户画像信息 */
+  async updateCustomerInfoForInProgress(params: {
+    storeId: number
+    customerName: string
+    customerPhone: string
+    info: {
+      buyExperience?: string
+      currentModel?: string
+      carAge?: number
+      livingArea?: string
+    }
+  }): Promise<boolean> {
+    const storeId = Number(params.storeId)
+    const name = String(params.customerName || '').trim()
+    const phone = String(params.customerPhone || '').trim()
+    if (!Number.isFinite(storeId) || storeId <= 0 || !name || !phone) return false
+
+    const latest = await this.repo.findOne({
+      where: { storeId, customerName: name, customerPhone: phone },
+      order: { createdAt: 'DESC' }
+    })
+
+    if (latest && latest.status === '跟进中') {
+      let changed = false
+      const { buyExperience, currentModel, carAge, livingArea } = params.info
+
+      if (buyExperience !== undefined && latest.buyExperience !== buyExperience) {
+        latest.buyExperience = buyExperience as any
+        changed = true
+      }
+      if (currentModel !== undefined && latest.currentModel !== currentModel) {
+        latest.currentModel = currentModel
+        changed = true
+      }
+      if (carAge !== undefined && latest.carAge !== carAge) {
+        latest.carAge = carAge
+        changed = true
+      }
+      if (livingArea !== undefined && latest.livingArea !== livingArea) {
+        latest.livingArea = livingArea
+        changed = true
+      }
+
+      if (changed) {
+        await this.repo.save(latest)
+        return true
+      }
+    }
+    return false
   }
 
   /** 直接保存/更新商机（不依赖线索，不回写线索） */
@@ -144,6 +224,13 @@ export class OpportunityService {
           : exist.focusModelName
       exist.testDrive = body.testDrive !== undefined ? !!body.testDrive : exist.testDrive
       exist.bargaining = body.bargaining !== undefined ? !!body.bargaining : exist.bargaining
+
+      // 更新客户画像
+      if (body.buyExperience !== undefined) exist.buyExperience = body.buyExperience
+      if (body.currentModel !== undefined) exist.currentModel = body.currentModel
+      if (body.carAge !== undefined) exist.carAge = Number(body.carAge)
+      if (body.livingArea !== undefined) exist.livingArea = body.livingArea
+
       exist.latestVisitDate = visitDate || exist.latestVisitDate
       exist.channelCategory = String(body.channelCategory || exist.channelCategory || '线下')
       exist.businessSource = String(body.businessSource || exist.businessSource || '自然到店')

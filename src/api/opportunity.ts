@@ -7,6 +7,34 @@ export function fetchGetOpportunityList(params: Api.Opportunity.SearchParams) {
   })
 }
 
+export function fetchGetLatestOpportunityStatus(params: {
+  storeId: number
+  customerName: string
+  customerPhone: string
+}) {
+  return request.get<string>({
+    url: '/api/opportunity/latest-status',
+    params,
+    showErrorMessage: false
+  })
+}
+
+export function fetchUpdateOpportunityCustomerInfo(data: {
+  storeId: number
+  customerName: string
+  customerPhone: string
+  buyExperience?: string
+  currentModel?: string
+  carAge?: number
+  livingArea?: string
+}) {
+  return request.post<boolean>({
+    url: '/api/opportunity/update-customer-info',
+    data,
+    showErrorMessage: false
+  })
+}
+
 /** 保存/更新商机 */
 export function fetchSaveOpportunity(data: Partial<Api.Opportunity.Item> & { storeId?: number }) {
   return request.post<boolean>({

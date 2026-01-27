@@ -242,6 +242,11 @@
     fetchDeleteClue,
     fetchGetClueInviterOptions
   } from '@/api/clue'
+  import { fetchGetCustomerList } from '@/api/customer'
+  import {
+    fetchGetLatestOpportunityStatus,
+    fetchUpdateOpportunityCustomerInfo
+  } from '@/api/opportunity'
   import { fetchChannelOptions } from '@/api/channel'
   import { fetchGetDepartmentList, fetchGetEmployeeList } from '@/api/system-manage'
   import { EMPLOYEE_ROLE_LABELS } from '@/utils/employee'
@@ -992,6 +997,11 @@
   })
   const addForm = ref<Partial<ClueItem>>(initAddForm())
   const editingId = ref<string | null>(null)
+  const customerAutofillKey = ref('')
+  const lastAutoFilledKey = ref('')
+  const customerAutofillLoading = ref(false)
+  const visitCategoryKey = ref('')
+  const visitCategoryLoading = ref(false)
   const productStore = useProductStore()
   const { nameOptions } = storeToRefs(productStore)
   const modelOptionsRef = ref<Array<{ label: string; value: string | number }>>([
@@ -1340,7 +1350,8 @@
         options: [
           { label: '首次', value: '首次' },
           { label: '再次', value: '再次' }
-        ]
+        ],
+        disabled: true
       }
     },
     {
@@ -2168,6 +2179,124 @@
       loadInviters()
     },
     { immediate: true, deep: true }
+  )
+
+  watch(
+    () => [addForm.value.storeId, addForm.value.customerName, addForm.value.customerPhone],
+    async ([storeId, customerName, customerPhone]) => {
+      if (editingId.value) return
+      const sid = Number(storeId)
+      const name = String(customerName || '').trim()
+      const phone = String(customerPhone || '').trim()
+      const key = `${sid}|${name}|${phone}`
+      if (!name || phone.length !== 11 || !Number.isFinite(sid) || sid <= 0) {
+        customerAutofillKey.value = key
+        return
+      }
+      if (customerAutofillKey.value === key) return
+      customerAutofillKey.value = key
+      customerAutofillLoading.value = true
+      try {
+        const resp: any = await fetchGetCustomerList(
+          { current: 1, size: 10, userName: name, userPhone: phone, storeId: sid },
+          { showErrorMessage: false }
+        )
+        const records: any[] = (resp?.data?.records as any[]) || (resp?.records as any[]) || []
+        const matched = records.find(
+          (r) =>
+            String(r.userName || '').trim() === name &&
+            String(r.userPhone || '').trim() === phone &&
+            Number(r.storeId) === sid
+        )
+        if (!matched) return
+        lastAutoFilledKey.value = key
+        addForm.value.userGender = matched.userGender || addForm.value.userGender
+        addForm.value.userAge =
+          typeof matched.userAge === 'number' ? matched.userAge : addForm.value.userAge
+        addForm.value.buyExperience = matched.buyExperience || addForm.value.buyExperience
+        addForm.value.userPhoneModel = matched.userPhoneModel || addForm.value.userPhoneModel
+        addForm.value.currentBrand = matched.currentBrand || addForm.value.currentBrand
+        addForm.value.currentModel = matched.currentModel || addForm.value.currentModel
+        addForm.value.carAge =
+          typeof matched.carAge === 'number' ? matched.carAge : addForm.value.carAge
+        addForm.value.mileage =
+          typeof matched.mileage === 'number' ? matched.mileage : addForm.value.mileage
+        const la = matched.livingArea
+        addForm.value.livingArea = Array.isArray(la)
+          ? la
+          : typeof la === 'string' && la
+            ? la.includes('/')
+              ? la.split('/')
+              : [la]
+            : []
+      } finally {
+        customerAutofillLoading.value = false
+      }
+    },
+    { immediate: false, deep: true }
+  )
+
+  // 监听客户信息变更，联动更新“当前跟进中商机”的客户信息
+  watch(
+    () => [
+      addForm.value.buyExperience,
+      addForm.value.currentModel,
+      addForm.value.carAge,
+      addForm.value.livingArea
+    ],
+    async ([buyExperience, currentModel, carAge, livingArea]) => {
+      const { storeId, customerName, customerPhone } = addForm.value
+      const sid = Number(storeId)
+      const name = String(customerName || '').trim()
+      const phone = String(customerPhone || '').trim()
+
+      if (Number.isFinite(sid) && sid > 0 && name && phone.length === 11) {
+        try {
+          await fetchUpdateOpportunityCustomerInfo({
+            storeId: sid,
+            customerName: name,
+            customerPhone: phone,
+            buyExperience: buyExperience as any,
+            currentModel: String(currentModel || ''),
+            carAge: Number(carAge || 0),
+            livingArea: Array.isArray(livingArea) ? livingArea.join('/') : String(livingArea || '')
+          })
+        } catch (e) {
+          console.error('[fetchUpdateOpportunityCustomerInfo] failed:', e)
+        }
+      }
+    },
+    { deep: true }
+  )
+
+  watch(
+    () => [addForm.value.storeId, addForm.value.customerName, addForm.value.customerPhone],
+    async ([storeId, customerName, customerPhone]) => {
+      if (editingId.value) return
+      const sid = Number(storeId)
+      const name = String(customerName || '').trim()
+      const phone = String(customerPhone || '').trim()
+      const key = `${sid}|${name}|${phone}`
+      if (!name || phone.length !== 11 || !Number.isFinite(sid) || sid <= 0) {
+        visitCategoryKey.value = key
+        addForm.value.visitCategory = '首次'
+        return
+      }
+      if (visitCategoryKey.value === key) return
+      visitCategoryKey.value = key
+      visitCategoryLoading.value = true
+      try {
+        const status = await fetchGetLatestOpportunityStatus({
+          storeId: sid,
+          customerName: name,
+          customerPhone: phone
+        })
+        addForm.value.visitCategory = String(status || '') === '跟进中' ? '再次' : '首次'
+      } finally {
+        visitCategoryLoading.value = false
+      }
+    },
+    { immediate: false, deep: true }
   )
 </script>
 

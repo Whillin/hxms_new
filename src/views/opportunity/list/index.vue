@@ -747,10 +747,10 @@
       opportunityLevel: item.opportunityLevel as any,
       testDrive: !!item.testDrive,
       bargaining: !!item.bargaining,
-      buyExperience: '' as any,
-      currentModel: '',
-      carAge: 0,
-      livingArea: [],
+      buyExperience: (item as any).buyExperience || '',
+      currentModel: (item as any).currentModel || '',
+      carAge: (item as any).carAge || 0,
+      livingArea: (item as any).livingArea ? String((item as any).livingArea).split('/') : [],
       latestStatus: item.status as any,
       defeatReasons: String(item.failReason || '')
         .split(/[、,，]/)
